@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { AIAvatar } from "~/app/_components/AIAvatar";
 import { InterviewControls } from "~/app/_components/InterviewControls";
 import { InterviewHeader } from "~/app/_components/InterviewHeader";
@@ -7,9 +8,9 @@ import { InterviewHeader } from "~/app/_components/InterviewHeader";
 export default function InterviewSessionPage({
   params,
 }: {
-  params: { interviewId: string };
+  params: Promise<{ interviewId: string }>;
 }) {
-  const { interviewId } = params;
+  const { interviewId } = React.use(params);
 
   // These will be replaced with state management later
   const timer = "15:30";
@@ -24,22 +25,24 @@ export default function InterviewSessionPage({
   };
 
   return (
-    <div className="h-full grid grid-rows-[auto_1fr_auto]">
-      <InterviewHeader
-        title="Interview Session"
-        interviewId={interviewId}
-        timer={timer}
-      />
+    <div className="h-full flex justify-center">
+      <div className="w-full max-w-4xl max-h-[90vh] grid grid-rows-[auto_1fr_auto]">
+        <InterviewHeader
+          title="Interview Session"
+          interviewId={interviewId}
+          timer={timer}
+        />
 
-      <main className="flex items-center justify-center">
-        <AIAvatar status={aiStatus} />
-      </main>
+        <main className="flex items-center justify-center">
+          <AIAvatar status={aiStatus} />
+        </main>
 
-      <InterviewControls
-        interviewId={interviewId}
-        onEndCall={handleEndCall}
-        onToggleMute={handleToggleMute}
-      />
+        <InterviewControls
+          interviewId={interviewId}
+          onEndCall={handleEndCall}
+          onToggleMute={handleToggleMute}
+        />
+      </div>
     </div>
   );
 }

@@ -29,7 +29,7 @@ export default function SignInForm() {
       }
     };
 
-    fetchProviders();
+    void fetchProviders();
   }, []);
 
   const handleSignIn = async (providerId: string) => {
@@ -142,7 +142,7 @@ export default function SignInForm() {
             if (provider.type === "credentials") {
               setShowCredentialsForm(true);
             } else {
-              handleSignIn(provider.id);
+              void handleSignIn(provider.id);
             }
           }}
           className="w-full bg-accent hover:bg-accent/80 text-primary font-medium py-3 px-4 rounded-md transition-colors"

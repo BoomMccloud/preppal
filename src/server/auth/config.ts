@@ -1,6 +1,5 @@
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { type DefaultSession, type NextAuthConfig } from "next-auth";
-import { type JWT } from "next-auth/jwt";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 
@@ -149,14 +148,14 @@ export const authConfig = {
   },
   callbacks: {
     jwt: ({ token, user }) => {
-      if (user) {
+      if (user?.id) {
         // User is only available on sign-in
         token.id = user.id;
       }
       return token;
     },
     session: ({ session, token }) => {
-      session.user.id = token.id as string;
+      session.user.id = token.id;
       return session;
     },
   },

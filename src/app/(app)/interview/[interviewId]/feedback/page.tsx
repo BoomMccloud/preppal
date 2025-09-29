@@ -4,11 +4,11 @@ import FeedbackCard from "./_components/FeedbackCard";
 import FeedbackActions from "./_components/FeedbackActions";
 
 interface PageProps {
-  params: { interviewId: string };
+  params: Promise<{ interviewId: string }>;
 }
 
 export default async function InterviewFeedbackPage({ params }: PageProps) {
-  const { interviewId } = params;
+  const { interviewId } = await params;
   const interview = await api.interview.getFeedback({ interviewId });
 
   return (
