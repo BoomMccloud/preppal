@@ -6,8 +6,6 @@ This document provides a comprehensive overview of the "Preppal" project, its st
 
 This is a full-stack web application built with the [T3 Stack](https://create.t3.gg/). It leverages Next.js for the frontend and backend, tRPC for typesafe API routes, Prisma as the ORM for database interactions, and NextAuth.js for authentication. The database is configured to use SQLite.
 
-The application demonstrates a basic setup with a `Post` model, allowing authenticated users to create and view posts.
-
 ## Key Technologies
 
 - **Framework**: [Next.js](https://nextjs.org/) (v15)
@@ -81,82 +79,89 @@ The application demonstrates a basic setup with a `Post` model, allowing authent
 
 ### Running the Application
 
--   **Development Server**:
-    Starts the Next.js development server with Fast Refresh.
-    ```bash
-    pnpm dev
-    ```
--   **Production Build**:
-    Creates an optimized production build.
-    ```bash
-    pnpm build
-    ```
--   **Run Production Server**:
-    Starts the application from the production build.
-    ```bash
-    pnpm start
-    ```
+- **Development Server**:
+  Starts the Next.js development server with Fast Refresh.
+  ```bash
+  pnpm dev
+  ```
+- **Production Build**:
+  Creates an optimized production build.
+  ```bash
+  pnpm build
+  ```
+- **Run Production Server**:
+  Starts the application from the production build.
+  ```bash
+  pnpm start
+  ```
 
 ### Database
 
 Database schema and migrations are managed with Prisma.
 
--   **Generate Prisma Client**:
-    This is run automatically after `pnpm install`, but can be run manually.
-    ```bash
-    pnpm postinstall
-    ```
--   **Create a Migration**:
-    When you change the schema, create a new migration.
-    ```bash
-    pnpm db:generate
-    ```
--   **View/Edit Data**:
-    Opens Prisma Studio, a GUI for the database.
-    ```bash
-    pnpm db:studio
-    ```
+- **Generate Prisma Client**:
+  This is run automatically after `pnpm install`, but can be run manually.
+  ```bash
+  pnpm postinstall
+  ```
+- **Create a Migration**:
+  When you change the schema, create a new migration.
+  ```bash
+  pnpm db:generate
+  ```
+- **View/Edit Data**:
+  Opens Prisma Studio, a GUI for the database.
+  ```bash
+  pnpm db:studio
+  ```
 
 ### Code Quality
 
--   **Linting**:
-    Check for code style and potential errors.
-    ```bash
-    pnpm lint
-    ```
--   **Type Checking**:
-    Run the TypeScript compiler to check for type errors.
-    ```bash
-    pnpm typecheck
-    ```
--   **Formatting**:
-    Automatically format code with Prettier.
-    ```bash
-    pnpm format:write
-    ```
+- **Linting**:
+  Check for code style and potential errors.
+  ```bash
+  pnpm lint
+  ```
+- **Type Checking**:
+  Run the TypeScript compiler to check for type errors.
+  ```bash
+  pnpm typecheck
+  ```
+- **Formatting**:
+  Automatically format code with Prettier.
+  ```bash
+  pnpm format:write
+  ```
 
 ## Architectural Concepts
 
 ### Frontend: React Server Components (RSC)
 
--   The primary page (`src/app/page.tsx`) is a React Server Component. It fetches data directly on the server using `api.post.hello`.
--   Client-side interactivity is handled by Client Components (`"use client";`), such as `src/app/_components/post.tsx`.
--   Data fetched on the server is passed to client components via the `<HydrateClient>` component, which uses `react-query`'s hydration feature.
+- The primary page (`src/app/page.tsx`) is a React Server Component. It fetches data directly on the server using `api.post.hello`.
+- Client-side interactivity is handled by Client Components (`"use client";`), such as `src/app/_components/post.tsx`.
+- Data fetched on the server is passed to client components via the `<HydrateClient>` component, which uses `react-query`'s hydration feature.
 
 ### Backend: tRPC
 
--   The API is defined in `src/server/api/`. The main router is `root.ts`, which combines smaller, feature-specific routers from `src/server/api/routers/`.
--   Procedures can be `publicProcedure` (accessible to anyone) or `protectedProcedure` (requires authentication).
--   The tRPC client is configured in `src/trpc/` for both server-side (`server.ts`) and client-side (`react.tsx`) usage.
+- The API is defined in `src/server/api/`. The main router is `root.ts`, which combines smaller, feature-specific routers from `src/server/api/routers/`.
+- Procedures can be `publicProcedure` (accessible to anyone) or `protectedProcedure` (requires authentication).
+- The tRPC client is configured in `src/trpc/` for both server-side (`server.ts`) and client-side (`react.tsx`) usage.
 
 ### Authentication
 
--   Authentication is handled by NextAuth.js. The configuration is located in `src/server/auth/`.
--   The `auth()` helper function can be used in Server Components to get the current session.
--   Client Components can use the `useSession` hook (though not explicitly shown in the initial files, it's a standard part of NextAuth.js).
+- Authentication is handled by NextAuth.js. The configuration is located in `src/server/auth/`.
+- The `auth()` helper function can be used in Server Components to get the current session.
+- Client Components can use the `useSession` hook (though not explicitly shown in the initial files, it's a standard part of NextAuth.js).
 
 ### Styling
 
--   The project uses Tailwind CSS for utility-first styling.
--   Global styles are defined in `src/styles/globals.css`.
--   The `prettier-plugin-tailwindcss` automatically sorts Tailwind classes.
+- The project uses Tailwind CSS for utility-first styling.
+- Global styles are defined in `src/styles/globals.css`.
+- The `prettier-plugin-tailwindcss` automatically sorts Tailwind classes.
+
+### Agent References
+
+- `docs/` folder contain additional instructions and background, such as system design, tdd methdology, development plan, and application states
+- `prisma/schema.prisma` is the source of truth for data, do not modify it unless explictly instructed by the user
+- Before starting a task, always write out the plan into `/docs/05_current_task.md`.
+- After completing a task, always update the status into `/docs/05_current_task.md`.
