@@ -14,9 +14,9 @@ export default async function AppLayout({
   }
 
   return (
-    <div className="min-h-screen bg-primary">
+    <div className="flex h-screen flex-col bg-primary">
       <Navigation userEmail={session.user?.email ?? undefined} />
-      <main className="text-primary-text">{children}</main>
+      <main className="flex-1 overflow-y-auto text-primary-text">{children}</main>
     </div>
   );
 }

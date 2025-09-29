@@ -1,7 +1,7 @@
 import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
+import { interviewRouter } from "~/server/api/routers/interview";
 
 // import { userRouter } from "~/server/api/routers/user"; //todo
-// import { interviewRouter } from "~/server/api/routers/interview"; //todo
 
 /**
  * This is the primary router for your server.
@@ -10,7 +10,7 @@ import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
  */
 export const appRouter = createTRPCRouter({
   // user: userRouter, // ADDed
-  // interview: interviewRouter, // ADDed
+  interview: interviewRouter,
 });
 
 // export type definition of API
