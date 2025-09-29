@@ -17,7 +17,7 @@ export default function FeedbackActions() {
       </button>
       <Link
         href="/create-interview"
-        className="bg-accent hover:bg-accent/80 text-primary px-6 py-3 rounded-md transition-colors"
+        className="bg-accent hover:bg-accent/80 text-slate-700 px-6 py-3 rounded-md transition-colors"
       >
         Schedule Another Interview
       </Link>

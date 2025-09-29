@@ -10,8 +10,7 @@ export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ audioLevel }) 
 
   return (
     <div data-testid="audio-visualizer" style={{ transform: `scaleY(${clampedAudioLevel})` }}>
-      {/* You can put a visual element here, e.g., a div with a background color */}
-      <div style={{ width: '50px', height: '50px', backgroundColor: 'blue' }} />
+      <div className="w-[50px] h-[50px] bg-accent" />
     </div>
   );
 };

@@ -5,7 +5,7 @@ type AIAvatarProps = {
 export function AIAvatar({ status }: AIAvatarProps) {
   return (
     <div className="px-8 flex items-center justify-center py-8">
-      <div className="bg-secondary/30 backdrop-blur-sm rounded-2xl relative overflow-hidden mx-auto border border-secondary-text/10" style={{width: '768px', aspectRatio: '16/9'}}>
+      <div className="w-[768px] aspect-video bg-secondary/30 backdrop-blur-sm rounded-2xl relative overflow-hidden mx-auto border border-secondary-text/10">
         {/* Video Content */}
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="text-center">
@@ -21,7 +21,7 @@ export function AIAvatar({ status }: AIAvatarProps) {
 
         {/* Recording Indicator */}
         <div className="absolute top-4 left-4 flex items-center space-x-2 bg-secondary/50 backdrop-blur-sm rounded-full px-3 py-2">
-          <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+          <div className="w-2 h-2 bg-accent rounded-full animate-pulse"></div>
           <span className="text-primary-text text-xs">Recording</span>
         </div>
       </div>

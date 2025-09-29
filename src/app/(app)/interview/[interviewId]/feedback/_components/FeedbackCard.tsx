@@ -13,7 +13,7 @@ export default function FeedbackCard({
 }: FeedbackCardProps) {
   return (
     <div
-      className={`bg-secondary/50 backdrop-blur-sm rounded-lg p-6 border border-secondary-text/10 ${
+      className={`bg-secondary backdrop-blur-sm rounded-lg p-6 border border-secondary-text ${
         className ?? ""
       }`}
     >

@@ -5,29 +5,29 @@
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 
   /* Define Tailwind v4 color system with our exact colors */
-  --color-primary: 252 252 252; /* Light: Off-White #FCFCFC */
-  --color-secondary: 241 243 244; /* Light: Light Gray #F1F3F4 */
-  --color-primary-text: 51 65 85; /* Light: Dark Slate #334155 */
-  --color-secondary-text: 100 116 139; /* Light: Medium Slate #64748B */
-  --color-accent: 13 148 136; /* Light: Teal #0D9488 */
-  --color-success: 22 163 74; /* Light: Forest Green #16A34A */
-  --color-danger: 239 68 68; /* Light: Coral Red #EF4444 */
+  --color-primary: #fcfcfc; /* Light: Off-White */
+  --color-secondary: #f1f3f4; /* Light: Light Gray */
+  --color-primary-text: #334155; /* Light: Dark Slate */
+  --color-secondary-text: #64748b; /* Light: Medium Slate */
+  --color-accent: #0d9488; /* Light: Teal */
+  --color-success: #16a34a; /* Light: Forest Green */
+  --color-danger: #ef4444; /* Light: Coral Red */
 }
 
 /* Dark mode overrides */
 .dark {
-  --color-primary: 31 41 55; /* Dark: Dark Slate #1F2937 */
-  --color-secondary: 55 65 81; /* Dark: Medium Slate #374151 */
-  --color-primary-text: 249 250 251; /* Dark: Off-White #F9FAFB */
-  --color-secondary-text: 156 163 175; /* Dark: Light Slate #9CA3AF */
-  --color-accent: 94 234 212; /* Dark: Bright Teal #5EEAD4 */
-  --color-success: 167 243 208; /* Dark: Mint Green #A7F3D0 */
-  --color-danger: 253 164 175; /* Dark: Salmon Pink #FDA4AF */
+  --color-primary: #1f2937; /* Dark: Dark Slate */
+  --color-secondary: #374151; /* Dark: Medium Slate */
+  --color-primary-text: #f9fafb; /* Dark: Off-White */
+  --color-secondary-text: #9ca3af; /* Dark: Light Slate */
+  --color-accent: #5eead4; /* Dark: Bright Teal */
+  --color-success: #a7f3d0; /* Dark: Mint Green */
+  --color-danger: #fda4af; /* Dark: Salmon Pink */
 }
 
 /* Apply theme colors to body */
 body {
-  background-color: rgb(var(--color-primary));
-  color: rgb(var(--color-primary-text));
+  background-color: var(--color-primary);
+  color: var(--color-primary-text);
   transition: background-color 0.3s ease, color 0.3s ease;
 }

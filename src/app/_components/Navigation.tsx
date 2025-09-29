@@ -37,10 +37,10 @@ export default function Navigation({ userEmail }: NavigationProps) {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors border ${
                     isActive(link.href)
-                      ? "text-accent bg-accent/20 font-semibold"
-                      : "text-secondary-text hover:text-primary-text hover:bg-accent/10"
+                      ? "text-primary bg-accent border-accent font-semibold"
+                      : "text-secondary-text hover:text-primary-text hover:bg-accent/10 border-transparent hover:border-accent/20"
                   }`}
                 >
                   {link.label}
@@ -72,10 +72,10 @@ export default function Navigation({ userEmail }: NavigationProps) {
               <Link
                 key={link.href}
                 href={link.href}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors border ${
                   isActive(link.href)
-                    ? "text-accent bg-accent/20 font-semibold"
-                    : "text-secondary-text hover:text-primary-text hover:bg-accent/10"
+                    ? "text-primary bg-accent border-accent font-semibold"
+                    : "text-secondary-text hover:text-primary-text hover:bg-accent/10 border-transparent hover:border-accent/20"
                 }`}
               >
                 {link.label}

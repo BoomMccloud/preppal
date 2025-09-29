@@ -19,7 +19,7 @@ export const interviewRouter = createTRPCRouter({
         if (interview) {
           return interview;
         }
-      } catch (error) {
+      } catch {
         console.log("Database not available, using mock data");
       }
 

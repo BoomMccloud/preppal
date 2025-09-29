@@ -1,6 +1,6 @@
 
 import { render, screen } from '@testing-library/react';
-import { TranscriptDisplay, TranscriptEntry } from './TranscriptDisplay';
+import { type TranscriptEntry, TranscriptDisplay } from './TranscriptDisplay';
 import { test, expect } from 'vitest';
 
 const mockEntries: TranscriptEntry[] = [

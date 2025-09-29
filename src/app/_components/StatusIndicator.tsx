@@ -7,26 +7,26 @@ interface StatusIndicatorProps {
   status: InterviewStatus;
 }
 
-const statusMap: Record<InterviewStatus, { text: string; color: string }> = {
-  idle: { text: 'Idle', color: 'gray' },
-  initializing: { text: 'Initializing...', color: 'blue' },
-  requestingPermissions: { text: 'Requesting Permissions...', color: 'blue' },
-  permissionsDenied: { text: 'Permissions Denied', color: 'red' },
-  connecting: { text: 'Connecting...', color: 'blue' },
-  live: { text: 'Live', color: 'green' },
-  reconnecting: { text: 'Reconnecting...', color: 'orange' },
-  ending: { text: 'Ending...', color: 'gray' },
-  processingResults: { text: 'Processing...', color: 'purple' },
-  resultsReady: { text: 'Results Ready', color: 'green' },
-  error: { text: 'Error', color: 'red' },
+const statusMap: Record<InterviewStatus, { text: string; className: string }> = {
+  idle: { text: 'Idle', className: 'text-secondary-text' },
+  initializing: { text: 'Initializing...', className: 'text-blue-500' },
+  requestingPermissions: { text: 'Requesting Permissions...', className: 'text-blue-500' },
+  permissionsDenied: { text: 'Permissions Denied', className: 'text-red-500' },
+  connecting: { text: 'Connecting...', className: 'text-blue-500' },
+  live: { text: 'Live', className: 'text-green-500' },
+  reconnecting: { text: 'Reconnecting...', className: 'text-orange-500' },
+  ending: { text: 'Ending...', className: 'text-secondary-text' },
+  processingResults: { text: 'Processing...', className: 'text-purple-500' },
+  resultsReady: { text: 'Results Ready', className: 'text-green-500' },
+  error: { text: 'Error', className: 'text-red-500' },
 };
 
 export const StatusIndicator: React.FC<StatusIndicatorProps> = ({ status }) => {
-  const { text, color } = statusMap[status];
+  const { text, className } = statusMap[status];
 
   return (
-    <div style={{ color }}>
+    <span className={className}>
       {text}
-    </div>
+    </span>
   );
 };

@@ -24,7 +24,7 @@ export function InterviewControls({ interviewId, onEndCall, onToggleMute }: Inte
         <Link
           href={`/interview/${interviewId}/feedback`}
           onClick={onEndCall}
-          className="bg-red-600 hover:bg-red-700 text-white p-4 rounded-full transition-colors"
+          className="bg-accent hover:bg-accent/80 text-primary p-4 rounded-full transition-colors"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M3 21v-4.967a.96.96 0 01.6-.92l1.4-.7a1 1 0 011.394.45l.8 1.6a1 1 0 01-.045 1.177l-1.334 1.49c-.93 1.058-.6 2.79.705 3.695a24.945 24.945 0 004.043 2.515c1.416.524 2.26-.84 2.26-.84l1.334-1.49a1 1 0 011.177-.045l1.6.8a1 1 0 01.45 1.394l-.7 1.4a.96.96 0 01-.92.6H16a8 8 0 01-8-8v-1z" />
