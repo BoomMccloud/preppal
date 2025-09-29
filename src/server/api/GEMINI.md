@@ -1,10 +1,11 @@
 ## Summary of API Endpoints
 
-This defines the following strongly-typed API endpoints:
+This defines the following strongly-typed API endpoints optimized for the UI state separation pattern (Zustand handles UI state, tRPC handles business data):
 
 - **`user.getProfile`**: `query` - Gets the current user's data.
 - **`user.updateProfile`**: `mutation` - Updates the current user's name/image.
 - **`interview.createSession`**: `mutation` - Creates a new interview entry before starting.
+- **`interview.getCurrent`**: `query` - Gets the active/most recent interview for UI state coordination.
 - **`interview.getHistory`**: `query` - Gets a lightweight list of all past interviews.
 - **`interview.getById`**: `query` - Gets all details (including transcript and feedback) for one interview.
 - **`interview.getFeedbackStatus`**: `query` - Checks if the results for an interview are ready.
@@ -88,6 +89,21 @@ export const interviewRouter = createTRPCRouter({
     }),
 
   /**
+   * Gets the current active interview for the logged-in user.
+   * Used by UI components to get business data while Zustand manages UI state.
+   * Returns the most recent interview that is PENDING or IN_PROGRESS.
+   */
+  getCurrent: protectedProcedure
+    .input(z.void())
+    // Returns the current interview or null if none active.
+    .output(z.custom<Interview>().nullable())
+    .query(async ({ ctx }) => {
+      // Implementation to find the most recent interview with status
+      // 'PENDING' or 'IN_PROGRESS' for the current user.
+      // ...
+    }),
+
+  /**
    * Fetches a list of all past interviews for the logged-in user.
    * Used for the user's dashboard or history page.
    */
@@ -151,4 +167,36 @@ export const interviewRouter = createTRPCRouter({
       // ...
     }),
 });
-````
+```
+
+## Integration with UI State Management
+
+This API design works seamlessly with the separated UI state pattern:
+
+**UI State (Zustand)**
+- Manages view transitions (`Idle`, `Preparing`, `Live`, etc.)
+- Handles loading states and reconnection status
+- No business data storage
+
+**Business Data (tRPC)**
+- `interview.getCurrent` provides the active interview data
+- React Query handles caching and synchronization
+- Full type safety from database to UI
+
+**Example Integration:**
+```typescript
+// Component using both systems
+function InterviewSession() {
+  // UI state from Zustand
+  const uiStatus = useInterviewStore(state => state.status);
+
+  // Business data from tRPC
+  const { data: currentInterview, isLoading } = api.interview.getCurrent.useQuery();
+
+  if (uiStatus === 'Live' && currentInterview) {
+    return <LiveInterviewUI interview={currentInterview} />;
+  }
+
+  return <LoadingScreen />;
+}
+```
