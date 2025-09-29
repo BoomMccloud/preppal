@@ -43,15 +43,17 @@ model Session {
 }
 
 model User {
-    id            String    @id @default(cuid())
-    name          String?
-    email         String?   @unique
-    emailVerified DateTime?
-    image         String?
-    accounts      Account[]
-    sessions      Session[]
-      // Relation: A user can have many interview sessions
-    interviews Interview[]
+    id              String    @id @default(cuid())
+    name            String?
+    email           String?   @unique
+    emailVerified   DateTime?
+    image           String?
+    accounts        Account[]
+    sessions        Session[]
+    // Relation: A user can have many interview sessions
+    interviews      Interview[]
+    resumes         Resume[]
+    jobDescriptions JobDescription[]
 }
 
 model VerificationToken {
@@ -73,6 +75,22 @@ model Interview {
   endedAt   DateTime?
 
   status InterviewStatus @default(PENDING)
+
+  // --- JOB CONTEXT SNAPSHOT ---
+  // This data is copied from the JobDescription when the interview is created.
+  // It ensures this historical record is immutable.
+  jobTitleSnapshot       String?
+  jobDescriptionSnapshot String?
+
+  // --- LINK TO TEMPLATE (Optional) ---
+  // This links back to the original JD in the user's library,
+  // allowing us to group interviews for the same role.
+  jobDescriptionId String?
+  jobDescription   JobDescription? @relation(fields: [jobDescriptionId], references: [id], onDelete: SetNull)
+
+  // Relation to the resume used for this interview (optional)
+  resumeId String?
+  resume   Resume? @relation(fields: [resumeId], references: [id], onDelete: SetNull)
 
   // Relation: Each interview belongs to exactly one user
   userId String
@@ -120,6 +138,40 @@ model TranscriptEntry {
 
   @@index([interviewId, timestamp]) // Index for fast lookup of a specific interview's transcript
 }
+
+// Model for the user's library of JDs
+model JobDescription {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  title   String
+  content String
+
+  // Relation: Belongs to a user
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Relation: Can be the template for many interviews
+  interviews Interview[]
+}
+
+model Resume {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  title   String // e.g., "Resume for Senior Frontend Roles"
+  content String // The full resume text, perhaps in Markdown
+
+  // Relation: Each resume belongs to one user
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Relation: A resume can be used in many interviews
+  interviews Interview[]
+}
+
 
 // Enum for the status of an interview session
 enum InterviewStatus {

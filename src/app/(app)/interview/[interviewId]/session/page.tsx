@@ -28,66 +28,17 @@ export default async function InterviewSessionPage({
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex">
-        {/* Left Panel - Video/AI */}
-        <div className="w-1/2 p-6">
-          <div className="bg-black/40 rounded-lg h-full flex flex-col">
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center">
-                <div className="w-32 h-32 bg-purple-600 rounded-full flex items-center justify-center mb-4 mx-auto">
-                  <svg className="w-16 h-16 text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <h3 className="text-white text-lg font-medium">AI Interviewer</h3>
-                <p className="text-white/60">Listening...</p>
-              </div>
+      <div className="flex-1 flex items-center justify-center">
+        {/* AI Interviewer Panel */}
+        <div className="max-w-md w-full p-6">
+          <div className="bg-black/40 rounded-lg p-8 flex flex-col items-center">
+            <div className="w-32 h-32 bg-purple-600 rounded-full flex items-center justify-center mb-6">
+              <svg className="w-16 h-16 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" />
+              </svg>
             </div>
-          </div>
-        </div>
-
-        {/* Right Panel - Chat/Transcript */}
-        <div className="w-1/2 p-6">
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg h-full flex flex-col">
-            <div className="p-4 border-b border-white/20">
-              <h3 className="text-white font-medium">Interview Transcript</h3>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              <div className="bg-purple-600/20 rounded-lg p-3">
-                <div className="text-purple-300 text-sm font-medium mb-1">AI Interviewer</div>
-                <div className="text-white">
-                  Hello! Welcome to your technical interview. I&apos;m going to ask you a series of questions to assess your programming skills. Are you ready to begin?
-                </div>
-              </div>
-
-              <div className="bg-blue-600/20 rounded-lg p-3">
-                <div className="text-blue-300 text-sm font-medium mb-1">You</div>
-                <div className="text-white">
-                  Yes, I&apos;m ready. Thank you for having me.
-                </div>
-              </div>
-
-              <div className="bg-purple-600/20 rounded-lg p-3">
-                <div className="text-purple-300 text-sm font-medium mb-1">AI Interviewer</div>
-                <div className="text-white">
-                  Great! Let&apos;s start with a coding question. Can you implement a function that finds the two sum in an array?
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 border-t border-white/20">
-              <div className="flex space-x-2">
-                <input
-                  type="text"
-                  placeholder="Type your response..."
-                  className="flex-1 bg-white/10 border border-white/20 rounded-md px-3 py-2 text-white placeholder-white/50"
-                />
-                <button className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md transition-colors">
-                  Send
-                </button>
-              </div>
-            </div>
+            <h3 className="text-white text-xl font-medium mb-2">AI Interviewer</h3>
+            <p className="text-white/60 text-center">Listening...</p>
           </div>
         </div>
       </div>
