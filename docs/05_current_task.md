@@ -1,5 +1,3 @@
----
-
 ### Previous Task: Frontend Implementation (Phase 2)
 
 This plan outlines the steps to build the frontend of Preppal, following a Test-Driven Development (TDD) approach as specified in `docs/02_tdd.md`.
@@ -79,3 +77,32 @@ Implement the real-time communication logic.
         - When audio data is received from the audio service, it should be encoded (mocked) and sent via the WebSocket service.
     2.  **(Green)** Update the state store actions to orchestrate these services.
     3.  **(Refactor)** Ensure the orchestration logic is robust.
+
+
+### Current Task: Refactor Interview Feedback Page
+
+This task involved analyzing and refactoring the interview feedback page to improve code structure, reduce duplication, and enhance maintainability.
+
+#### 1. [x] Analyze `src/app/(app)/interview/[interviewId]/feedback/page.tsx`
+
+- Identified areas for improvement: code duplication in card styling, duplicated page header, and potential for component extraction.
+
+#### 2. [x] Create `FeedbackCard` Component
+
+- Created `src/app/(app)/interview/[interviewId]/feedback/_components/FeedbackCard.tsx` to encapsulate common card styling.
+
+#### 3. [x] Create `FeedbackActions` Component
+
+- Created `src/app/(app)/interview/[interviewId]/feedback/_components/FeedbackActions.tsx` to encapsulate the action buttons.
+
+#### 4. [x] Refactor `src/app/(app)/interview/[interviewId]/feedback/page.tsx`
+
+- Updated the page to use `FeedbackCard` and `FeedbackActions`.
+- Removed duplicated page header.
+- Simplified `params` prop typing.
+
+#### 5. [x] Refactor `src/app/(app)/interview/[interviewId]/feedback/feedback-tabs.tsx`
+
+- Updated the `FeedbackTabs` component to use the `FeedbackCard` component for consistent styling.
+
+**Status:** Completed.

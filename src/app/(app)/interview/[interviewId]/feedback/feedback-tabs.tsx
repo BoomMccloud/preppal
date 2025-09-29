@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import FeedbackCard from "./_components/FeedbackCard";
 
 interface FeedbackTabsProps {
   contentAndStructure: string;
@@ -35,9 +36,7 @@ export default function FeedbackTabs({
   };
 
   return (
-    <div className="bg-secondary/50 backdrop-blur-sm rounded-lg p-6 border border-secondary-text/10">
-      <h2 className="text-2xl font-semibold text-primary-text mb-6">Detailed Analysis</h2>
-
+    <FeedbackCard title="Detailed Analysis">
       {/* Tab Navigation */}
       <div className="flex space-x-1 mb-6">
         {tabs.map((tab) => (
@@ -61,6 +60,6 @@ export default function FeedbackTabs({
           {getTabContent(activeTab)}
         </div>
       </div>
-    </div>
+    </FeedbackCard>
   );
 }
