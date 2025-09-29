@@ -1,7 +1,7 @@
 ## Current Task
 
-**Task:** Update the `README.md` with project setup information.
+**Task:** Update `GEMINI.md` to use `pnpm` instead of `npm`.
 
-**Status:** Completed.
+**Status:** Completed (No changes needed).
 
-**Details:** The `README.md` file has been updated with core technologies, component breakdown, and general T3 app information, using `docs/01_design.md` as context.
+**Details:** Upon reviewing `GEMINI.md`, all commands and references to the package manager already use `pnpm`. No modifications were required.

@@ -4,20 +4,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Development Commands
 
-- **Start development server**: `npm run dev` (with Turbo acceleration)
-- **Build project**: `npm run build`
-- **Type checking**: `npm run typecheck` or `tsc --noEmit`
-- **Linting**: `npm run lint` (fix with `npm run lint:fix`)
-- **Format code**: `npm run format:write` (check with `npm run format:check`)
-- **Combined check**: `npm run check` (runs both lint and typecheck)
-- **Testing**: `npm run test` (UI: `npm run test:ui`, CI: `npm run test:ci`)
+- **Start development server**: `pnpm dev` (with Turbo acceleration)
+- **Build project**: `pnpm build`
+- **Type checking**: `pnpm typecheck` or `tsc --noEmit`
+- **Linting**: `pnpm lint` (fix with `pnpm lint:fix`)
+- **Format code**: `pnpm format:write` (check with `pnpm format:check`)
+- **Combined check**: `pnpm check` (runs both lint and typecheck)
+- **Testing**: `pnpm test` (UI: `pnpm test:ui`, CI: `pnpm test:ci`)
 
 ## Database Commands
 
-- **Generate migrations**: `npm run db:generate`
-- **Deploy migrations**: `npm run db:migrate`
-- **Push schema changes**: `npm run db:push`
-- **Open Prisma Studio**: `npm run db:studio`
+- **Generate migrations**: `pnpm db:generate`
+- **Deploy migrations**: `pnpm db:migrate`
+- **Push schema changes**: `pnpm db:push`
+- **Open Prisma Studio**: `pnpm db:studio`
 
 ## Project Architecture
 
@@ -70,5 +70,5 @@ Tests run in jsdom environment with global test utilities. Setup file located at
 
 - `docs/` folder contain additional instructions and background, such as system design, tdd methdology, development plan, and application states.
 - `prisma/schema.prisma` is the source of truth for data, do not modify it unless explictly instructed by the user.
-- Before starting a task, always write out the plan into `/docs/05_current_task.md`.
+- Before starting a task, always append the plan into `/docs/05_current_task.md`.
 - After completing a task, always update the status into `/docs/05_current_task.md`.
