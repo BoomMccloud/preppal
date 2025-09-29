@@ -19,44 +19,18 @@ This is a full-stack web application built with the [T3 Stack](https://create.t3
 - **Linting**: [ESLint](https://eslint.org/)
 - **Formatting**: [Prettier](https://prettier.io/)
 
-## Project Structure
+## Architectural Concepts
 
-```
-/
-├── prisma/
-│   └── schema.prisma       # Database schema definition
-├── public/                 # Static assets
-└── src/
-    ├── app/                # Next.js App Router: Pages and Components
-    │   ├── _components/
-    │   │   └── post.tsx
-    │   ├── layout.tsx
-    │   ├── page.tsx
-    │   └── api/
-    │       ├── auth/
-    │       │   └── [...nextauth]/
-    │       │       └── route.ts
-    │       └── trpc/
-    │           └── [trpc]/
-    │               └── route.ts
-    ├── env.js
-    ├── server/
-    │   ├── api/
-    │   │   ├── root.ts
-    │   │   ├── trpc.ts
-    │   │   └── routers/
-    │   │       └── post.ts
-    │   ├── auth/
-    │   │   ├── config.ts
-    │   │   └── index.ts
-    │   └── db.ts
-    ├── styles/
-    │   └── globals.css
-    └── trpc/
-        ├── query-client.ts
-        ├── react.tsx
-        └── server.ts
-```
+This project is divided into several key architectural components. For more detailed information, please refer to the specific `GEMINI.md` file in each directory.
+
+- **[Frontend (`src/app`)](./src/app/GEMINI.md)**: The frontend is built with Next.js and React Server Components. It handles the user interface and client-side interactions.
+
+- **[Backend (`src/server/api`)](./src/server/api/GEMINI.md)**: The backend is built with tRPC and provides a typesafe API for the frontend.
+
+- **[Database (`prisma`)](./prisma/GEMINI.md)**: The database schema is defined and managed with Prisma.
+
+- **[Protocols (`proto`)](./proto/GEMINI.md)**: This directory contains the protobuf definitions for the real-time communication between the client and server.
+
 
 ## Development
 
@@ -95,26 +69,6 @@ This is a full-stack web application built with the [T3 Stack](https://create.t3
   pnpm start
   ```
 
-### Database
-
-Database schema and migrations are managed with Prisma.
-
-- **Generate Prisma Client**:
-  This is run automatically after `pnpm install`, but can be run manually.
-  ```bash
-  pnpm postinstall
-  ```
-- **Create a Migration**:
-  When you change the schema, create a new migration.
-  ```bash
-  pnpm db:generate
-  ```
-- **View/Edit Data**:
-  Opens Prisma Studio, a GUI for the database.
-  ```bash
-  pnpm db:studio
-  ```
-
 ### Code Quality
 
 - **Linting**:
@@ -132,32 +86,6 @@ Database schema and migrations are managed with Prisma.
   ```bash
   pnpm format:write
   ```
-
-## Architectural Concepts
-
-### Frontend: React Server Components (RSC)
-
-- The primary page (`src/app/page.tsx`) is a React Server Component. It fetches data directly on the server using `api.post.hello`.
-- Client-side interactivity is handled by Client Components (`"use client";`), such as `src/app/_components/post.tsx`.
-- Data fetched on the server is passed to client components via the `<HydrateClient>` component, which uses `react-query`'s hydration feature.
-
-### Backend: tRPC
-
-- The API is defined in `src/server/api/`. The main router is `root.ts`, which combines smaller, feature-specific routers from `src/server/api/routers/`.
-- Procedures can be `publicProcedure` (accessible to anyone) or `protectedProcedure` (requires authentication).
-- The tRPC client is configured in `src/trpc/` for both server-side (`server.ts`) and client-side (`react.tsx`) usage.
-
-### Authentication
-
-- Authentication is handled by NextAuth.js. The configuration is located in `src/server/auth/`.
-- The `auth()` helper function can be used in Server Components to get the current session.
-- Client Components can use the `useSession` hook (though not explicitly shown in the initial files, it's a standard part of NextAuth.js).
-
-### Styling
-
-- The project uses Tailwind CSS for utility-first styling.
-- Global styles are defined in `src/styles/globals.css`.
-- The `prettier-plugin-tailwindcss` automatically sorts Tailwind classes.
 
 ### Agent References
 

@@ -95,11 +95,11 @@ model InterviewFeedback {
 
   // Specific, actionable feedback points
   strengths           String  // Could be a markdown list
-  areasForImprovement String  // Could be a markdown list
 
-  // Example quantitative metrics
-  clarityScore Int? // Score from 1-10
-  pacingScore  Int? // Score from 1-10
+  // Detailed feedback categories
+  contentAndStructure      String // Feedback on the substance and organization of answers
+  communicationAndDelivery String // Feedback on verbal communication style, pacing, and clarity
+  presentation             String // Feedback on non-verbal cues (e.g., eye contact, posture)
 
   // Relation: This feedback is for exactly one interview
   interviewId String    @unique

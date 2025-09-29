@@ -26,8 +26,11 @@
   2.  It keeps the `Interview` model lean and focused on the session's metadata.
   3.  In the future, feedback generation could become a slow, asynchronous process, and this separation supports that.
 - **Key Fields:**
-  - `summary`, `strengths`, `areasForImprovement`: Using the `@db.Text` type allows for long-form, detailed feedback.
-  - `clarityScore`, `pacingScore`: Examples of nullable integer fields for quantitative metrics. You can add more as needed.
+  - `summary`: A high-level summary of the interview.
+  - `strengths`: Positive feedback points, presented as a markdown list.
+  - `contentAndStructure`: Feedback on the substance and organization of answers.
+  - `communicationAndDelivery`: Feedback on verbal communication style, pacing, and clarity.
+  - `presentation`: Feedback on non-verbal cues like eye contact and posture, derived from video analysis.
 - **Relations:** Has a strict one-to-one relationship with `Interview`. The `@unique` constraint on `interviewId` ensures one interview can never have more than one feedback report.
 
 #### 4. `TranscriptEntry`
