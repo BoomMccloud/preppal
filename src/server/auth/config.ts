@@ -20,18 +20,8 @@ declare module "next-auth" {
       // role: UserRole;
     } & DefaultSession["user"];
   }
-
-  // interface User {
-  //   // ...other properties
-  //   // role: UserRole;
-  // }
 }
 
-declare module "next-auth/jwt" {
-  interface JWT {
-    id: string;
-  }
-}
 
 // Development test users
 const DEV_USERS = [
@@ -155,7 +145,9 @@ export const authConfig = {
       return token;
     },
     session: ({ session, token }) => {
-      session.user.id = token.id;
+      if (token.id && typeof token.id === "string") {
+        session.user.id = token.id;
+      }
       return session;
     },
   },
