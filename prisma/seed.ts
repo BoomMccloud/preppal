@@ -3,15 +3,44 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 async function main() {
-  // Create a test user
-  const user = await prisma.user.upsert({
-    where: { email: "test@example.com" },
-    update: {},
-    create: {
+  // Development test users
+  const devUsers = [
+    {
+      email: "dev1@preppal.com",
+      name: "Dev User 1",
+      emailVerified: new Date(),
+    },
+    {
+      email: "dev2@preppal.com",
+      name: "Dev User 2",
+      emailVerified: new Date(),
+    },
+    {
+      email: "dev3@preppal.com",
+      name: "Dev User 3",
+      emailVerified: new Date(),
+    },
+    {
       email: "test@example.com",
       name: "Test User",
     },
-  });
+  ];
+
+  console.log("Seeding development users...");
+  const users = [];
+
+  for (const userData of devUsers) {
+    const user = await prisma.user.upsert({
+      where: { email: userData.email },
+      update: {},
+      create: userData,
+    });
+    users.push(user);
+    console.log(`✓ Created/updated user: ${user.name} (${user.email})`);
+  }
+
+  // Use the first user for the demo interview
+  const user = users[0]!;
 
   // Create a test interview with feedback
   const interview = await prisma.interview.upsert({
