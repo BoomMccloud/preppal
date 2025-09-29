@@ -1,15 +1,16 @@
 import Link from "next/link";
 
-export default function InterviewLobbyPage({
+export default async function InterviewLobbyPage({
   params,
 }: {
-  params: { interviewId: string };
+  params: Promise<{ interviewId: string }>;
 }) {
+  const { interviewId } = await params;
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="text-center mb-8">
         <h1 className="text-4xl font-bold text-white mb-4">Interview Lobby</h1>
-        <p className="text-white/80 text-lg">Interview ID: {params.interviewId}</p>
+        <p className="text-white/80 text-lg">Interview ID: {interviewId}</p>
       </div>
 
       <div className="bg-white/10 backdrop-blur-sm rounded-lg p-8">
@@ -78,7 +79,7 @@ export default function InterviewLobbyPage({
               Back to Dashboard
             </Link>
             <Link
-              href={`/interview/${params.interviewId}/session`}
+              href={`/interview/${interviewId}/session`}
               className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-md transition-colors font-medium text-lg"
             >
               Start Interview

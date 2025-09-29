@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import ThemeToggle from "./ThemeToggle";
 
 interface NavigationProps {
   userEmail?: string;
@@ -23,11 +24,11 @@ export default function Navigation({ userEmail }: NavigationProps) {
   ];
 
   return (
-    <nav className="bg-black/20 backdrop-blur-sm border-b border-white/10">
+    <nav className="bg-gray-100/90 dark:bg-gray-800/90 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex items-center space-x-8">
-            <Link href="/dashboard" className="text-xl font-bold text-white hover:text-purple-300 transition-colors">
+            <Link href="/dashboard" className="text-xl font-bold text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 transition-colors">
               PrepPal
             </Link>
 
@@ -38,8 +39,8 @@ export default function Navigation({ userEmail }: NavigationProps) {
                   href={link.href}
                   className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                     isActive(link.href)
-                      ? "text-purple-300 bg-purple-900/30"
-                      : "text-white/80 hover:text-white hover:bg-white/10"
+                      ? "text-teal-500 dark:text-teal-300 bg-teal-500/20 font-semibold"
+                      : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-teal-500/10"
                   }`}
                 >
                   {link.label}
@@ -49,14 +50,15 @@ export default function Navigation({ userEmail }: NavigationProps) {
           </div>
 
           <div className="flex items-center space-x-4">
+            <ThemeToggle />
             {userEmail && (
-              <span className="text-white/80 text-sm hidden sm:block">
+              <span className="text-slate-600 dark:text-slate-300 text-sm hidden sm:block">
                 {userEmail}
               </span>
             )}
             <Link
               href="/api/auth/signout"
-              className="text-white/80 hover:text-white transition-colors text-sm"
+              className="text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 transition-colors text-sm"
             >
               Sign Out
             </Link>
@@ -72,8 +74,8 @@ export default function Navigation({ userEmail }: NavigationProps) {
                 href={link.href}
                 className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                   isActive(link.href)
-                    ? "text-purple-300 bg-purple-900/30"
-                    : "text-white/80 hover:text-white hover:bg-white/10"
+                    ? "text-teal-500 dark:text-teal-300 bg-teal-500/20 font-semibold"
+                    : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-teal-500/10"
                 }`}
               >
                 {link.label}

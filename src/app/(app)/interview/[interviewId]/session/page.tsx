@@ -1,10 +1,11 @@
 import Link from "next/link";
 
-export default function InterviewSessionPage({
+export default async function InterviewSessionPage({
   params,
 }: {
-  params: { interviewId: string };
+  params: Promise<{ interviewId: string }>;
 }) {
+  const { interviewId } = await params;
   return (
     <div className="h-screen flex flex-col">
       {/* Header */}
@@ -12,7 +13,7 @@ export default function InterviewSessionPage({
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-4">
             <h1 className="text-xl font-semibold text-white">Interview Session</h1>
-            <span className="text-white/60">ID: {params.interviewId}</span>
+            <span className="text-white/60">ID: {interviewId}</span>
           </div>
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
@@ -105,7 +106,7 @@ export default function InterviewSessionPage({
             </svg>
           </button>
           <Link
-            href={`/interview/${params.interviewId}/feedback`}
+            href={`/interview/${interviewId}/feedback`}
             className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-md transition-colors font-medium"
           >
             End Interview

@@ -1,15 +1,16 @@
 import Link from "next/link";
 
-export default function InterviewFeedbackPage({
+export default async function InterviewFeedbackPage({
   params,
 }: {
-  params: { interviewId: string };
+  params: Promise<{ interviewId: string }>;
 }) {
+  const { interviewId } = await params;
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
         <h1 className="text-4xl font-bold text-white mb-4">Interview Feedback</h1>
-        <p className="text-white/80 text-lg">Interview ID: {params.interviewId}</p>
+        <p className="text-white/80 text-lg">Interview ID: {interviewId}</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

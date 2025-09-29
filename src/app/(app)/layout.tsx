@@ -14,9 +14,9 @@ export default async function AppLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#2e026d] to-[#15162c]">
+    <div className="min-h-screen bg-theme-primary">
       <Navigation userEmail={session.user?.email ?? undefined} />
-      <main className="text-white">{children}</main>
+      <main className="text-theme-primary">{children}</main>
     </div>
   );
 }
