@@ -3,21 +3,23 @@ import FeedbackTabs from "./feedback-tabs";
 import FeedbackCard from "./_components/FeedbackCard";
 import FeedbackActions from "./_components/FeedbackActions";
 
-export default async function InterviewFeedbackPage({
-  params,
-}: {
+interface PageProps {
   params: { interviewId: string };
-}) {
+}
+
+export default async function InterviewFeedbackPage({ params }: PageProps) {
   const { interviewId } = params;
   const interview = await api.interview.getFeedback({ interviewId });
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
       <div className="mb-8">
-        <h1 className="text-4xl font-bold text-primary-text mb-4">
+        <h1 className="text-primary-text mb-4 text-4xl font-bold">
           Interview Feedback
         </h1>
-        <p className="text-secondary-text text-lg">Interview ID: {interviewId}</p>
+        <p className="text-secondary-text text-lg">
+          Interview ID: {interviewId}
+        </p>
       </div>
 
       {!interview.feedback ? (
@@ -34,7 +36,7 @@ export default async function InterviewFeedbackPage({
             </p>
           </FeedbackCard>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             <FeedbackCard title="Strengths" className="lg:col-span-1">
               <div className="text-secondary-text whitespace-pre-wrap">
                 {interview.feedback.strengths}

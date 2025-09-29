@@ -15,7 +15,7 @@ export default function ProfilePage() {
                 <label className="block text-secondary-text text-sm font-medium mb-2">Name</label>
                 <input
                   type="text"
-                  className="w-full bg-secondary border border-secondary rounded-md px-3 py-2 text-primary-text placeholder-secondary-text"
+                  className="w-full bg-secondary border border-secondary-text rounded-md px-3 py-2 text-primary-text placeholder-secondary-text transition-colors hover:border-accent/20"
                   placeholder="Your name"
                 />
               </div>
@@ -23,7 +23,7 @@ export default function ProfilePage() {
                 <label className="block text-secondary-text text-sm font-medium mb-2">Email</label>
                 <input
                   type="email"
-                  className="w-full bg-secondary border border-secondary rounded-md px-3 py-2 text-primary-text placeholder-secondary-text"
+                  className="w-full bg-secondary border border-secondary-text rounded-md px-3 py-2 text-primary-text placeholder-secondary-text transition-colors hover:border-accent/20"
                   placeholder="your.email@example.com"
                 />
               </div>
@@ -35,7 +35,7 @@ export default function ProfilePage() {
             <div className="space-y-4">
               <div>
                 <label className="block text-secondary-text text-sm font-medium mb-2">Default Interview Type</label>
-                <select className="w-full bg-secondary border border-secondary rounded-md px-3 py-2 text-primary-text">
+                <select className="w-full bg-secondary border border-secondary-text rounded-md px-3 py-2 text-primary-text transition-colors hover:border-accent/20">
                   <option>Technical</option>
                   <option>Behavioral</option>
                   <option>System Design</option>
@@ -43,7 +43,7 @@ export default function ProfilePage() {
               </div>
               <div>
                 <label className="block text-secondary-text text-sm font-medium mb-2">Experience Level</label>
-                <select className="w-full bg-secondary border border-secondary rounded-md px-3 py-2 text-primary-text">
+                <select className="w-full bg-secondary border border-secondary-text rounded-md px-3 py-2 text-primary-text transition-colors hover:border-accent/20">
                   <option>Entry Level</option>
                   <option>Mid Level</option>
                   <option>Senior Level</option>
@@ -54,7 +54,7 @@ export default function ProfilePage() {
         </div>
 
         <div className="mt-8 pt-6 border-t border-secondary">
-          <button className="bg-accent hover:bg-accent/90 text-white px-6 py-2 rounded-md transition-colors">
+          <button className="bg-accent hover:bg-accent/90 text-primary px-6 py-2 rounded-md transition-colors">
             Save Changes
           </button>
         </div>
