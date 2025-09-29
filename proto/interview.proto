@@ -1,0 +1,113 @@
+syntax = "proto3";
+
+// Define a package to prevent name clashes and for versioning.
+package interview_prep.v1;
+
+// ===================================================================
+// 1. TOP-LEVEL WRAPPER MESSAGES
+// These are the only two messages that are sent directly over the WebSocket.
+// ===================================================================
+
+// Wrapper for all messages sent from the Client (browser) to the Server (backend).
+message ClientToServerMessage {
+  // `oneof` ensures that only one of these fields can be set per message.
+  oneof payload {
+    StartRequest  start_request  = 1;
+    AudioChunk    audio_chunk    = 2;
+    EndRequest    end_request    = 3;
+  }
+}
+
+// Wrapper for all messages sent from the Server (backend) to the Client (browser).
+message ServerToClientMessage {
+  oneof payload {
+    StartResponse     start_response     = 1;
+    AudioChunk        audio_chunk        = 2;
+    PartialTranscript partial_transcript = 3;
+    SessionEnded      session_ended      = 4;
+    Error             error              = 5;
+  }
+}
+
+
+// ===================================================================
+// 2. PAYLOAD MESSAGES
+// These are the actual data structures that go inside the wrappers.
+// ===================================================================
+
+// [Client -> Server]
+// Message sent once at the very beginning of the connection to configure the session.
+message StartRequest {
+  string auth_token   = 1; // JWT to authenticate the user.
+  string interview_id = 2; // The ID of the interview record in the database.
+
+  // Describes the audio format being sent by the client.
+  AudioConfig audio_config = 3;
+}
+
+// [Server -> Client]
+// Message sent back to the client to confirm the session is ready.
+message StartResponse {
+  string session_id = 1; // A unique ID for this specific live session.
+}
+
+// [Bidirectional]
+// The core message for streaming audio data back and forth.
+message AudioChunk {
+  bytes audio_content = 1; // A chunk of raw audio data (e.g., PCM-16).
+}
+
+// [Client -> Server]
+// An empty message from the client to signal it wants to end the interview.
+message EndRequest {}
+
+// [Server -> Client]
+// Real-time transcript from the speech-to-text engine.
+message PartialTranscript {
+  string text        = 1; // The content of the transcript.
+  Speaker speaker    = 2; // Who is speaking.
+  bool   is_final    = 3; // True if this is a final, corrected transcript segment.
+}
+
+// [Server -> Client]
+// A message to inform the client that the session has terminated.
+message SessionEnded {
+  enum Reason {
+    REASON_UNSPECIFIED = 0;
+    USER_INITIATED     = 1; // The user clicked "end".
+    AI_INITIATED       = 2; // The AI decided to end the interview.
+    TIMEOUT            = 3; // The session timed out due to inactivity.
+    INTERNAL_ERROR     = 4; // An unrecoverable server error occurred.
+  }
+  Reason reason = 1;
+  string message = 2; // Optional details about why it ended.
+}
+
+// [Server -> Client]
+// A message for sending structured errors to the client.
+message Error {
+  int32  code    = 1; // An internal error code.
+  string message = 2; // A developer-friendly error message.
+}
+
+
+// ===================================================================
+// 3. SHARED TYPES & ENUMS
+// Reusable data structures and enumerations.
+// ===================================================================
+
+message AudioConfig {
+  enum AudioEncoding {
+    ENCODING_UNSPECIFIED = 0;
+    LINEAR_PCM           = 1; // Most common for raw audio.
+  }
+
+  AudioEncoding encoding         = 1;
+  int32         sample_rate_hertz = 2; // e.g., 16000 or 48000
+}
+
+enum Speaker {
+  SPEAKER_UNSPECIFIED = 0;
+  USER                = 1;
+  AI                  = 2;
+}

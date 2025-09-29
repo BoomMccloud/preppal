@@ -30,18 +30,34 @@ The application demonstrates a basic setup with a `Post` model, allowing authent
 ├── public/                 # Static assets
 └── src/
     ├── app/                # Next.js App Router: Pages and Components
-    │   ├── _components/    # Client and Server Components
+    │   ├── _components/
+    │   │   └── post.tsx
+    │   ├── layout.tsx
+    │   ├── page.tsx
     │   └── api/
-    │       ├── auth/       # NextAuth.js route handler
-    │       └── trpc/       # tRPC route handler
+    │       ├── auth/
+    │       │   └── [...nextauth]/
+    │       │       └── route.ts
+    │       └── trpc/
+    │           └── [trpc]/
+    │               └── route.ts
+    ├── env.js
     ├── server/
-    │   ├── api/            # tRPC router definition
-    │   │   ├── root.ts     # Root tRPC router
-    │   │   └── routers/    # Individual tRPC routers (e.g., post.ts)
-    │   ├── auth/           # Authentication configuration
-    │   └── db.ts           # Prisma client initialization
-    ├── styles/             # Global styles
-    └── trpc/               # tRPC client setup
+    │   ├── api/
+    │   │   ├── root.ts
+    │   │   ├── trpc.ts
+    │   │   └── routers/
+    │   │       └── post.ts
+    │   ├── auth/
+    │   │   ├── config.ts
+    │   │   └── index.ts
+    │   └── db.ts
+    ├── styles/
+    │   └── globals.css
+    └── trpc/
+        ├── query-client.ts
+        ├── react.tsx
+        └── server.ts
 ```
 
 ## Development
