@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function InterviewSessionPage({
   params,
 }: {
@@ -102,9 +104,12 @@ export default function InterviewSessionPage({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
             </svg>
           </button>
-          <button className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-md transition-colors font-medium">
+          <Link
+            href={`/interview/${params.interviewId}/feedback`}
+            className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-md transition-colors font-medium"
+          >
             End Interview
-          </button>
+          </Link>
         </div>
       </div>
     </div>

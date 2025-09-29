@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function CreateInterviewPage() {
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -55,18 +57,18 @@ export default function CreateInterviewPage() {
           </div>
 
           <div className="flex justify-end space-x-4">
-            <button
-              type="button"
+            <Link
+              href="/dashboard"
               className="px-6 py-3 text-white/80 hover:text-white transition-colors"
             >
               Cancel
-            </button>
-            <button
-              type="submit"
+            </Link>
+            <Link
+              href="/interview/demo-new/lobby"
               className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3 rounded-md transition-colors font-medium"
             >
               Start Interview
-            </button>
+            </Link>
           </div>
         </form>
       </div>

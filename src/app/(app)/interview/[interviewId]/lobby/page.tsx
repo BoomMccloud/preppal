@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function InterviewLobbyPage({
   params,
 }: {
@@ -68,9 +70,20 @@ export default function InterviewLobbyPage({
             Make sure you&apos;re in a quiet environment with good lighting.
             The interview will be recorded for feedback purposes.
           </p>
-          <button className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-md transition-colors font-medium text-lg">
-            Start Interview
-          </button>
+          <div className="flex justify-center space-x-4">
+            <Link
+              href="/dashboard"
+              className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-md transition-colors font-medium"
+            >
+              Back to Dashboard
+            </Link>
+            <Link
+              href={`/interview/${params.interviewId}/session`}
+              className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-md transition-colors font-medium text-lg"
+            >
+              Start Interview
+            </Link>
+          </div>
         </div>
       </div>
     </div>

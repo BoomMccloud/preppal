@@ -22,12 +22,52 @@ export default async function Home() {
             <p className="text-center text-2xl text-white">
               {session && <span>Welcome back, {session.user?.name}!</span>}
             </p>
-            <Link
-              href={session ? "/api/auth/signout" : "/api/auth/signin"}
-              className="rounded-full bg-white/10 px-10 py-3 font-semibold no-underline transition hover:bg-white/20"
-            >
-              {session ? "Sign out" : "Sign in"}
-            </Link>
+
+            {session ? (
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Link
+                  href="/dashboard"
+                  className="rounded-full bg-purple-600 hover:bg-purple-700 px-10 py-3 font-semibold no-underline transition text-center"
+                >
+                  Go to Dashboard
+                </Link>
+                <Link
+                  href="/create-interview"
+                  className="rounded-full bg-white/10 hover:bg-white/20 px-10 py-3 font-semibold no-underline transition text-center"
+                >
+                  Start Interview
+                </Link>
+                <Link
+                  href="/api/auth/signout"
+                  className="rounded-full bg-white/10 hover:bg-white/20 px-6 py-3 font-semibold no-underline transition text-center"
+                >
+                  Sign out
+                </Link>
+              </div>
+            ) : (
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Link
+                  href="/api/auth/signin"
+                  className="rounded-full bg-purple-600 hover:bg-purple-700 px-10 py-3 font-semibold no-underline transition text-center"
+                >
+                  Sign in
+                </Link>
+                <div className="flex gap-4 text-sm">
+                  <Link
+                    href="/terms"
+                    className="text-white/60 hover:text-white transition-colors"
+                  >
+                    Terms
+                  </Link>
+                  <Link
+                    href="/privacy"
+                    className="text-white/60 hover:text-white transition-colors"
+                  >
+                    Privacy
+                  </Link>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </main>

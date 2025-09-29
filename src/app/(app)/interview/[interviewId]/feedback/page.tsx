@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function InterviewFeedbackPage({
   params,
 }: {
@@ -124,12 +126,21 @@ export default function InterviewFeedbackPage({
           </div>
 
           <div className="flex justify-end space-x-4 mt-6">
+            <Link
+              href="/dashboard"
+              className="px-6 py-3 text-white/80 hover:text-white transition-colors"
+            >
+              Back to Dashboard
+            </Link>
             <button className="px-6 py-3 text-white/80 hover:text-white transition-colors">
               Download Report
             </button>
-            <button className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-md transition-colors">
+            <Link
+              href="/create-interview"
+              className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-md transition-colors"
+            >
               Schedule Another Interview
-            </button>
+            </Link>
           </div>
         </div>
       </div>
