@@ -14,9 +14,9 @@ export default async function AppLayout({
   }
 
   return (
-    <div className="min-h-screen bg-theme-primary">
+    <div className="min-h-screen bg-primary">
       <Navigation userEmail={session.user?.email ?? undefined} />
-      <main className="text-theme-primary">{children}</main>
+      <main className="text-primary-text">{children}</main>
     </div>
   );
 }

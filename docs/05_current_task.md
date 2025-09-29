@@ -1,4 +1,45 @@
-### Current Task: Frontend Implementation (Phase 2)
+### Current Task: Fix Theme System and Navigation Colors
+
+## Problem
+The navigation bar and theme switching system are not working properly due to mixing CSS custom properties with hardcoded Tailwind classes.
+
+## Root Cause
+- Mixed styling approaches: CSS custom properties vs hardcoded Tailwind colors
+- CSS custom properties not properly integrated with Tailwind v4
+- Navigation using `text-teal-500` instead of theme classes
+
+## Solution Plan
+1. Fix CSS custom properties to work with Tailwind v4 by removing conflicting styles
+2. Simplify CSS to use direct CSS custom properties without unnecessary utility class wrappers
+3. Update navigation component to use consistent theme classes
+4. Ensure theme toggle properly switches all colors
+
+## Implementation Steps
+1. ✅ Remove complex ThemeProvider and simplify ThemeToggle
+2. ✅ Fix CSS custom properties system
+3. ✅ Update navigation to use theme classes
+4. ✅ Test complete theme switching
+
+## Status: COMPLETED ✅
+Successfully implemented unified theme system using CSS custom properties with Tailwind v4. Navigation now properly switches colors between light and dark modes.
+
+## Solution Implemented:
+- **Simplified CSS**: Used Tailwind v4 @theme directive with CSS custom properties for exact color scheme
+- **Unified Classes**: All components now use consistent theme classes (bg-primary, text-accent, etc.)
+- **Direct DOM Toggle**: ThemeToggle directly manipulates document.documentElement.classList.toggle("dark")
+- **No React Context**: Eliminated complex ThemeProvider that was causing hook violations
+- **Theme Persistence**: Added localStorage to remember user's theme preference
+
+## Results:
+- ✅ Navigation tabs highlight in proper accent colors (teal/bright teal)
+- ✅ Navigation background switches between light/dark modes
+- ✅ All components use consistent color scheme
+- ✅ Theme switching works instantly without React errors
+- ✅ System respects user's OS dark mode preference
+
+---
+
+### Previous Task: Frontend Implementation (Phase 2)
 
 This plan outlines the steps to build the frontend of Preppal, following a Test-Driven Development (TDD) approach as specified in `docs/02_tdd.md`.
 

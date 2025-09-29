@@ -3,104 +3,31 @@
 @theme {
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+
+  /* Define Tailwind v4 color system with our exact colors */
+  --color-primary: 252 252 252; /* Light: Off-White #FCFCFC */
+  --color-secondary: 241 243 244; /* Light: Light Gray #F1F3F4 */
+  --color-primary-text: 51 65 85; /* Light: Dark Slate #334155 */
+  --color-secondary-text: 100 116 139; /* Light: Medium Slate #64748B */
+  --color-accent: 13 148 136; /* Light: Teal #0D9488 */
+  --color-success: 22 163 74; /* Light: Forest Green #16A34A */
+  --color-danger: 239 68 68; /* Light: Coral Red #EF4444 */
 }
 
-/* Define CSS custom properties for our color scheme */
-:root {
-  /* Light mode colors */
-  --color-primary-bg: #FCFCFC; /* Off-White */
-  --color-secondary-bg: #F1F3F4; /* Light Gray */
-  --color-primary-text: #334155; /* Dark Slate */
-  --color-secondary-text: #64748B; /* Medium Slate */
-  --color-accent: #0D9488; /* Teal */
-  --color-success: #16A34A; /* Forest Green */
-  --color-danger: #EF4444; /* Coral Red */
-}
-
-/* Dark mode color overrides */
+/* Dark mode overrides */
 .dark {
-  --color-primary-bg: #1F2937; /* Dark Slate */
-  --color-secondary-bg: #374151; /* Medium Slate */
-  --color-primary-text: #F9FAFB; /* Off-White */
-  --color-secondary-text: #9CA3AF; /* Light Slate */
-  --color-accent: #5EEAD4; /* Bright Teal */
-  --color-success: #A7F3D0; /* Mint Green */
-  --color-danger: #FDA4AF; /* Salmon Pink */
+  --color-primary: 31 41 55; /* Dark: Dark Slate #1F2937 */
+  --color-secondary: 55 65 81; /* Dark: Medium Slate #374151 */
+  --color-primary-text: 249 250 251; /* Dark: Off-White #F9FAFB */
+  --color-secondary-text: 156 163 175; /* Dark: Light Slate #9CA3AF */
+  --color-accent: 94 234 212; /* Dark: Bright Teal #5EEAD4 */
+  --color-success: 167 243 208; /* Dark: Mint Green #A7F3D0 */
+  --color-danger: 253 164 175; /* Dark: Salmon Pink #FDA4AF */
 }
 
 /* Apply theme colors to body */
 body {
-  background-color: var(--color-primary-bg);
-  color: var(--color-primary-text);
+  background-color: rgb(var(--color-primary));
+  color: rgb(var(--color-primary-text));
   transition: background-color 0.3s ease, color 0.3s ease;
-}
-
-/* Utility classes for our custom colors */
-.bg-theme-primary {
-  background-color: var(--color-primary-bg);
-}
-
-.bg-theme-secondary {
-  background-color: var(--color-secondary-bg);
-}
-
-.text-theme-primary {
-  color: var(--color-primary-text);
-}
-
-.text-theme-secondary {
-  color: var(--color-secondary-text);
-}
-
-.text-theme-accent {
-  color: var(--color-accent);
-}
-
-.bg-theme-accent {
-  background-color: var(--color-accent);
-}
-
-.bg-theme-success {
-  background-color: var(--color-success);
-}
-
-.bg-theme-danger {
-  background-color: var(--color-danger);
-}
-
-.border-theme-secondary {
-  border-color: var(--color-secondary-text);
-}
-
-/* Hover variants */
-.hover\:bg-theme-accent:hover {
-  background-color: var(--color-accent);
-  opacity: 0.9;
-}
-
-.hover\:text-theme-primary:hover {
-  color: var(--color-primary-text);
-}
-
-.hover\:text-theme-accent:hover {
-  color: var(--color-accent);
-}
-
-/* Additional utility classes for better visibility */
-.text-theme-accent-strong {
-  color: var(--color-accent);
-  font-weight: 600;
-}
-
-.bg-theme-accent-light {
-  background-color: var(--color-accent);
-  opacity: 0.2;
-}
-
-/* Ensure accent color visibility */
-.nav-active {
-  color: var(--color-accent) !important;
-  background-color: var(--color-accent);
-  background-opacity: 0.2;
-  font-weight: 600;
 }
