@@ -40,7 +40,7 @@ export default function CreateInterviewPage() {
             </Link>
             <Link
               href="/interview/demo-new/lobby"
-              className="bg-accent hover:bg-accent/80 text-slate-700 px-8 py-3 rounded-md transition-colors font-medium"
+              className="bg-accent hover:bg-accent/80 text-primary px-8 py-3 rounded-md transition-colors font-medium"
             >
               Start Interview
             </Link>

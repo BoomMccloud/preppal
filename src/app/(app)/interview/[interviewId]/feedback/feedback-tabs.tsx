@@ -45,8 +45,8 @@ export default function FeedbackTabs({
             onClick={() => setActiveTab(tab.id)}
             className={`px-4 py-2 text-sm font-medium rounded-md transition-colors border ${
               activeTab === tab.id
-                ? "bg-accent text-white border-accent"
-                : "text-secondary-text hover:text-primary-text hover:bg-secondary/50 border-secondary-text/20 hover:border-secondary-text/40"
+                ? "bg-accent text-primary border-accent font-semibold"
+                : "text-secondary-text hover:text-primary-text hover:bg-accent/10 border-transparent hover:border-accent/20"
             }`}
           >
             {tab.label}

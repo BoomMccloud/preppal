@@ -41,8 +41,11 @@ We use a semantic color system defined in `src/styles/globals.css` with CSS cust
 #### 1. Semantic Color Usage
 Always use semantic color classes in Tailwind:
 - `bg-primary` / `bg-secondary` for backgrounds
-- `text-primary-text` / `text-secondary-text` for text colors
-- `bg-accent` / `text-accent` for interactive elements
+- `text-primary-text` / `text-secondary-text` for general text on `bg-primary` or `bg-secondary` backgrounds.
+  - `text-primary-text`: Dark in light mode, Light in dark mode.
+  - `text-secondary-text`: Medium in light mode, Light in dark mode.
+- `bg-accent` for interactive elements and `text-primary` for text on `bg-accent` elements.
+  - `text-primary`: Light in light mode, Dark in dark mode.
 - `border-secondary-text` for borders
 
 #### 2. Dark Mode Strategy
