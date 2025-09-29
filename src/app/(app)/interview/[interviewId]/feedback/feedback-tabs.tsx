@@ -35,8 +35,8 @@ export default function FeedbackTabs({
   };
 
   return (
-    <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6">
-      <h2 className="text-2xl font-semibold text-white mb-6">Detailed Analysis</h2>
+    <div className="bg-secondary/50 backdrop-blur-sm rounded-lg p-6 border border-secondary-text/10">
+      <h2 className="text-2xl font-semibold text-primary-text mb-6">Detailed Analysis</h2>
 
       {/* Tab Navigation */}
       <div className="flex space-x-1 mb-6">
@@ -46,8 +46,8 @@ export default function FeedbackTabs({
             onClick={() => setActiveTab(tab.id)}
             className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
               activeTab === tab.id
-                ? "bg-purple-600 text-white"
-                : "text-white/80 hover:text-white hover:bg-white/10"
+                ? "bg-accent text-primary"
+                : "text-secondary-text hover:text-primary-text hover:bg-secondary/50"
             }`}
           >
             {tab.label}
@@ -57,7 +57,7 @@ export default function FeedbackTabs({
 
       {/* Tab Content */}
       <div className="min-h-[200px]">
-        <div className="text-white/90 whitespace-pre-wrap">
+        <div className="text-secondary-text whitespace-pre-wrap">
           {getTabContent(activeTab)}
         </div>
       </div>

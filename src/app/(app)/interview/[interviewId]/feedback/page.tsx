@@ -15,11 +15,11 @@ export default async function InterviewFeedbackPage({
     return (
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-white mb-4">Interview Feedback</h1>
-          <p className="text-white/80 text-lg">Interview ID: {interviewId}</p>
+          <h1 className="text-4xl font-bold text-primary-text mb-4">Interview Feedback</h1>
+          <p className="text-secondary-text text-lg">Interview ID: {interviewId}</p>
         </div>
-        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6">
-          <p className="text-white/80">No feedback available for this interview yet.</p>
+        <div className="bg-secondary/50 backdrop-blur-sm rounded-lg p-6 border border-secondary-text/10">
+          <p className="text-secondary-text">No feedback available for this interview yet.</p>
         </div>
       </div>
     );
@@ -30,22 +30,22 @@ export default async function InterviewFeedbackPage({
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
-        <h1 className="text-4xl font-bold text-white mb-4">Interview Feedback</h1>
-        <p className="text-white/80 text-lg">Interview ID: {interviewId}</p>
+        <h1 className="text-4xl font-bold text-primary-text mb-4">Interview Feedback</h1>
+        <p className="text-secondary-text text-lg">Interview ID: {interviewId}</p>
       </div>
 
       {/* Summary Section */}
-      <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 mb-8">
-        <h2 className="text-2xl font-semibold text-white mb-4">Summary</h2>
-        <p className="text-white/90 text-lg leading-relaxed">{feedback.summary}</p>
+      <div className="bg-secondary/50 backdrop-blur-sm rounded-lg p-6 mb-8 border border-secondary-text/10">
+        <h2 className="text-2xl font-semibold text-primary-text mb-4">Summary</h2>
+        <p className="text-secondary-text text-lg leading-relaxed">{feedback.summary}</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Strengths Section */}
         <div className="lg:col-span-1">
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6">
-            <h2 className="text-2xl font-semibold text-white mb-4">Strengths</h2>
-            <div className="text-white/90 whitespace-pre-wrap">
+          <div className="bg-secondary/50 backdrop-blur-sm rounded-lg p-6 border border-secondary-text/10">
+            <h2 className="text-2xl font-semibold text-primary-text mb-4">Strengths</h2>
+            <div className="text-secondary-text whitespace-pre-wrap">
               {feedback.strengths}
             </div>
           </div>
@@ -62,16 +62,16 @@ export default async function InterviewFeedbackPage({
           <div className="flex justify-end space-x-4 mt-6">
             <Link
               href="/dashboard"
-              className="px-6 py-3 text-white/80 hover:text-white transition-colors"
+              className="px-6 py-3 text-secondary-text hover:text-primary-text transition-colors"
             >
               Back to Dashboard
             </Link>
-            <button className="px-6 py-3 text-white/80 hover:text-white transition-colors">
+            <button className="px-6 py-3 text-secondary-text hover:text-primary-text transition-colors">
               Download Report
             </button>
             <Link
               href="/create-interview"
-              className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-md transition-colors"
+              className="bg-accent hover:bg-accent/80 text-primary px-6 py-3 rounded-md transition-colors"
             >
               Schedule Another Interview
             </Link>
