@@ -1,6 +1,33 @@
-# Create T3 App
+# Preppal
 
-This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3-app`.
+This is a full-stack web application built with the [T3 Stack](https://create.t3.gg/). It leverages Next.js for the frontend and backend, tRPC for typesafe API routes, Prisma as the ORM for database interactions, and NextAuth.js for authentication. The application is designed to facilitate live interview practice with AI.
+
+## Core Technologies
+
+- **Frontend**: Next.js (React)
+- **Backend**: Next.js (API Routes with a custom WebSocket server)
+- **Database**: SQLite (for MVP) with Prisma ORM
+- **Real-time Communication**: WebSockets for the bi-directional audio stream
+- **API (Non-real-time)**: tRPC for standard data fetching (user profiles, etc.)
+- **Data Serialization**: Protocol Buffers (Protobufs) for all real-time audio data
+- **Authentication**: NextAuth.js
+
+## Component Breakdown
+
+### Frontend (Client-Side)
+
+- **Framework**: Built with Next.js and React.
+- **Responsibilities**: User Interface, Authentication (NextAuth.js), Standard Data Fetching (tRPC), Real-time Communication (WebSocket for audio streaming, Protobuf encoding/decoding).
+
+### Backend (Server-Side)
+
+- **Framework**: Hosted within the Next.js application.
+- **Responsibilities**: tRPC API (CRUD for user data), WebSocket Server (manages interview sessions), Gemini Live API Client (proxies audio data), Data Handling (Protobuf encoding/decoding).
+
+### Database
+
+- **ORM**: Prisma.
+- **Responsibilities**: Stores user profile information, and metadata about each interview session.
 
 ## What's next? How do I make an app with this?
 
