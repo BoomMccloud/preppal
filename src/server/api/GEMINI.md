@@ -105,7 +105,7 @@ export const interviewRouter = createTRPCRouter({
 
   /**
    * Fetches a list of all past interviews for the logged-in user.
-   * Used for the user's dashboard or history page.
+   * Used for the user's dashboard or history page. The dashboard page will consume this API to display a list of recent interviews.
    */
   getHistory: protectedProcedure
     .input(z.void())
