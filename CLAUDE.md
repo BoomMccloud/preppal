@@ -68,6 +68,7 @@ Tests run in jsdom environment with global test utilities. Setup file located at
 
 ### Agent References
 
+- Always start with the latest version of the doc
 - `docs/` folder contain additional instructions and background, such as system design, tdd methdology, development plan, and application states.
 - `prisma/schema.prisma` is the source of truth for data, do not modify it unless explictly instructed by the user.
 - Before starting a task, always append the plan into `/docs/05_current_task.md`.

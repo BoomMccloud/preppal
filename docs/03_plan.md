@@ -29,7 +29,7 @@
 | :--- | :--- | :--- |
 | **1. Build UI Components** | Create all the React components for the meeting screen, login page, profile page, etc. | ✅ Complete |
 | **2. Implement State Management** | Set up client-side state management (e.g., Zustand, Jotai, or React Context) for session state. | ❌ Not Started |
-| **3. Connect to tRPC API** | Use the auto-generated tRPC client to fetch user data and interview history. | ✅ Complete |
+| **3. Connect to tRPC API** | Connect UI components to tRPC endpoints to replace hardcoded data. | 🟡 In Progress |
 | **4. Implement WebSocket Client** | Write the client-side code to connect to the WebSocket server. | ❌ Not Started |
 | **5. Implement Audio & Protobufs** | Write the logic to capture mic audio, handle Protobufs, and stream over the WebSocket. | ❌ Not Started |
 

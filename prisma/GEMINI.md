@@ -28,7 +28,7 @@
 - **Key Fields:**
   - `status`: An `enum` is used to strictly control the state of the interview.
   - `startedAt` / `endedAt`: Nullable timestamps for tracking the actual duration of the live call.
-  - `jobTitleSnapshot` / `jobDescriptionSnapshot`: A copy of the job title and description at the moment the interview was created. This creates an **immutable historical record** of the context for that specific session, even if the original `JobDescription` in the user's library is edited later.
+  - `jobTitleSnapshot` / `jobDescriptionSnapshot`: A copy of the job title and description taken from the associated `JobDescription` at the moment the interview is created. This creates an **immutable historical record** of the context for that specific session. For example, if a user later edits the title of the original `JobDescription` in their library, the `jobTitleSnapshot` for this interview will not change, preserving its historical accuracy.
   - `userId`: A foreign key linking to the `User`.
   - `jobDescriptionId`: An optional foreign key linking to a `JobDescription` in the user's library. This allows grouping of interviews for the same role.
   - `resumeId`: An optional foreign key linking to the `Resume` used for the interview.
