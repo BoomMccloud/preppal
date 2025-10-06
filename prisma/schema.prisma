@@ -76,6 +76,9 @@ model Interview {
 
   status InterviewStatus @default(PENDING)
 
+  // Idempotency key to prevent duplicate interview creation
+  idempotencyKey String @unique
+
   // --- JOB CONTEXT SNAPSHOT ---
   // This data is copied from the JobDescription when the interview is created.
   // It ensures this historical record is immutable.
@@ -87,6 +90,11 @@ model Interview {
   // allowing us to group interviews for the same role.
   jobDescriptionId String?
   jobDescription   JobDescription? @relation(fields: [jobDescriptionId], references: [id], onDelete: SetNull)
+
+  // --- RESUME SNAPSHOT ---
+  // This data is copied from the Resume when the interview is created (if text type).
+  // It ensures this historical record is immutable.
+  resumeSnapshot String?
 
   // Relation to the resume used for this interview (optional)
   resumeId String?

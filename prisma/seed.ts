@@ -148,10 +148,12 @@ We are seeking a talented Senior Frontend Developer to join our growing team. Yo
       status: "COMPLETED",
       jobTitleSnapshot: "Senior Frontend Developer",
       jobDescriptionSnapshot: jobDescription.content,
+      resumeSnapshot: resume.content,
       resumeId: resume.id,
       jobDescriptionId: jobDescription.id,
       startedAt: new Date(Date.now() - 3600000), // 1 hour ago
       endedAt: new Date(Date.now() - 1800000), // 30 minutes ago
+      idempotencyKey: "demo-123-seed",
     },
   });
 

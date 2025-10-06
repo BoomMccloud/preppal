@@ -17,7 +17,45 @@ This document outlines the findings from an analysis of the frontend pages to id
 
 - **File:** `src/app/(app)/create-interview/page.tsx`
 - **Problem:** The form submission is not handled by a tRPC mutation. The "Start Interview" button is a simple `<Link>` that redirects to a hardcoded demo lobby URL (`/interview/demo-new/lobby`).
-- **Solution:** The "Start Interview" button should trigger the `api.interview.createSession` tRPC mutation. On a successful response, the client will perform a programmatic redirect to the new interview's lobby page, e.g., `/interview/[newInterviewId]/lobby`.
+- **Solution:** The "Start Interview" button should trigger the `api.interview.createSession` tRPC mutation, passing a structured input object for the `jobDescription` and `resume` (e.g., `{ type: 'text', content: '...' }`). On a successful response, the client will perform a programmatic redirect to the new interview's lobby page, e.g., `/interview/[newInterviewId]/lobby`.
+
+#### Idempotency for Creation
+
+To prevent users from accidentally creating duplicate interview sessions (e.g., by double-clicking the "Start Interview" button), we will implement an idempotency check.
+
+1.  **Client-Side:** The `create-interview` page will generate a unique UUID when it first loads and store it in state. This key will be sent with the `createSession` mutation.
+    ```typescript
+    // In create-interview/page.tsx
+    const [idempotencyKey] = useState(() => crypto.randomUUID());
+
+    // ... in the mutate call
+    mutate({
+      // ... other fields
+      idempotencyKey,
+    });
+    ```
+
+2.  **API & Validation:** The `CreateSessionInput` Zod schema in the `interview` router must be updated to include the key.
+    ```typescript
+    export const CreateSessionInput = z.object({
+      // ... other fields
+      idempotencyKey: z.string().uuid(),
+    });
+    ```
+
+3.  **Database:** The `Interview` model in `prisma/schema.prisma` must be updated with a field to store this key, and a unique constraint must be applied to it.
+    ```prisma
+    // In prisma/schema.prisma, inside the Interview model
+    model Interview {
+      // ...
+      idempotencyKey String @unique
+    }
+    ```
+    *Note: After modifying the schema, run `pnpm db:push` to apply the changes.*
+
+4.  **Backend Logic:** The `createSession` tRPC mutation will pass the `idempotencyKey` to the `db.interview.create` call. If the key already exists, Prisma will throw a unique constraint violation error. This error should be caught, and the backend should respond with a `CONFLICT` tRPC error to inform the client that this was a duplicate request.
+
+5.  **TDD Test:** A new backend test should be added to verify that calling the mutation twice with the same `idempotencyKey` results in the second call failing with a `CONFLICT` error.
 
 ### 3. Profile Page
 
@@ -31,7 +69,7 @@ This document outlines the findings from an analysis of the frontend pages to id
 
 - **File:** `src/app/(app)/interview/[interviewId]/lobby/page.tsx`
 - **Problem:** The page displays hardcoded interview details (Type, Duration, Level, Status) and does not fetch data specific to the `interviewId`.
-- **Solution:** This page should be a Server Component that fetches data using the `api.interview.getById` tRPC query, passing the `interviewId` from the URL. This will populate the lobby with dynamic details about the specific interview session. The "Start Interview" button will be a standard Next.js `<Link>` to the session page.
+- **Solution:** This page acts as a pre-flight checklist. It should be a Server Component that fetches data using the `api.interview.getById` tRPC query to populate the interview details. It will also display the status of browser permissions (camera, microphone) and other checks before the user proceeds. The "Start Interview" button will be a standard Next.js `<Link>` to the session page.
 
 ### 5. Interview Session Page
 
@@ -41,6 +79,31 @@ This document outlines the findings from an analysis of the frontend pages to id
     1.  On component mount, it will establish a persistent **WebSocket connection** to the backend.
     2.  It will send an initial `StartRequest` message over the WebSocket to authenticate and initialize the live session on the backend.
     3.  All subsequent data (audio streams, AI status, transcripts) will be streamed over this WebSocket, not via tRPC queries. The `api.interview.getCurrent` tRPC query can be used to fetch the initial state if needed before the WebSocket is established.
+
+### Server vs. Client Components: A Quick Guide
+
+In the Next.js App Router, components are **Server Components by default**. You should only opt into using **Client Components** when necessary. Here’s a guide for this project:
+
+#### When to Use Server Components
+- **Data Fetching:** Use them for pages that need to fetch initial data on the server (e.g., using `await api.interview.getById(...)`). This is efficient and secure.
+- **No Interactivity:** For components or pages that just display information without responding to user events.
+- **Passing Data:** They act as the entry point for a route, fetching data and passing it as props to Client Components.
+
+#### When to Use Client Components (`"use client"`)
+- **Interactivity:** If your component needs to use React hooks like `useState`, `useEffect`, or `useReducer`.
+- **Event Listeners:** For handling user actions like `onClick`, `onChange`, etc.
+- **tRPC Hooks:** Any component that uses `api.some.procedure.useQuery()` or `api.some.procedure.useMutation()` must be a Client Component.
+
+#### Component Strategy for Pages
+
+| Page | File | Recommended Type | Justification |
+| :--- | :--- | :--- | :--- |
+| **Dashboard** | `dashboard/page.tsx` | Client | Needs `useQuery` to fetch the interview history and `useState` for the loading state. |
+| **Create Interview** | `create-interview/page.tsx` | Client | Needs `useState` for form inputs and `useMutation` to submit the form. |
+| **Profile** | `profile/page.tsx` | Client | Needs `useQuery` to fetch the user's profile data. |
+| **Lobby** | `lobby/page.tsx` | Server | Fetches data on the server with `await api.interview.getById(...)` and passes it to smaller, potentially client-based UI components. No client-side interactivity is needed for the page itself. |
+| **Feedback** | `feedback/page.tsx` | Server | Already implemented as a Server Component. It fetches data and passes it to the client-side `feedback-tabs.tsx`. |
+| **Session** | `session/page.tsx` | Client | The most complex client component. Manages real-time state, WebSockets, and user interaction via `useState` and `useEffect`. |
 
 ## Code Examples & Best Practices
 
@@ -100,54 +163,124 @@ function UserGreeting() {
 }
 ```
 
-#### `useMutation` for Data Modification
+#### `useMutation` for Data Modification & Redirects
 
-This pattern is used to create, update, or delete data. It provides helpers for handling the mutation's lifecycle.
+This pattern is used to create, update, or delete data. The `onSuccess` callback is the perfect place to handle programmatic redirects after a successful mutation.
+
+```typescript
+"use client";
+
+import { useRouter } from "next/navigation"; // Correct import for App Router
+import { api } from "~/trpc/react";
+
+function CreateInterviewButton() {
+  const router = useRouter();
+
+  // useMutation provides a function to trigger the change
+  const { mutate, isPending } = api.interview.createSession.useMutation({
+    onSuccess: (interview) => {
+      // This runs after the mutation is successful.
+      // The `interview` object is the return value from the tRPC procedure.
+      console.log("Created interview with ID:", interview.id);
+
+      // Programmatically redirect to the new interview's lobby page.
+      router.push(`/interview/${interview.id}/lobby`);
+    },
+    onError: (error) => {
+      // This runs if the mutation fails.
+      console.error("Failed to create interview:", error.message);
+      // Here you might show a toast notification to the user.
+    },
+  });
+
+  const handleStart = () => {
+    // For the MVP, we send the text content from the form.
+    // This assumes you have the state for jdText and resumeText.
+    mutate({
+      jobDescription: { type: "text", content: jdText },
+      resume: { type: "text", content: resumeText },
+    });
+  };
+
+  return (
+    <button onClick={handleStart} disabled={isPending}>
+      {isPending ? "Creating..." : "Start Interview"}
+    </button>
+  );
+}
+```
+
+#### Form State Management (`useState`)
+
+For the "Create Interview" page, manage the `jdText` and `resumeText` inputs using React's `useState` hook. This approach is lightweight, requires no external libraries for this simple use case, and integrates cleanly with the `useMutation` hook.
+
+The example below includes logic for the UX and interaction requirements.
+
+**Example:**
 
 ```typescript
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { api } from "~/trpc/react";
 
-function UpdateNameForm() {
-  const [name, setName] = useState("");
-  const utils = api.useUtils();
+function CreateInterviewPage() {
+  const router = useRouter();
+  const [jdText, setJdText] = useState("");
+  const [resumeText, setResumeText] = useState("");
 
-  // useMutation provides a function to trigger the change.
-  const { mutate, isPending } = api.user.updateProfile.useMutation({
-    onSuccess: (updatedUser) => {
-      // This runs after the mutation is successful.
-      console.log("Profile updated for:", updatedUser.name);
-
-      // Invalidate the `getProfile` query to refetch fresh data.
-      void utils.user.getProfile.invalidate();
+  const { mutate, isPending } = api.interview.createSession.useMutation({
+    onSuccess: (interview) => {
+      router.push(`/interview/${interview.id}/lobby`);
     },
     onError: (error) => {
-      // This runs if the mutation fails.
-      console.error("Failed to update profile:", error.message);
+      // 1. Show a generic toast notification for the error.
+      console.error("Failed to create interview:", error.message);
+      // e.g., toast.error("Something went wrong. Please try again.");
     },
   });
 
-  const handleSave = () => {
-    mutate({ name });
+  const handleStart = () => {
+    mutate({
+      jobDescription: { type: "text", content: jdText },
+      resume: { type: "text", content: resumeText },
+    });
   };
 
+  // 3. Disable button if fields are empty or form is submitting.
+  const isButtonDisabled = isPending || jdText.trim() === "" || resumeText.trim() === "";
+
   return (
-    <div>
-      <input
-        type="text"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
+    <>
+      <textarea
+        value={jdText}
+        onChange={(e) => setJdText(e.target.value)}
+        placeholder="Paste the job description here..."
+        // 2. Disable textarea when loading.
         disabled={isPending}
       />
-      <button onClick={handleSave} disabled={isPending}>
-        {isPending ? "Saving..." : "Save New Name"}
+      <textarea
+        value={resumeText}
+        onChange={(e) => setResumeText(e.target.value)}
+        placeholder="Paste your resume here..."
+        // 2. Disable textarea when loading.
+        disabled={isPending}
+      />
+      <button onClick={handleStart} disabled={isButtonDisabled}>
+        {isPending ? "Creating..." : "Start Interview"}
       </button>
-    </div>
+    </>
   );
 }
 ```
+
+##### UX and Interaction Requirements
+
+-   **Error Handling:** On a mutation `onError`, display a generic toast notification to the user (e.g., "Something went wrong. Please try again."). Specific error messages will be handled in a future iteration.
+-   **Loading State:** While the mutation is `isPending` (showing "Creating..."), both the "Job Description" and "Resume" text areas should be disabled (e.g. grayed out) to prevent edits during submission.
+-   **Client-Side Validation:** The "Start Interview" button must be disabled if either of the text fields is empty.
+
 
 ## Endpoint Mapping
 
@@ -166,23 +299,90 @@ This table maps the pages to the official tRPC endpoints as defined in `src/serv
 
 Based on the TDD guide in `docs/02_tdd.md`, this is the proposed set of tests to be written for implementing the endpoints and connecting the frontend pages.
 
-### 1. Profile Page (`getProfile`)
+### Test Setup Requirements
 
-*   **Backend Tests (`/tests/server/routers/user.test.ts`)**
+Before writing tests, ensure the following setup is complete:
+
+1.  **Vitest Configuration** - Add path alias resolution to `vitest.config.ts`:
+    ```typescript
+    import path from "path";
+
+    export default defineConfig({
+      resolve: {
+        alias: {
+          "~": path.resolve(__dirname, "./src"),
+        },
+      },
+      // ... rest of config
+    });
+    ```
+
+2.  **Backend Test Mocking Pattern** - For tRPC router tests, mock both the database and auth modules:
+    ```typescript
+    import { describe, it, expect, beforeEach, vi } from "vitest";
+    import type { Session } from "next-auth";
+
+    // Mock NextAuth to avoid test environment issues
+    vi.mock("~/server/auth", () => ({
+      auth: vi.fn(),
+    }));
+
+    // Mock Prisma for unit testing (per docs/02_tdd.md)
+    vi.mock("~/server/db", () => ({
+      db: {
+        user: {
+          findUnique: vi.fn(),
+        },
+      },
+    }));
+    ```
+
+3.  **Frontend Test Mocking Pattern** - For client components using tRPC:
+    ```typescript
+    import { vi } from "vitest";
+
+    // Create mock function outside vi.mock()
+    const mockUseQuery = vi.fn();
+
+    // Mock the tRPC module
+    vi.mock("~/trpc/react", () => ({
+      api: {
+        user: {
+          getProfile: {
+            useQuery: () => mockUseQuery(),
+          },
+        },
+      },
+    }));
+    ```
+
+### 1. Profile Page (`getProfile`) - ✅ COMPLETED
+
+*   **Backend Tests (`src/server/api/routers/user.test.ts`)**
     1.  **(Red)** Write a test for a `user.getProfile` procedure that fails because it doesn't exist.
     2.  **(Red)** The test should call the procedure for a mock user and assert that the returned data contains only `{ name, email }`.
+    3.  **Implementation Notes:**
+        - Use mocked Prisma (not real database) for unit testing
+        - Mock `db.user.findUnique` to return test data
+        - Create tRPC caller with mock session context
+        - Verify the procedure queries with correct `where` clause and `select` fields
 
-*   **Frontend Tests (`/src/app/(app)/profile/page.test.tsx`)**
+*   **Frontend Tests (`src/app/(app)/profile/page.test.tsx`)**
     1.  **(Red)** Write a test that renders the `ProfilePage`. Mock the `api.user.getProfile.useQuery` hook to return mock user data (e.g., `{ name: 'John Doe', email: 'john@example.com' }`).
     2.  **(Red)** Assert that the name and email are displayed correctly in the component.
+    3.  **(Red)** Assert that a loading state is displayed while `isLoading` is true.
+    4.  **Implementation Notes:**
+        - ProfilePage must be a client component (`"use client"`)
+        - Input fields should be `readOnly` (profile is read-only)
+        - Remove unused UI elements (like "Save Changes" button or Interview Preferences)
 
 ### 2. Dashboard Page (`getHistory`)
 
-*   **Backend Tests (`/tests/server/routers/interview.test.ts`)**
+*   **Backend Tests (`src/server/api/routers/interview.test.ts`)**
     1.  **(Red)** Write a test for an `interview.getHistory` procedure that fails.
     2.  **(Red)** The test should seed a test database with several mock interviews for a user, call the procedure, and assert that the returned array contains the correct number of lightweight interview objects.
 
-*   **Frontend Tests (`/src/app/(app)/dashboard/page.test.tsx`)**
+*   **Frontend Tests (`src/app/(app)/dashboard/page.test.tsx`)**
     1.  **(Red)** Write a test that renders the `DashboardPage`. Mock the `api.interview.getHistory.useQuery` hook to return an array of mock interviews (e.g., `[{ id: '1', status: 'COMPLETED' }, { id: '2', status: 'PENDING' }]`).
     2.  **(Red)** Assert that the component renders two links, one for each interview, with the correct `href` (e.g., `/interview/1/feedback` and `/interview/2/lobby`).
 
@@ -190,20 +390,22 @@ Based on the TDD guide in `docs/02_tdd.md`, this is the proposed set of tests to
 
 *   **Backend Tests (`/tests/server/routers/interview.test.ts`)**
     1.  **(Red)** Write a test for an `interview.createSession` mutation that fails.
-    2.  **(Red)** The test should call the mutation for a user, then query the test database to assert that a new `Interview` record was created with the correct `userId` and an initial status.
+    2.  **(Red)** The test should call the mutation with a mock structured input (e.g., `{ type: 'text', content: '...' }`). It should then query the test database to assert that a new `Interview` record was created with the correct `userId`, a status of `PENDING`, and that the snapshot fields match the input content.
+    3.  **Implementation Notes:**
+        - The `createSession` procedure should be added to the existing router file at `src/server/api/routers/interview.ts`.
 
-*   **Frontend Tests (`/src/app/(app)/create-interview/page.test.tsx`)**
-    1.  **(Red)** Write a test that renders the `CreateInterviewPage`, simulates filling out the form, and clicks the "Start Interview" button.
-    2.  **(Red)** Mock the `api.interview.createSession.useMutation` hook and assert that it was called.
+*   **Frontend Tests (`src/app/(app)/create-interview/page.test.tsx`)**
+    1.  **(Red)** Write a test that renders the `CreateInterviewPage`, simulates filling out the two text areas, and clicks the "Start Interview" button.
+    2.  **(Red)** Mock the `api.interview.createSession.useMutation` hook and assert that it was called with the correct structured input, e.g., `{ jobDescription: { type: 'text', content: '...' } }`.
 
 ### 4. Lobby & Feedback Pages (`getById`)
 
-*   **Backend Tests (`/tests/server/routers/interview.test.ts`)**
+*   **Backend Tests (`src/server/api/routers/interview.test.ts`)**
     1.  **(Red)** Write a test for an `interview.getById` procedure that fails.
     2.  **(Red)** The test should seed a full interview record (including feedback) in the test database, call the procedure with that ID, and assert that the returned object contains all the correct details.
     3.  **(Red)** Write a security test to ensure that a user cannot fetch an interview that does not belong to them.
 
-*   **Frontend Tests (`/src/app/(app)/interview/[interviewId]/lobby/page.test.tsx`)**
+*   **Frontend Tests (`src/app/(app)/interview/[interviewId]/lobby/page.test.tsx`)**
     1.  **(Red)** Write a test that renders the `InterviewLobbyPage`. Mock the `api.interview.getById.useQuery` hook to return a mock interview object.
     2.  **(Red)** Assert that the "Interview Details" (Type, Duration, etc.) are correctly rendered from the mock data.
 
@@ -218,7 +420,7 @@ This is the recommended order of implementation, starting with the simplest, mos
     - **Why second?** We must be able to *create* interviews before we can view them. This implements the entry point to the core application flow.
 
 3.  **Dashboard Page (`getHistory`)**
-    - **Why third?** Now that interviews can be created, we can implement the page to *list* them. This depends on the `createSession` feature being complete.
+    - **Why third??** Now that interviews can be created, we can implement the page to *list* them. This depends on the `createSession` feature being complete.
 
 4.  **Lobby Page (`getById`)**
     - **Why fourth?** This is the next step in the user journey, requiring a query for a single, specific interview's details.
@@ -237,9 +439,52 @@ This section specifies the file paths for the tRPC routers that will be implemen
     - **Path:** `/Users/jasonbxu/Documents/GitHub/preppal/src/server/api/routers/interview.ts`
     - **Action:** This file already exists. It needs to be modified to add the missing procedures (`createSession`, `getHistory`, `getById`, `getCurrent`) and to refactor the old `getFeedback` logic into `getById`.
 
-2.  **`user.ts` (Create)**
-    - **Path:** `/Users/jasonbxu/Documents/GitHub/preppal/src/server/api/routers/user.ts`
-    - **Action:** This file does not exist yet and needs to be created to house the `getProfile` procedure.
+2.  **`user.ts` (Create)** - ✅ COMPLETED
+    - **Path:** `src/server/api/routers/user.ts`
+    - **Action:** Created with the `getProfile` procedure.
+    - **Registration:** After creating, must register in `src/server/api/root.ts`:
+      ```typescript
+      import { userRouter } from "~/server/api/routers/user";
+
+      export const appRouter = createTRPCRouter({
+        user: userRouter,
+        interview: interviewRouter,
+      });
+      ```
+
+## Data Snapshot Strategy
+
+To handle different input sources (raw text, URLs, library items) in a scalable way, the `createSession` mutation will use a flexible "dispatcher" pattern. This keeps the API endpoint stable for the future.
+
+The input for `jobDescription` and `resume` will be a structured object that defines the `type` of the source. The backend will then use a helper function to resolve this input into a text snapshot before saving it to the database.
+
+**Example Backend Logic:**
+
+```typescript
+// Helper function to resolve input to a text snapshot
+async function getSnapshotText(input: z.infer<typeof JobOrResumeInput>): Promise<string> {
+  switch (input.type) {
+    case "text":
+      return input.content; // MVP implementation
+    case "url":
+      // Future implementation: call a web scraper
+      throw new Error("URL inputs are not supported yet.");
+    case "library":
+      // Future implementation: fetch from the database
+      throw new Error("Library inputs are not supported yet.");
+    default:
+      throw new Error("Invalid input type.");
+  }
+}
+
+// In the createSession mutation...
+const jdSnapshot = await getSnapshotText(input.jobDescription);
+const resumeSnapshot = await getSnapshotText(input.resume);
+
+// ...then create the interview record with these snapshots.
+```
+
+This approach is ideal for the MVP as it provides a clear path for future expansion without requiring disruptive changes to the API contract.
 
 ## Zod Input Validation Schemas
 
@@ -255,8 +500,20 @@ This section defines the Zod input validation schema for each tRPC procedure to 
 ### `interview` Router
 
 1.  **`interview.createSession`**
-    - **Schema:** `z.void()`
-    - **Reasoning:** This procedure creates an interview for the currently authenticated user. The `userId` is taken from the session context.
+    - **Schema:**
+      ```typescript
+      const JobOrResumeInput = z.discriminatedUnion("type", [
+        z.object({ type: z.literal("text"), content: z.string().min(1) }),
+        z.object({ type: z.literal("url"), url: z.string().url() }),
+        z.object({ type: z.literal("library"), id: z.string().cuid() }),
+      ]);
+
+      export const CreateSessionInput = z.object({
+        jobDescription: JobOrResumeInput,
+        resume: JobOrResumeInput,
+      });
+      ```
+    - **Reasoning:** This schema uses a discriminated union to create a flexible and future-proof API. It can accept raw text (for the MVP), and can be extended to accept URLs or library item IDs in the future without changing the API signature. The frontend for the MVP will send `{ type: 'text', content: '...' }`.
 
 2.  **`interview.getHistory`**
     - **Schema:** `z.void()`

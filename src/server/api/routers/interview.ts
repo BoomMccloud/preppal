@@ -1,7 +1,129 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import { TRPCError } from "@trpc/server";
+import { Prisma } from "@prisma/client";
+
+// Discriminated union for job description input
+const JobDescriptionInput = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("text"),
+    content: z.string().min(1),
+  }),
+  z.object({
+    type: z.literal("reference"),
+    jobDescriptionId: z.string(),
+  }),
+]);
+
+// Discriminated union for resume input
+const ResumeInput = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("text"),
+    content: z.string().min(1),
+  }),
+  z.object({
+    type: z.literal("reference"),
+    resumeId: z.string(),
+  }),
+]);
 
 export const interviewRouter = createTRPCRouter({
+  createSession: protectedProcedure
+    .input(
+      z.object({
+        jobDescription: JobDescriptionInput,
+        resume: ResumeInput,
+        idempotencyKey: z.string().min(1),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      try {
+        // First, check if an interview with this idempotency key already exists
+        const existingInterview = await ctx.db.interview.findUnique({
+          where: {
+            idempotencyKey: input.idempotencyKey,
+          },
+        });
+
+        // If it exists, return the existing interview (idempotent behavior)
+        if (existingInterview) {
+          return existingInterview;
+        }
+
+        // Extract job description content or reference
+        let jobDescriptionSnapshot: string | null = null;
+        let jobDescriptionId: string | null = null;
+
+        if (input.jobDescription.type === "text") {
+          jobDescriptionSnapshot = input.jobDescription.content;
+        } else {
+          jobDescriptionId = input.jobDescription.jobDescriptionId;
+          // Fetch the job description content from the reference
+          const jd = await ctx.db.jobDescription.findUnique({
+            where: { id: input.jobDescription.jobDescriptionId },
+          });
+          if (jd) {
+            jobDescriptionSnapshot = jd.content;
+          }
+        }
+
+        // Extract resume content or reference
+        let resumeSnapshot: string | null = null;
+        let resumeId: string | null = null;
+
+        if (input.resume.type === "text") {
+          resumeSnapshot = input.resume.content;
+        } else {
+          resumeId = input.resume.resumeId;
+          // Fetch the resume content from the reference
+          const resume = await ctx.db.resume.findUnique({
+            where: { id: input.resume.resumeId },
+          });
+          if (resume) {
+            resumeSnapshot = resume.content;
+          }
+        }
+
+        // Create new interview with PENDING status
+        const interview = await ctx.db.interview.create({
+          data: {
+            userId: ctx.session.user.id,
+            jobDescriptionSnapshot,
+            jobDescriptionId,
+            resumeSnapshot,
+            resumeId,
+            idempotencyKey: input.idempotencyKey,
+            status: "PENDING",
+          },
+        });
+
+        return interview;
+      } catch (error) {
+        // Handle unique constraint violation (race condition case)
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === "P2002"
+        ) {
+          // Fetch and return the existing interview
+          const existingInterview = await ctx.db.interview.findUnique({
+            where: {
+              idempotencyKey: input.idempotencyKey,
+            },
+          });
+
+          if (existingInterview) {
+            return existingInterview;
+          }
+        }
+
+        // Re-throw unexpected errors
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to create interview",
+        });
+      }
+    }),
+
   getFeedback: protectedProcedure
     .input(z.object({ interviewId: z.string() }))
     .query(async ({ ctx, input }) => {
