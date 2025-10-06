@@ -65,11 +65,20 @@ To prevent users from accidentally creating duplicate interview sessions (e.g., 
     1.  **Data Fetching:** Use `api.user.getProfile` to fetch the current user's profile data when the page loads. Returns only `{ name: string | null, email: string | null }` (read-only, populated from NextAuth).
     2.  **Read-Only Display:** The profile page is read-only since login information already includes this data. No update mutation needed.
 
-### 4. Interview Lobby Page
+### 4. Interview Lobby Page - ✅ COMPLETED
 
 - **File:** `src/app/(app)/interview/[interviewId]/lobby/page.tsx`
-- **Problem:** The page displays hardcoded interview details (Type, Duration, Level, Status) and does not fetch data specific to the `interviewId`.
-- **Solution:** This page acts as a pre-flight checklist. It should be a Server Component that fetches data using the `api.interview.getById` tRPC query to populate the interview details. It will also display the status of browser permissions (camera, microphone) and other checks before the user proceeds. The "Start Interview" button will be a standard Next.js `<Link>` to the session page.
+- **Status:** ✅ Fully implemented as Server Component with all status handling and error states
+- **Implementation Details:**
+  - Server-side data fetching using `await api.interview.getById.query({ id })`
+  - Status-based logic: COMPLETED → redirect, IN_PROGRESS/ERROR → error UI, PENDING → lobby UI
+  - Job description truncation (100 characters + "...")
+  - Error handling for NOT_FOUND with security message
+  - Pre-interview checklist UI with camera/microphone status
+  - "Start Interview" link to session page
+  - "Return to Dashboard" link on all error states
+- **Tests:** 8/8 passing (see `src/app/(app)/interview/[interviewId]/lobby/page.test.tsx`)
+- **Specification:** Full details in `docs/06_lobby_page_spec.md`
 
 ### 5. Interview Session Page
 
@@ -398,38 +407,42 @@ Before writing tests, ensure the following setup is complete:
     1.  **(Red)** Write a test that renders the `CreateInterviewPage`, simulates filling out the two text areas, and clicks the "Start Interview" button.
     2.  **(Red)** Mock the `api.interview.createSession.useMutation` hook and assert that it was called with the correct structured input, e.g., `{ jobDescription: { type: 'text', content: '...' } }`.
 
-### 4. Lobby & Feedback Pages (`getById`)
+### 4. Lobby & Feedback Pages (`getById`) - ✅ COMPLETED
 
-*   **Backend Tests (`src/server/api/routers/interview.test.ts`)**
-    1.  **(Red)** Write a test for an `interview.getById` procedure that fails.
-    2.  **(Red)** The test should seed a full interview record (including feedback) in the test database, call the procedure with that ID, and assert that the returned object contains all the correct details.
-    3.  **(Red)** Write a security test to ensure that a user cannot fetch an interview that does not belong to them.
+*   **Backend Tests (`src/test/integration/dashboard.test.ts`)** - ✅ COMPLETED
+    1.  ✅ `getById` procedure implemented and tested (5/5 tests passing)
+    2.  ✅ Tests verify correct data return with all required fields
+    3.  ✅ Security tests ensure users cannot fetch interviews belonging to others
+    4.  ✅ NOT_FOUND error handling with security logging implemented
 
-*   **Frontend Tests (`src/app/(app)/interview/[interviewId]/lobby/page.test.tsx`)**
-    1.  **(Red)** Write tests for the `LobbyPage` Server Component. Mock the server-side `api.interview.getById` call to return different mock interview objects.
-    2.  **(Red)** Assert that the component correctly calls `redirect()` when the mock interview's status is `COMPLETED`.
-    3.  **(Red)** Assert that the component renders the correct error UI or the main lobby UI based on the status of the mock data.
+*   **Frontend Tests (`src/app/(app)/interview/[interviewId]/lobby/page.test.tsx`)** - ✅ COMPLETED
+    1.  ✅ All tests for `LobbyPage` Server Component written and passing (8/8 tests)
+    2.  ✅ Tests verify `redirect()` is called when status is `COMPLETED`
+    3.  ✅ Tests verify correct error UI for IN_PROGRESS and ERROR statuses
+    4.  ✅ Tests verify main lobby UI renders correctly for PENDING status
+    5.  ✅ Tests verify job description truncation logic
+    6.  ✅ Tests verify NOT_FOUND error handling
 
 ## Implementation Order
 
 This is the recommended order of implementation, starting with the simplest, most isolated feature and progressing to the most complex. This allows for incremental building and verification.
 
-1.  **Profile Page (`getProfile`)**
+1.  ✅ **Profile Page (`getProfile`)** - COMPLETED
     - **Why first?** This is the most isolated feature. It only involves the `User` model (read-only) and doesn't depend on the interview flow, making it perfect for establishing the TDD workflow.
 
-2.  **Create Interview Page (`createSession`)**
+2.  **Create Interview Page (`createSession`)** - PENDING
     - **Why second?** We must be able to *create* interviews before we can view them. This implements the entry point to the core application flow.
 
-3.  **Dashboard Page (`getHistory`)**
-    - **Why third??** Now that interviews can be created, we can implement the page to *list* them. This depends on the `createSession` feature being complete.
+3.  ✅ **Dashboard Page (`getHistory`)** - COMPLETED
+    - **Why third?** Now that interviews can be created, we can implement the page to *list* them. This depends on the `createSession` feature being complete.
 
-4.  **Lobby Page (`getById`)**
+4.  ✅ **Lobby Page (`getById`)** - COMPLETED
     - **Why fourth?** This is the next step in the user journey, requiring a query for a single, specific interview's details.
 
-5.  **Feedback Page (`getById`)**
+5.  **Feedback Page (`getById`)** - PENDING
     - **Why fifth?** This uses the same `api.interview.getById` endpoint as the Lobby and can be implemented immediately after, representing a different view of the same data.
 
-6.  **Interview Session Page (`getCurrent` & WebSocket)**
+6.  **Interview Session Page (`getCurrent` & WebSocket)** - PENDING
     - **Why last?** This is the most complex feature, requiring the entire real-time WebSocket infrastructure and depending on all other pieces being in place.
 
 ## Router File Locations

@@ -138,8 +138,10 @@ We are seeking a talented Senior Frontend Developer to join our growing team. Yo
     },
   });
 
-  // Create a test interview with feedback
-  const interview = await prisma.interview.upsert({
+  // Create multiple test interviews with different statuses
+
+  // 1. COMPLETED interview with feedback (original)
+  const completedInterview = await prisma.interview.upsert({
     where: { id: "demo-123" },
     update: {},
     create: {
@@ -156,6 +158,78 @@ We are seeking a talented Senior Frontend Developer to join our growing team. Yo
       idempotencyKey: "demo-123-seed",
     },
   });
+
+  // 2. PENDING interview (ready to start in lobby)
+  await prisma.interview.upsert({
+    where: { id: "demo-pending-456" },
+    update: {},
+    create: {
+      id: "demo-pending-456",
+      userId: user.id,
+      status: "PENDING",
+      jobTitleSnapshot: "Full Stack Engineer",
+      jobDescriptionSnapshot: `We are looking for a talented Full Stack Engineer to join our team. You will work on both frontend and backend systems, building scalable web applications using modern technologies like React, Node.js, and PostgreSQL.`,
+      resumeSnapshot: resume.content,
+      resumeId: resume.id,
+      jobDescriptionId: jobDescription.id,
+      idempotencyKey: "demo-pending-456-seed",
+    },
+  });
+
+  // 3. Another PENDING interview with longer description (to test truncation)
+  await prisma.interview.upsert({
+    where: { id: "demo-pending-789" },
+    update: {},
+    create: {
+      id: "demo-pending-789",
+      userId: user.id,
+      status: "PENDING",
+      jobTitleSnapshot: "Staff Software Engineer",
+      jobDescriptionSnapshot: `This is a very long job description that is definitely over one hundred characters long to ensure that the truncation logic is working as expected in the lobby page. We are seeking an experienced Staff Software Engineer to lead critical technical initiatives and mentor junior team members while building scalable distributed systems.`,
+      resumeSnapshot: resume.content,
+      resumeId: resume.id,
+      jobDescriptionId: jobDescription.id,
+      idempotencyKey: "demo-pending-789-seed",
+    },
+  });
+
+  // 4. IN_PROGRESS interview (should show error in lobby)
+  await prisma.interview.upsert({
+    where: { id: "demo-in-progress-321" },
+    update: {},
+    create: {
+      id: "demo-in-progress-321",
+      userId: user.id,
+      status: "IN_PROGRESS",
+      jobTitleSnapshot: "Backend Developer",
+      jobDescriptionSnapshot: `Backend Developer position focused on building RESTful APIs and microservices using Node.js, Express, and PostgreSQL. Must have experience with Docker and AWS.`,
+      resumeSnapshot: resume.content,
+      resumeId: resume.id,
+      jobDescriptionId: jobDescription.id,
+      startedAt: new Date(),
+      idempotencyKey: "demo-in-progress-321-seed",
+    },
+  });
+
+  // 5. ERROR interview (should show error in lobby)
+  await prisma.interview.upsert({
+    where: { id: "demo-error-654" },
+    update: {},
+    create: {
+      id: "demo-error-654",
+      userId: user.id,
+      status: "ERROR",
+      jobTitleSnapshot: "DevOps Engineer",
+      jobDescriptionSnapshot: `DevOps Engineer role requiring expertise in CI/CD pipelines, Kubernetes, and cloud infrastructure management.`,
+      resumeSnapshot: resume.content,
+      resumeId: resume.id,
+      jobDescriptionId: jobDescription.id,
+      startedAt: new Date(Date.now() - 600000), // 10 minutes ago
+      idempotencyKey: "demo-error-654-seed",
+    },
+  });
+
+  const interview = completedInterview; // Keep reference for feedback creation below
 
   // Create transcript entries for the interview
   const transcriptEntries = [
@@ -283,12 +357,25 @@ We are seeking a talented Senior Frontend Developer to join our growing team. Yo
     },
   });
 
-  console.log("Seed data created successfully!");
-  console.log(`Test user: ${user.email}`);
-  console.log(`Test interview: ${interview.id}`);
-  console.log(`Test resume: ${resume.id}`);
-  console.log(`Test job description: ${jobDescription.id}`);
-  console.log(`Transcript entries: ${transcriptEntries.length}`);
+  console.log("\n✅ Seed data created successfully!");
+  console.log("\n📧 Test user: ${user.email}");
+  console.log("\n📝 Interviews created:");
+  console.log("  • demo-123 (COMPLETED) - Senior Frontend Developer");
+  console.log("  • demo-pending-456 (PENDING) - Full Stack Engineer");
+  console.log("  • demo-pending-789 (PENDING) - Staff Software Engineer (long description)");
+  console.log("  • demo-in-progress-321 (IN_PROGRESS) - Backend Developer");
+  console.log("  • demo-error-654 (ERROR) - DevOps Engineer");
+  console.log(`\n📄 Test resume: ${resume.id}`);
+  console.log(`📋 Test job description: ${jobDescription.id}`);
+  console.log(`💬 Transcript entries: ${transcriptEntries.length}`);
+  console.log("\n🌐 Try these URLs:");
+  console.log("  • /interview/demo-123/lobby → redirects to feedback (COMPLETED)");
+  console.log("  • /interview/demo-123/feedback → view feedback");
+  console.log("  • /interview/demo-pending-456/lobby → shows lobby (PENDING)");
+  console.log("  • /interview/demo-pending-789/lobby → shows lobby with truncation");
+  console.log("  • /interview/demo-in-progress-321/lobby → shows error (IN_PROGRESS)");
+  console.log("  • /interview/demo-error-654/lobby → shows error (ERROR)");
+  console.log("  • /interview/invalid-id/lobby → shows NOT_FOUND error\n");
 }
 
 main()

@@ -78,24 +78,74 @@ All tests passing:
 
 # Current Task: Lobby Page Implementation (getById)
 
-## Status: 🟡 IN PROGRESS
+## Status: ✅ COMPLETED
 
 ## TDD Status
-- ✅ **RED Phase**: All tests have been written for the Server Component and are confirmed to be failing.
-- 🟡 **GREEN Phase**: Currently implementing the frontend logic to make the tests pass.
-- ⚪️ **REFACTOR Phase**: Pending.
+- ✅ **RED Phase**: All tests were written for the Server Component and confirmed to be failing.
+- ✅ **GREEN Phase**: Frontend logic implemented and all tests passing.
+- ✅ **REFACTOR Phase**: No refactoring needed (file is 166 lines, well under 300-line limit).
 
 ## Implementation Summary
 
-This task is to implement the complete Lobby Page feature (backend + frontend) as a **Server Component**, adhering to the project's server-first architectural pattern and the specifications in [docs/06_lobby_page_spec.md](./06_lobby_page_spec.md).
+Successfully implemented the complete Lobby Page feature (backend + frontend) as a **Server Component**, adhering to the project's server-first architectural pattern and the specifications in [docs/06_lobby_page_spec.md](./06_lobby_page_spec.md).
 
 ### 1. Backend (tRPC) - ✅ COMPLETED
-- The `interview.getById` query procedure has been implemented and tested.
-- It correctly enforces user ownership and provides security logging.
+- Implemented `interview.getById` query procedure in [src/server/api/routers/interview.ts](../src/server/api/routers/interview.ts)
+- Protected procedure requiring authentication
+- **Return fields:**
+  - `id`: Interview identifier
+  - `status`: Interview status (PENDING, IN_PROGRESS, COMPLETED, ERROR)
+  - `jobDescriptionSnapshot`: Full job description text (nullable)
+- **Features:**
+  - Enforces user ownership: Queries with BOTH `id` AND `userId`
+  - Single query approach for security (prevents enumeration attacks)
+  - Security logging: Logs all NOT_FOUND attempts with interview ID and user ID
+  - Throws `TRPCError` with code `NOT_FOUND` when interview doesn't exist or belongs to another user
 
-### 2. Frontend (Lobby Page) - 🟡 IN PROGRESS
-- The frontend tests have been written in `src/app/(app)/interview/[interviewId]/lobby/page.test.tsx`.
-- The tests are currently failing, as the page contains only mock UI.
-- The next step is to implement the server-side data fetching and conditional logic in the page component.
+### 2. Frontend (Lobby Page) - ✅ COMPLETED
+- Implemented Server Component in [src/app/(app)/interview/[interviewId]/lobby/page.tsx](../src/app/(app)/interview/[interviewId]/lobby/page.tsx)
+- Server-side data fetching using `await api.interview.getById.query({ id })`
+- **Status-Based Logic:**
+  - `COMPLETED` → Server-side redirect to `/interview/{id}/feedback`
+  - `IN_PROGRESS` → Error UI: "This interview is already in progress. Please refresh or contact support."
+  - `ERROR` → Error UI: "This interview has encountered an error. Please contact support."
+  - `PENDING` → Main lobby UI with interview details
+  - `NOT_FOUND` → Error UI: "Interview not found or you don't have access"
+- **UI Features:**
+  - Job description truncation: First 100 characters + "..." if longer, handles null values
+  - Pre-interview checklist (camera, microphone, network)
+  - Interview details section (static placeholders)
+  - "Start Interview" link → `/interview/{id}/session`
+  - "Return to Dashboard" link on all error states
 
-**Full Specification & Implementation Plan**: See [docs/06_lobby_page_spec.md](./06_lobby_page_spec.md)
+### 3. Frontend Tests (TDD Approach)
+- **RED → GREEN cycle** completed successfully
+- Tests in [src/app/(app)/interview/[interviewId]/lobby/page.test.tsx](../src/app/(app)/interview/[interviewId]/lobby/page.test.tsx)
+  - ✅ Renders error component for NOT_FOUND errors
+  - ✅ Redirects to feedback page when status is COMPLETED
+  - ✅ Renders error component when status is IN_PROGRESS
+  - ✅ Renders error component when status is ERROR
+  - ✅ Renders main lobby UI when status is PENDING
+  - ✅ Renders "Start Interview" link with correct URL
+  - ✅ Truncates long job description with "..."
+  - ✅ Does not truncate short job description
+
+## Test Results
+All tests passing:
+- Frontend tests: 8/8 tests passed
+- Backend integration tests: 5/5 tests passed for `getById`
+
+## API Contract
+```typescript
+// Procedure: interview.getById
+// Type: query (protected)
+// Input: { id: string }
+// Output: {
+//   id: string;
+//   status: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "ERROR";
+//   jobDescriptionSnapshot: string | null;
+// }
+// Errors: TRPCError with code "NOT_FOUND"
+```
+
+**Full Specification**: See [docs/06_lobby_page_spec.md](./06_lobby_page_spec.md)
