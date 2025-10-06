@@ -101,7 +101,7 @@ In the Next.js App Router, components are **Server Components by default**. You 
 | **Dashboard** | `dashboard/page.tsx` | Client | Needs `useQuery` to fetch the interview history and `useState` for the loading state. |
 | **Create Interview** | `create-interview/page.tsx` | Client | Needs `useState` for form inputs and `useMutation` to submit the form. |
 | **Profile** | `profile/page.tsx` | Client | Needs `useQuery` to fetch the user's profile data. |
-| **Lobby** | `lobby/page.tsx` | Server | Fetches data on the server with `await api.interview.getById(...)` and passes it to smaller, potentially client-based UI components. No client-side interactivity is needed for the page itself. |
+| **Lobby** | `lobby/page.tsx` | Server | Fetches data on the server with `await api.interview.getById(...)`. This is the established architectural pattern for data-display pages, as finalized in `docs/06_lobby_page_spec.md`. |
 | **Feedback** | `feedback/page.tsx` | Server | Already implemented as a Server Component. It fetches data and passes it to the client-side `feedback-tabs.tsx`. |
 | **Session** | `session/page.tsx` | Client | The most complex client component. Manages real-time state, WebSockets, and user interaction via `useState` and `useEffect`. |
 
@@ -406,8 +406,9 @@ Before writing tests, ensure the following setup is complete:
     3.  **(Red)** Write a security test to ensure that a user cannot fetch an interview that does not belong to them.
 
 *   **Frontend Tests (`src/app/(app)/interview/[interviewId]/lobby/page.test.tsx`)**
-    1.  **(Red)** Write a test that renders the `InterviewLobbyPage`. Mock the `api.interview.getById.useQuery` hook to return a mock interview object.
-    2.  **(Red)** Assert that the "Interview Details" (Type, Duration, etc.) are correctly rendered from the mock data.
+    1.  **(Red)** Write tests for the `LobbyPage` Server Component. Mock the server-side `api.interview.getById` call to return different mock interview objects.
+    2.  **(Red)** Assert that the component correctly calls `redirect()` when the mock interview's status is `COMPLETED`.
+    3.  **(Red)** Assert that the component renders the correct error UI or the main lobby UI based on the status of the mock data.
 
 ## Implementation Order
 
