@@ -69,7 +69,7 @@ describe("Backend Integration Tests", () => {
     };
     const createdInterview = await caller.interview.createSession(createInput);
 
-    // ACT: Call the (not-yet-implemented) getHistory procedure
+    // ACT: Call the getHistory procedure
     const history = await caller.interview.getHistory();
 
     // ASSERT: The new interview should be in the history
@@ -77,6 +77,119 @@ describe("Backend Integration Tests", () => {
       (interview) => interview.id === createdInterview.id,
     );
     expect(foundInterview).toBeDefined();
+
+    // ASSERT: The returned fields should match the specification
+    expect(foundInterview).toHaveProperty("id");
+    expect(foundInterview).toHaveProperty("status");
+    expect(foundInterview).toHaveProperty("createdAt");
+    expect(foundInterview).toHaveProperty("jobTitleSnapshot");
+  });
+
+  it("should return interviews sorted by newest first", async () => {
+    // ARRANGE: Create multiple interviews with slight time delay
+    const firstInterview = await caller.interview.createSession({
+      jobDescription: { type: "text", content: "First Interview JD" },
+      resume: { type: "text", content: "First Resume" },
+      idempotencyKey: `sort-test-first-${Date.now()}`,
+    });
+
+    // Small delay to ensure different timestamps
+    await new Promise(resolve => setTimeout(resolve, 10));
+
+    const secondInterview = await caller.interview.createSession({
+      jobDescription: { type: "text", content: "Second Interview JD" },
+      resume: { type: "text", content: "Second Resume" },
+      idempotencyKey: `sort-test-second-${Date.now()}`,
+    });
+
+    // ACT: Get history
+    const history = await caller.interview.getHistory();
+
+    // ASSERT: Second interview (newer) should come before first interview
+    const firstIndex = history.findIndex(i => i.id === firstInterview.id);
+    const secondIndex = history.findIndex(i => i.id === secondInterview.id);
+
+    expect(secondIndex).toBeLessThan(firstIndex);
+  });
+
+  it("should generate jobTitleSnapshot from first 30 characters of jobDescriptionSnapshot", async () => {
+    // ARRANGE: Create interview with long job description
+    const longJobDescription = "This is a very long job description that exceeds thirty characters and should be truncated";
+
+    const interview = await caller.interview.createSession({
+      jobDescription: { type: "text", content: longJobDescription },
+      resume: { type: "text", content: "Test Resume" },
+      idempotencyKey: `title-test-${Date.now()}`,
+    });
+
+    // ACT: Get history
+    const history = await caller.interview.getHistory();
+
+    // ASSERT: Find the created interview in history
+    const foundInterview = history.find(i => i.id === interview.id);
+
+    expect(foundInterview).toBeDefined();
+    expect(foundInterview!.jobTitleSnapshot).toBe(longJobDescription.substring(0, 30));
+    expect(foundInterview!.jobTitleSnapshot?.length).toBeLessThanOrEqual(30);
+  });
+
+  it("should return empty array when user has no interviews", async () => {
+    // ARRANGE: Create a new user with no interviews
+    const newUser = await db.user.create({
+      data: {
+        email: `empty-user-${Date.now()}@example.com`,
+        name: "Empty User",
+      },
+    });
+
+    const emptyUserCaller = appRouter.createCaller({
+      db,
+      session: {
+        user: { id: newUser.id, name: newUser.name, email: newUser.email },
+        expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      },
+      headers: new Headers(),
+    });
+
+    // ACT: Get history
+    const history = await emptyUserCaller.interview.getHistory();
+
+    // ASSERT: Should return empty array
+    expect(history).toEqual([]);
+
+    // Cleanup
+    await db.user.delete({ where: { id: newUser.id } });
+  });
+
+  it("should only return interviews belonging to the authenticated user", async () => {
+    // ARRANGE: Create interviews for both users
+    const testUserInterview = await caller.interview.createSession({
+      jobDescription: { type: "text", content: "Test User JD" },
+      resume: { type: "text", content: "Test Resume" },
+      idempotencyKey: `isolation-test-user-${Date.now()}`,
+    });
+
+    const otherUserCaller = appRouter.createCaller({
+      db,
+      session: {
+        user: { id: otherUser.id, name: otherUser.name, email: otherUser.email },
+        expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      },
+      headers: new Headers(),
+    });
+
+    const otherUserInterview = await otherUserCaller.interview.createSession({
+      jobDescription: { type: "text", content: "Other User JD" },
+      resume: { type: "text", content: "Other Resume" },
+      idempotencyKey: `isolation-other-user-${Date.now()}`,
+    });
+
+    // ACT: Get history for test user
+    const testUserHistory = await caller.interview.getHistory();
+
+    // ASSERT: Should only contain test user's interview, not other user's
+    expect(testUserHistory.some(i => i.id === testUserInterview.id)).toBe(true);
+    expect(testUserHistory.some(i => i.id === otherUserInterview.id)).toBe(false);
   });
 
   it("should fetch a specific interview by ID, but deny access to other users", async () => {

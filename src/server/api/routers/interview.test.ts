@@ -12,6 +12,7 @@ vi.mock("~/server/db", () => ({
     interview: {
       create: vi.fn(),
       findUnique: vi.fn(),
+      findMany: vi.fn(),
     },
   },
 }));
@@ -154,5 +155,62 @@ describe("interview.createSession", () => {
 
     // Verify create was NOT called (idempotent behavior)
     expect(db.interview.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("interview.getHistory", () => {
+  it("should return a list of past interviews for the current user", async () => {
+    // ARRANGE
+    const { db } = await import("~/server/db");
+    const { createCaller } = await import("~/server/api/root");
+
+    const mockSession: Session = {
+      user: { id: "test-user-id", name: "Test User", email: "test@test.com" },
+      expires: new Date().toISOString(),
+    };
+
+    const mockInterviews = [
+      {
+        id: "int-1",
+        status: "COMPLETED",
+        jobTitleSnapshot: "FE Dev",
+        createdAt: new Date(),
+      },
+      {
+        id: "int-2",
+        status: "PENDING",
+        jobTitleSnapshot: "BE Dev",
+        createdAt: new Date(),
+      },
+    ];
+
+    // Mock the database call
+    vi.mocked(db.interview.findMany).mockResolvedValue(mockInterviews);
+
+    const caller = createCaller({ db, session: mockSession, headers: new Headers() });
+
+    // ACT: This will fail because getHistory doesn't exist yet
+    const result = await caller.interview.getHistory();
+
+    // ASSERT
+    // 1. Check if the result matches the mock data
+    expect(result).toHaveLength(2);
+    expect(result[0].id).toBe("int-1");
+
+    // 2. Check if the database was called with the correct query
+    expect(db.interview.findMany).toHaveBeenCalledWith({
+      where: {
+        userId: "test-user-id",
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      select: {
+        id: true,
+        status: true,
+        jobTitleSnapshot: true,
+        createdAt: true,
+      },
+    });
   });
 });

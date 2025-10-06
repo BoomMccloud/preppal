@@ -1,67 +1,79 @@
-# Current Task: Create Interview Page Implementation
+# Current Task: Dashboard Page Implementation (getHistory)
 
 ## Status: ✅ COMPLETED
 
 ## Implementation Summary
 
-Successfully implemented the Create Interview page with full TDD approach following the red-green-refactor cycle, adhering to the specifications in `docs/11_trcp.md`. **Fixed resume snapshot issue identified by company feedback.**
+Successfully implemented the complete Dashboard feature (backend + frontend) with full TDD approach following the red-green-refactor cycle, adhering to the specifications in `docs/11_trcp.md`.
 
 ## Changes Made
 
-### 1. Database Schema
-- Added `idempotencyKey String @unique` field to Interview model in [prisma/schema.prisma](../prisma/schema.prisma#L80)
-- **Added `resumeSnapshot String?` field to Interview model** in [prisma/schema.prisma](../prisma/schema.prisma#L97)
-- Applied schema changes with `pnpm db:push`
+### 1. Backend (tRPC)
+- Implemented `interview.getHistory` query procedure in [src/server/api/routers/interview.ts](../src/server/api/routers/interview.ts#L127)
+- Protected procedure requiring authentication
+- Returns array of interviews for authenticated user only
+- **Return fields:**
+  - `id`: Interview identifier
+  - `status`: Interview status (PENDING, IN_PROGRESS, COMPLETED, ERROR)
+  - `createdAt`: Creation timestamp
+  - `jobTitleSnapshot`: First 30 characters of jobDescriptionSnapshot
+- **Features:**
+  - Sorted by `createdAt` descending (newest first)
+  - Data isolation: Only returns interviews belonging to authenticated user
+  - Returns empty array for users with no interviews
+  - Transform logic: Generates `jobTitleSnapshot` from `jobDescriptionSnapshot.substring(0, 30)`
 
-### 2. Backend (tRPC)
-- Implemented `interview.createSession` mutation in [src/server/api/routers/interview.ts](../src/server/api/routers/interview.ts#L31)
-- Input validation with Zod using a `discriminatedUnion` for `jobDescription` and `resume` inputs, plus an `idempotencyKey`.
-- **Resume content handling:**
-  - For `type: "text"`: Saves resume content to `resumeSnapshot`
-  - For `type: "reference"`: Fetches resume from database and saves to `resumeSnapshot`
-- Job Description content handling:
-  - For `type: "text"`: Saves content to `jobDescriptionSnapshot`
-  - For `type: "reference"`: Fetches from database and saves to `jobDescriptionSnapshot`
-- Idempotency check: Returns existing interview if `idempotencyKey` already exists.
-- Race condition handling: Catches Prisma unique constraint errors.
-- Creates interview with `PENDING` status.
+### 2. Frontend (Dashboard Page)
+- Converted Dashboard page to client component in [src/app/(app)/dashboard/page.tsx](../src/app/(app)/dashboard/page.tsx)
+- Integrated tRPC `api.interview.getHistory.useQuery()` hook
+- **UI Features:**
+  - Loading state: Shows "Loading sessions..." while fetching
+  - Error state: Displays error message if fetch fails
+  - Empty state: Shows "Your recent interview sessions will appear here" when no interviews exist
+  - Interview list display:
+    - Shows `jobTitleSnapshot` as main text
+    - Formatted date using `Intl.DateTimeFormat` (e.g., "October 27, 2023")
+    - Dynamic links based on status:
+      - `COMPLETED` → `/interview/{id}/feedback` with "View Feedback" text
+      - `PENDING` → `/interview/{id}/lobby` with "Enter Lobby" text
 
-### 3. Frontend
-- Converted Create Interview page to client component in [src/app/(app)/create-interview/page.tsx](../src/app/(app)/create-interview/page.tsx)
-- Implemented text areas for Job Description and Resume.
-- Form state management with `useState` hooks.
-- Idempotency key generated once on component mount using `useState(() => ...)`
-- tRPC mutation integration with `api.interview.createSession.useMutation`.
-- Sends data as discriminated unions: `{ type: "text", content: "..." }`
-- Programmatic redirect to lobby on success.
-- Inline error message display (no toast library needed).
-- Button disabled when fields are empty or submission pending.
-- Loading state shows "Creating..." text.
+### 3. Backend Integration Tests (TDD Approach)
+- **RED → GREEN cycle** completed successfully
+- Integration tests in [src/test/integration/dashboard.test.ts](../src/test/integration/dashboard.test.ts)
+  - ✅ Lists newly created interview with all required fields
+  - ✅ Returns interviews sorted by newest first
+  - ✅ Generates jobTitleSnapshot from first 30 characters
+  - ✅ Returns empty array when user has no interviews
+  - ✅ Only returns interviews belonging to authenticated user
+  - ✅ Verifies proper data isolation between users
 
-### 4. Tests (TDD Approach)
-- **RED → GREEN → REFACTOR** cycle followed for both initial implementation and resume snapshot fix
-- Backend tests in [src/server/api/routers/interview.test.ts](../src/server/api/routers/interview.test.ts)
-  - ✅ Creates interview with PENDING status using discriminated union inputs
-  - ✅ **Verifies resumeSnapshot is saved correctly**
-  - ✅ Returns existing interview for duplicate idempotencyKey
-- Frontend tests in [src/app/(app)/create-interview/page.test.tsx](../src/app/(app)/create-interview/page.test.tsx)
-  - ✅ Calls mutation with discriminated union structure
-  - ✅ Button disabled when fields empty
-  - ✅ Button enabled when both fields filled
-  - ✅ Redirects to lobby on success
-  - ✅ Displays error message on failure
-
-### 5. Seed Data
-- Updated [prisma/seed.ts](../prisma/seed.ts#L151) to include `idempotencyKey` and **`resumeSnapshot`** for demo interview.
+### 4. Frontend Tests
+- Frontend tests in [src/app/(app)/dashboard/page.test.tsx](../src/app/(app)/dashboard/page.test.tsx)
+  - ✅ Displays loading message while fetching data
+  - ✅ Displays error message if fetching fails
+  - ✅ Displays empty state when no interviews exist
+  - ✅ Renders list of interviews with correct links (COMPLETED → feedback, PENDING → lobby)
+  - ✅ Displays formatted date for each interview
 
 ## Test Results
 All tests passing:
-- Backend: 2/2 tests passed
-- Frontend: 5/5 tests passed
+- Backend integration tests: 6/6 tests passed for `getHistory`
+- Frontend tests: 5/5 tests passed
+- Auth integration tests: 10/10 tests passed (separate auth test suite)
 
-## Company Feedback Addressed
-✅ **Fixed critical issue**: Resume content is now properly saved to `resumeSnapshot` field in the database, ensuring complete historical records for all interviews.
+## API Contract
+```typescript
+// Procedure: interview.getHistory
+// Type: query (protected)
+// Input: void
+// Output: Array<{
+//   id: string;
+//   status: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "ERROR";
+//   createdAt: Date;
+//   jobTitleSnapshot: string | null;
+// }>
+```
 
 ## Next Steps
 According to [docs/11_trcp.md](./11_trcp.md), the next implementation should be:
-1. Dashboard Page (`getHistory`) - to list created interviews
+1. **Lobby Page (`getById`)** - Backend and frontend implementation for viewing individual interview details

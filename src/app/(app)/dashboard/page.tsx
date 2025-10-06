@@ -1,6 +1,11 @@
+"use client";
+
 import Link from "next/link";
+import { api } from "~/trpc/react";
 
 export default function DashboardPage() {
+  const { data: interviews, isLoading, error } = api.interview.getHistory.useQuery();
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
@@ -22,21 +27,55 @@ export default function DashboardPage() {
 
         <div className="bg-secondary/50 backdrop-blur-sm rounded-lg p-6 border border-secondary-text/10">
           <h2 className="text-xl font-semibold text-primary-text mb-2">Recent Sessions</h2>
-          <p className="text-secondary-text mb-4">Your recent interview sessions will appear here</p>
-          <div className="space-y-2">
-            <Link
-              href="/interview/demo-123/feedback"
-              className="block text-accent hover:text-accent/80 text-sm transition-colors"
-            >
-              Demo Session #123 - View Feedback
-            </Link>
-            <Link
-              href="/interview/demo-456/lobby"
-              className="block text-accent hover:text-accent/80 text-sm transition-colors"
-            >
-              Demo Session #456 - Enter Lobby
-            </Link>
-          </div>
+
+          {isLoading && (
+            <p className="text-secondary-text mb-4">Loading sessions...</p>
+          )}
+
+          {error && (
+            <p className="text-red-500 mb-4">Failed to load sessions. Please try again.</p>
+          )}
+
+          {!isLoading && !error && interviews && interviews.length === 0 && (
+            <p className="text-secondary-text mb-4">Your recent interview sessions will appear here</p>
+          )}
+
+          {!isLoading && !error && interviews && interviews.length > 0 && (
+            <div className="space-y-2">
+              {interviews.map((interview) => {
+                const targetPath = interview.status === "COMPLETED"
+                  ? `/interview/${interview.id}/feedback`
+                  : `/interview/${interview.id}/lobby`;
+
+                const linkText = interview.status === "COMPLETED"
+                  ? "View Feedback"
+                  : "Enter Lobby";
+
+                const formattedDate = new Intl.DateTimeFormat("en-US", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                }).format(new Date(interview.createdAt));
+
+                return (
+                  <div key={interview.id} className="text-sm">
+                    <div className="text-primary-text font-medium">
+                      {interview.jobTitleSnapshot}
+                    </div>
+                    <div className="text-secondary-text text-xs">
+                      {formattedDate}
+                    </div>
+                    <Link
+                      href={targetPath}
+                      className="text-accent hover:text-accent/80 transition-colors"
+                    >
+                      {linkText}
+                    </Link>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div className="bg-secondary/50 backdrop-blur-sm rounded-lg p-6 border border-secondary-text/10">

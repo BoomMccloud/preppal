@@ -124,6 +124,34 @@ export const interviewRouter = createTRPCRouter({
       }
     }),
 
+  getHistory: protectedProcedure
+    .input(z.void())
+    .query(async ({ ctx }) => {
+      // Fetch all interviews for the authenticated user
+      const interviews = await ctx.db.interview.findMany({
+        where: {
+          userId: ctx.session.user.id,
+        },
+        select: {
+          id: true,
+          status: true,
+          createdAt: true,
+          jobDescriptionSnapshot: true,
+        },
+        orderBy: {
+          createdAt: "desc", // Newest first
+        },
+      });
+
+      // Transform to include jobTitleSnapshot (first 30 chars)
+      return interviews.map((interview) => ({
+        id: interview.id,
+        status: interview.status,
+        createdAt: interview.createdAt,
+        jobTitleSnapshot: interview.jobDescriptionSnapshot?.substring(0, 30) ?? null,
+      }));
+    }),
+
   getFeedback: protectedProcedure
     .input(z.object({ interviewId: z.string() }))
     .query(async ({ ctx, input }) => {
