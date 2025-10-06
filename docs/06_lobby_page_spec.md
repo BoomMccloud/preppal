@@ -139,25 +139,48 @@ export default async function LobbyPage({ params }: { params: { interviewId: str
 
 ---
 
-## Implementation Order (TDD Methodology)
+## Implementation Checklist & TDD Plan
 
-### Phase 1: Backend Implementation (RED → GREEN)
-(No changes from original)
-1.  **RED**: Verify existing integration tests for `getById` fail.
-2.  **GREEN**: Implement `interview.getById` procedure in `src/server/api/routers/interview.ts`.
-3.  **VERIFY**: Ensure all backend tests pass and logging works.
+This checklist outlines the full implementation process following TDD methodology.
 
-### Phase 2: Frontend Tests (RED)
-1.  Create `src/app/(app)/interview/[interviewId]/lobby/page.test.tsx`.
-2.  Write all test cases for the Server Component as listed above.
-3.  Run tests - all should fail.
+### Phase 1: Backend Implementation (RED → GREEN) - ✅ COMPLETED
+- [x] **RED**: Run the existing integration test for `getById` in `src/test/integration/dashboard.test.ts` to verify it fails.
+- [x] **GREEN**: Implement the `interview.getById` procedure in `src/server/api/routers/interview.ts`.
+  - [x] Make it a protected procedure requiring authentication.
+  - [x] Define input schema: `{ id: string }`.
+  - [x] Define output schema: `{ id, status, jobDescriptionSnapshot }`.
+  - [x] Enforce user ownership by querying with both `id` and `userId`.
+  - [x] Throw a `NOT_FOUND` TRPCError if no record is found.
+  - [x] Add a console log for all `NOT_FOUND` attempts for security monitoring.
+- [x] **VERIFY**: Run all backend integration tests and verify they pass.
 
-### Phase 3: Frontend Implementation (GREEN)
-1.  Update `src/app/(app)/interview/[interviewId]/lobby/page.tsx` to be an `async` Server Component.
-2.  Implement the server-side `api.interview.getById` call within a `try...catch` block.
-3.  Add the server-side logic for redirects and rendering different UI states based on the interview `status`.
-4.  Pass data down to presentational client components as needed.
-5.  Run tests until all pass.
+### Phase 2: Frontend Tests (RED) - ✅ COMPLETED
+- [x] Create the test file: `src/app/(app)/interview/[interviewId]/lobby/page.test.tsx`.
+- [x] Write all test cases for the `LobbyPage` Server Component:
+  - [x] Test that it renders the error component if `getById` throws a `NOT_FOUND` error.
+  - [x] Test that it calls `redirect` to the feedback page if the interview `status` is `COMPLETED`.
+  - [x] Test that it renders an error component if `status` is `IN_PROGRESS`.
+  - [x] Test that it renders an error component if `status` is `ERROR`.
+  - [x] Test that it renders the main lobby UI when `status` is `PENDING`.
+  - [x] Test that it correctly truncates a long job description with "...".
+  - [x] Test that it renders a "Start Interview" link pointing to the correct session URL.
+- [x] **VERIFY**: Run the frontend tests and confirm that all fail as expected.
+
+### Phase 3: Frontend Implementation (GREEN) - 🟡 IN PROGRESS
+- [ ] Update `src/app/(app)/interview/[interviewId]/lobby/page.tsx`.
+  - [ ] Convert the page to an `async` Server Component.
+  - [ ] Implement the server-side `await api.interview.getById(...)` call within a `try...catch` block.
+  - [ ] Implement the server-side `redirect()` for the `COMPLETED` status.
+  - [ ] Implement conditional rendering for all error states (`NOT_FOUND`, `IN_PROGRESS`, `ERROR`).
+  - [ ] For the `PENDING` status, render the main lobby UI and pass the fetched `interview` data to it.
+    - [ ] Display the (potentially truncated) `jobDescriptionSnapshot`.
+    - [ ] Ensure the "Start Interview" button is a Next.js `<Link>` pointing to `/interview/{id}/session`.
+    - [ ] Ensure the "Back to Dashboard" button is a `<Link>` to `/dashboard`.
+- [ ] **VERIFY**: Run all frontend and backend tests until they all pass.
+
+### Phase 4: Documentation
+- [ ] Update `docs/05_current_task.md` with the final implementation summary.
+- [ ] Ensure this specification document is fully aligned with the final code.
 
 ---
 
