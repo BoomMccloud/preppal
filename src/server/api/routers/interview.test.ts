@@ -218,6 +218,139 @@ describe("interview.getHistory", () => {
   });
 });
 
+describe("interview.getById", () => {
+  const mockSession: Session = {
+    user: {
+      id: "test-user-id",
+      name: "John Doe",
+      email: "john@example.com",
+    },
+    expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("should fetch a COMPLETED interview with feedback when includeFeedback is true", async () => {
+    // Import after mocking
+    const { db } = await import("~/server/db");
+    const { createCaller } = await import("~/server/api/root");
+
+    const mockInterviewWithFeedback = {
+      id: "interview-with-feedback-id",
+      userId: "test-user-id",
+      status: "COMPLETED" as const,
+      jobTitleSnapshot: null,
+      jobDescriptionSnapshot: "Senior Developer Position",
+      resumeSnapshot: "Resume content",
+      idempotencyKey: "test-key-feedback",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      startedAt: new Date(),
+      endedAt: new Date(),
+      resumeId: null,
+      jobDescriptionId: null,
+      feedback: {
+        id: "feedback-id",
+        interviewId: "interview-with-feedback-id",
+        overallScore: 85,
+        strengths: ["Good communication", "Technical knowledge"],
+        improvements: ["Practice behavioral questions"],
+        detailedFeedback: "Overall great performance...",
+        createdAt: new Date(),
+      },
+    };
+
+    // Mock findUnique to return interview with feedback
+    vi.mocked(db.interview.findUnique).mockResolvedValue(mockInterviewWithFeedback);
+
+    const caller = createCaller({
+      db,
+      session: mockSession,
+      headers: new Headers(),
+    });
+
+    // ACT: Call getById with includeFeedback: true
+    const result = await caller.interview.getById({
+      id: "interview-with-feedback-id",
+      includeFeedback: true,
+    });
+
+    // ASSERT: Should return interview with feedback included
+    expect(result).toBeDefined();
+    expect(result?.id).toBe("interview-with-feedback-id");
+    expect(result?.feedback).toBeDefined();
+    expect(result?.feedback?.overallScore).toBe(85);
+    expect(result?.feedback?.strengths).toEqual(["Good communication", "Technical knowledge"]);
+
+    // Verify database call included feedback relation
+    expect(db.interview.findUnique).toHaveBeenCalledWith({
+      where: {
+        id: "interview-with-feedback-id",
+        userId: "test-user-id",
+      },
+      include: {
+        feedback: true,
+      },
+    });
+  });
+
+  it("should return feedback as null when includeFeedback is true but feedback not generated yet", async () => {
+    // Import after mocking
+    const { db } = await import("~/server/db");
+    const { createCaller } = await import("~/server/api/root");
+
+    const mockInterviewWithoutFeedback = {
+      id: "interview-no-feedback-id",
+      userId: "test-user-id",
+      status: "COMPLETED" as const,
+      jobTitleSnapshot: null,
+      jobDescriptionSnapshot: "Senior Developer Position",
+      resumeSnapshot: "Resume content",
+      idempotencyKey: "test-key-no-feedback",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      startedAt: new Date(),
+      endedAt: new Date(),
+      resumeId: null,
+      jobDescriptionId: null,
+      feedback: null, // No feedback generated yet
+    };
+
+    // Mock findUnique to return interview without feedback
+    vi.mocked(db.interview.findUnique).mockResolvedValue(mockInterviewWithoutFeedback);
+
+    const caller = createCaller({
+      db,
+      session: mockSession,
+      headers: new Headers(),
+    });
+
+    // ACT: Call getById with includeFeedback: true
+    const result = await caller.interview.getById({
+      id: "interview-no-feedback-id",
+      includeFeedback: true,
+    });
+
+    // ASSERT: Should return interview with feedback as null
+    expect(result).toBeDefined();
+    expect(result?.id).toBe("interview-no-feedback-id");
+    expect(result?.feedback).toBeNull();
+
+    // Verify database call included feedback relation
+    expect(db.interview.findUnique).toHaveBeenCalledWith({
+      where: {
+        id: "interview-no-feedback-id",
+        userId: "test-user-id",
+      },
+      include: {
+        feedback: true,
+      },
+    });
+  });
+});
+
 describe("interview.getCurrent", () => {
   it("should return the current IN_PROGRESS interview for the user", async () => {
     // ARRANGE

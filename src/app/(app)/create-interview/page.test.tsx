@@ -50,7 +50,7 @@ describe("CreateInterviewPage", () => {
     // Fill out the form
     const jobDescriptionInput = screen.getByPlaceholderText(/paste the job description/i);
     const resumeInput = screen.getByPlaceholderText(/paste your resume/i);
-    const submitButton = screen.getByRole("button", { name: /start interview/i });
+    const submitButton = screen.getByRole("button", { name: /create interview/i });
 
     fireEvent.change(jobDescriptionInput, {
       target: { value: "We are looking for a senior frontend developer..." },
@@ -82,7 +82,7 @@ describe("CreateInterviewPage", () => {
   it("should disable button when fields are empty", () => {
     render(<CreateInterviewPage />);
 
-    const submitButton = screen.getByRole("button", { name: /start interview/i });
+    const submitButton = screen.getByRole("button", { name: /create interview/i });
 
     // Button should be disabled when fields are empty
     expect(submitButton).toBeDisabled();
@@ -93,7 +93,7 @@ describe("CreateInterviewPage", () => {
 
     const jobDescriptionInput = screen.getByPlaceholderText(/paste the job description/i);
     const resumeInput = screen.getByPlaceholderText(/paste your resume/i);
-    const submitButton = screen.getByRole("button", { name: /start interview/i });
+    const submitButton = screen.getByRole("button", { name: /create interview/i });
 
     // Fill out the form
     fireEvent.change(jobDescriptionInput, {
@@ -112,7 +112,7 @@ describe("CreateInterviewPage", () => {
 
     const jobDescriptionInput = screen.getByPlaceholderText(/paste the job description/i);
     const resumeInput = screen.getByPlaceholderText(/paste your resume/i);
-    const submitButton = screen.getByRole("button", { name: /start interview/i });
+    const submitButton = screen.getByRole("button", { name: /create interview/i });
 
     // Fill out the form
     fireEvent.change(jobDescriptionInput, {
@@ -142,7 +142,7 @@ describe("CreateInterviewPage", () => {
 
     const jobDescriptionInput = screen.getByPlaceholderText(/paste the job description/i);
     const resumeInput = screen.getByPlaceholderText(/paste your resume/i);
-    const submitButton = screen.getByRole("button", { name: /start interview/i });
+    const submitButton = screen.getByRole("button", { name: /create interview/i });
 
     // Fill out the form
     fireEvent.change(jobDescriptionInput, {

@@ -4,20 +4,28 @@ import { InterviewControls } from './InterviewControls';
 import { vi, test, expect } from 'vitest';
 
 test('renders buttons and handles clicks', () => {
-  const onStart = vi.fn();
-  const onEnd = vi.fn();
+  const onEndCall = vi.fn();
+  const onToggleMute = vi.fn();
 
-  render(<InterviewControls onStart={onStart} onEnd={onEnd} />);
+  render(
+    <InterviewControls
+      interviewId="test-123"
+      onEndCall={onEndCall}
+      onToggleMute={onToggleMute}
+    />
+  );
 
-  const startButton = screen.getByText('Start Interview');
-  const endButton = screen.getByText('End Interview');
+  // Get buttons by their roles
+  const muteButton = screen.getByRole('button');
+  const endCallLink = screen.getByRole('link');
 
-  expect(startButton).toBeInTheDocument();
-  expect(endButton).toBeInTheDocument();
+  expect(muteButton).toBeInTheDocument();
+  expect(endCallLink).toBeInTheDocument();
+  expect(endCallLink).toHaveAttribute('href', '/interview/test-123/feedback');
 
-  fireEvent.click(startButton);
-  expect(onStart).toHaveBeenCalledTimes(1);
+  fireEvent.click(muteButton);
+  expect(onToggleMute).toHaveBeenCalledTimes(1);
 
-  fireEvent.click(endButton);
-  expect(onEnd).toHaveBeenCalledTimes(1);
+  fireEvent.click(endCallLink);
+  expect(onEndCall).toHaveBeenCalledTimes(1);
 });

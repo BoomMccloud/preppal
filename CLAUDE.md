@@ -23,17 +23,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a **T3 Stack** application (Next.js 15 + TypeScript + tRPC + Prisma + NextAuth.js + Tailwind CSS) for an interview preparation platform called "PrepPal".
 
-### Core Technology Stack
-
-- **Framework**: Next.js 15 with App Router
-- **Language**: TypeScript with strict configuration
-- **Database**: SQLite with Prisma ORM
-- **API Layer**: tRPC for end-to-end typesafe APIs
-- **Authentication**: NextAuth.js v5 beta
-- **Styling**: Tailwind CSS v4
-- **Testing**: Vitest with React Testing Library and jsdom
-- **Package Manager**: pnpm
-
 ### Database Schema
 
 The application centers around interview sessions with the following key models:
@@ -66,11 +55,10 @@ The project uses `@t3-oss/env-nextjs` for environment variable validation. Check
 
 Tests run in jsdom environment with global test utilities. Setup file located at `src/test/setup.ts`.
 
-### Agent References
+### Instructions
 
-- Always start with the latest version of the doc
-- `docs/` folder contain additional instructions and background, such as system design, tdd methdology, development plan, and application states.
-- `prisma/schema.prisma` is the source of truth for data, do not modify it unless explictly instructed by the user.
-- Before starting a task, always append the plan into `/docs/05_current_task.md`.
-- After completing a task, always update the status into `/docs/05_current_task.md`.
-- Keep files to 300 line or less, if the file needs to go over 300 line, refactor.
+- Always start with the latest version of the file for the latest content
+- `prisma/schema.prisma` is the source of truth, do not modify it unless explictly instructed by the user.
+- Before starting a task, append the plan into `/docs/10_current_task.md`.
+- After completing a task, update the status into `/docs/10_current_task.md`.
+- When writing code, keep files to 300 line or less, if the file needs to go over 300 line, refactor.

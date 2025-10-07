@@ -153,24 +153,29 @@ export const interviewRouter = createTRPCRouter({
     }),
 
   getById: protectedProcedure
-    .input(z.object({ id: z.string() }))
+    .input(
+      z.object({
+        id: z.string(),
+        includeFeedback: z.boolean().optional().default(false),
+      })
+    )
     .query(async ({ ctx, input }) => {
       // Query with BOTH id AND userId for security (prevents enumeration)
-      const interview = await ctx.db.interview.findFirst({
+      const interview = await ctx.db.interview.findUnique({
         where: {
           id: input.id,
           userId: ctx.session.user.id,
         },
-        select: {
-          id: true,
-          status: true,
-          jobDescriptionSnapshot: true,
+        include: {
+          feedback: input.includeFeedback,
         },
       });
 
       // If not found, log for security monitoring and throw error
       if (!interview) {
-        console.log(`[getById] Interview not found: ${input.id} for user: ${ctx.session.user.id}`);
+        console.warn(
+          `[Security] Unauthorized access attempt - User ${ctx.session.user.id} attempted to access interview ${input.id}`
+        );
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Interview not found",
