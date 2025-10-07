@@ -10,9 +10,7 @@ const mockGetById = vi.fn();
 vi.mock("~/trpc/server", () => ({
   api: {
     interview: {
-      getById: {
-        query: (params: { id: string }) => mockGetById(params),
-      },
+      getById: (params: { id: string }) => mockGetById(params),
     },
   },
 }));

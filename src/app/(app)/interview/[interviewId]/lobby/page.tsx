@@ -10,7 +10,7 @@ export default async function InterviewLobbyPage({
   const { interviewId } = await params;
 
   try {
-    const interview = await api.interview.getById.query({ id: interviewId });
+    const interview = await api.interview.getById({ id: interviewId });
 
     // Handle COMPLETED status with redirect
     if (interview.status === "COMPLETED") {
