@@ -59,6 +59,5 @@ Tests run in jsdom environment with global test utilities. Setup file located at
 
 - Always start with the latest version of the file for the latest content
 - `prisma/schema.prisma` is the source of truth, do not modify it unless explictly instructed by the user.
-- Before starting a task, append the plan into `/docs/10_current_task.md`.
-- After completing a task, update the status into `/docs/10_current_task.md`.
+- After completing a task, and verified that the tests passed, summarize the work in a "progression" section within the spec document.
 - When writing code, keep files to 300 line or less, if the file needs to go over 300 line, refactor.

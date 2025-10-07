@@ -118,12 +118,21 @@ The page will fetch data on the server and handle all primary logic before rende
 
 ## Implementation Checklist & TDD Plan
 
-### Phase 1: Backend (RED → GREEN)
-- [ ] **RED**: Add failing tests to `interview.test.ts` for the new `includeFeedback: true` functionality in `getById`.
-- [ ] **GREEN**: Modify the `getById` procedure in `src/server/api/routers/interview.ts` to conditionally include feedback. Ensure all existing and new tests pass.
+### Phase 1: Backend (RED → GREEN) ✅ COMPLETED
+- [x] **RED**: Add failing tests to `interview.test.ts` for the new `includeFeedback: true` functionality in `getById`.
+  - ✅ Added test: "should fetch a COMPLETED interview with feedback when includeFeedback is true" ([interview.test.ts:235-297](src/server/api/routers/interview.test.ts#L235-L297))
+  - ✅ Added test: "should return feedback as null when includeFeedback is true but feedback not generated yet" ([interview.test.ts:299-351](src/server/api/routers/interview.test.ts#L299-L351))
+- [x] **GREEN**: Modify the `getById` procedure in `src/server/api/routers/interview.ts` to conditionally include feedback. Ensure all existing and new tests pass.
+  - ✅ Modified input schema to accept `includeFeedback: z.boolean().optional().default(false)` ([interview.ts:155-161](src/server/api/routers/interview.ts#L155-L161))
+  - ✅ Changed from `findFirst` to `findUnique` for better performance
+  - ✅ Added conditional `include: { feedback: input.includeFeedback }` ([interview.ts:164-171](src/server/api/routers/interview.ts#L164-L171))
+  - ✅ Enhanced security logging with `console.warn` ([interview.ts:176-178](src/server/api/routers/interview.ts#L176-L178))
+  - ✅ All tests passing (52/52)
+- [x] **Refactor (Lobby Page)**: Update the Lobby page to call the modified `getById` procedure with `includeFeedback: false`
+  - ✅ Updated lobby page data fetch ([lobby/page.tsx:13-16](src/app/(app)/interview/[interviewId]/lobby/page.tsx#L13-L16))
+  - ✅ All lobby page tests still passing (8/8)
 
-### Phase 2: Frontend (RED → GREEN)
-- [ ] **Refactor (Lobby Page)**: **After Phase 1 is complete**, update the Lobby page at `src/app/(app)/interview/[interviewId]/lobby/page.tsx` to call the modified `getById` procedure, ensuring `includeFeedback: false` is set.
+### Phase 2: Frontend (RED → GREEN) - IN PROGRESS
 - [ ] **RED**: Create and write failing tests for the `feedback/page.tsx` Server Component.
 - [ ] **GREEN**: Implement the server-side data fetching and conditional logic in `feedback/page.tsx`.
 - [ ] **RED**: Create and write failing tests for the new `FeedbackPolling.tsx` client component.
