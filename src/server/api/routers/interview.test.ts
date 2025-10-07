@@ -13,6 +13,7 @@ vi.mock("~/server/db", () => ({
       create: vi.fn(),
       findUnique: vi.fn(),
       findMany: vi.fn(),
+      findFirst: vi.fn(),
     },
   },
 }));
@@ -169,33 +170,35 @@ describe("interview.getHistory", () => {
       expires: new Date().toISOString(),
     };
 
-    const mockInterviews = [
+    const mockInterviewsFromDb = [
       {
         id: "int-1",
-        status: "COMPLETED",
-        jobTitleSnapshot: "FE Dev",
+        status: "COMPLETED" as const,
+        jobDescriptionSnapshot: "Frontend Developer with a very long description",
         createdAt: new Date(),
       },
       {
         id: "int-2",
-        status: "PENDING",
-        jobTitleSnapshot: "BE Dev",
+        status: "PENDING" as const,
+        jobDescriptionSnapshot: "Backend Developer",
         createdAt: new Date(),
       },
     ];
 
     // Mock the database call
-    vi.mocked(db.interview.findMany).mockResolvedValue(mockInterviews);
+    vi.mocked(db.interview.findMany).mockResolvedValue(mockInterviewsFromDb);
 
     const caller = createCaller({ db, session: mockSession, headers: new Headers() });
 
-    // ACT: This will fail because getHistory doesn't exist yet
+    // ACT
     const result = await caller.interview.getHistory();
 
     // ASSERT
-    // 1. Check if the result matches the mock data
+    // 1. Check if the result has the transformed shape
     expect(result).toHaveLength(2);
     expect(result[0].id).toBe("int-1");
+    expect(result[0].jobTitleSnapshot).toBe("Frontend Developer with a very"); // First 30 chars
+    expect(result[1].jobTitleSnapshot).toBe("Backend Developer");
 
     // 2. Check if the database was called with the correct query
     expect(db.interview.findMany).toHaveBeenCalledWith({
@@ -208,8 +211,78 @@ describe("interview.getHistory", () => {
       select: {
         id: true,
         status: true,
-        jobTitleSnapshot: true,
         createdAt: true,
+        jobDescriptionSnapshot: true, // Correctly expect jobDescriptionSnapshot
+      },
+    });
+  });
+});
+
+describe("interview.getCurrent", () => {
+  it("should return the current IN_PROGRESS interview for the user", async () => {
+    // ARRANGE
+    const { db } = await import("~/server/db");
+    const { createCaller } = await import("~/server/api/root");
+
+    const mockSession: Session = {
+      user: { id: "test-user-id", name: "Test User", email: "test@test.com" },
+      expires: new Date().toISOString(),
+    };
+
+    const mockCurrentInterview = {
+      id: "in-progress-interview-id",
+      status: "IN_PROGRESS" as const,
+      userId: "test-user-id",
+      // Add other necessary fields that the procedure is expected to return
+      jobTitleSnapshot: "Senior Developer",
+      createdAt: new Date(),
+    };
+
+    // Mock the database call for findFirst
+    vi.mocked(db.interview.findFirst).mockResolvedValue(mockCurrentInterview);
+
+    const caller = createCaller({ db, session: mockSession, headers: new Headers() });
+
+    // ACT: This will fail because getCurrent doesn't exist yet
+    const result = await caller.interview.getCurrent();
+
+    // ASSERT
+    // 1. Check if the result matches the mock data
+    expect(result).toEqual(mockCurrentInterview);
+
+    // 2. Check if the database was called with the correct query
+    expect(db.interview.findFirst).toHaveBeenCalledWith({
+      where: {
+        userId: "test-user-id",
+        status: "IN_PROGRESS",
+      },
+    });
+  });
+
+  it("should return null if no IN_PROGRESS interview is found", async () => {
+    // ARRANGE
+    const { db } = await import("~/server/db");
+    const { createCaller } = await import("~/server/api/root");
+
+    const mockSession: Session = {
+      user: { id: "test-user-id", name: "Test User", email: "test@test.com" },
+      expires: new Date().toISOString(),
+    };
+
+    // Mock the database call to return null
+    vi.mocked(db.interview.findFirst).mockResolvedValue(null);
+
+    const caller = createCaller({ db, session: mockSession, headers: new Headers() });
+
+    // ACT
+    const result = await caller.interview.getCurrent();
+
+    // ASSERT
+    expect(result).toBeNull();
+    expect(db.interview.findFirst).toHaveBeenCalledWith({
+      where: {
+        userId: "test-user-id",
+        status: "IN_PROGRESS",
       },
     });
   });

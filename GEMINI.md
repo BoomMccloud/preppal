@@ -89,7 +89,6 @@ This project is divided into several key architectural components. For more deta
 ### Agent References
 
 - Always reload all files for the latest context
-- `docs/` folder contain additional instructions and background, such as system design, tdd methdology, development plan, and application states
 - `prisma/schema.prisma` is the source of truth for data, do not modify it unless explictly instructed by the user
 - Before starting a task, always append the plan into `/docs/05_current_task.md`.
 - After completing a task, always update the status into `/docs/05_current_task.md`.

@@ -12,7 +12,9 @@ preppal/
 │   ├── layout.tsx                # Root layout (required)
 │   ├── page.tsx                  # Home / Landing Page (/)
 │   └── signin/
-│       └── page.tsx              # Sign-in page (/signin)
+│       ├── page.tsx              # Sign-in page (/signin)
+│       └── _components/
+│           └── SignInForm.tsx
 │
 │   # --- Protected App Pages (in a Route Group) ---
 │   ├── (app)/
@@ -30,12 +32,18 @@ preppal/
 │   │           ├── session/
 │   │           │   └── page.tsx  # (/interview/[id]/session)
 │   │           └── feedback/
-│   │               └── page.tsx  # (/interview/[id]/feedback)
+│   │               ├── feedback-tabs.tsx
+│   │               ├── page.tsx  # (/interview/[id]/feedback)
+│   │               └── _components/
+│   │                   ├── FeedbackActions.tsx
+│   │                   └── FeedbackCard.tsx
 │
 │   # --- UI Components (not routes) ---
 │   ├── _components/
+│   │   ├── AIAvatar.tsx
 │   │   ├── AudioVisualizer.tsx
 │   │   ├── InterviewControls.tsx
+│   │   ├── InterviewHeader.tsx
 │   │   ├── Navigation.tsx
 │   │   ├── StatusIndicator.tsx
 │   │   ├── ThemeToggle.tsx

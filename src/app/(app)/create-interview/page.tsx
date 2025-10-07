@@ -111,7 +111,7 @@ export default function CreateInterviewPage() {
               disabled={!isFormValid || createInterviewMutation.isPending}
               className="bg-accent hover:bg-accent/80 text-primary px-8 py-3 rounded-md transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {createInterviewMutation.isPending ? "Creating..." : "Start Interview"}
+              {createInterviewMutation.isPending ? "Creating..." : "Create Interview"}
             </button>
           </div>
         </form>

@@ -180,6 +180,17 @@ export const interviewRouter = createTRPCRouter({
       return interview;
     }),
 
+  getCurrent: protectedProcedure.input(z.void()).query(async ({ ctx }) => {
+    const interview = await ctx.db.interview.findFirst({
+      where: {
+        userId: ctx.session.user.id,
+        status: "IN_PROGRESS",
+      },
+    });
+
+    return interview;
+  }),
+
   getFeedback: protectedProcedure
     .input(z.object({ interviewId: z.string() }))
     .query(async ({ ctx, input }) => {
