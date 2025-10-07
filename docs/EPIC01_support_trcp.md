@@ -84,7 +84,22 @@ To prevent users from accidentally creating duplicate interview sessions (e.g., 
 - **Tests:** 8/8 passing (see `src/app/(app)/interview/[interviewId]/lobby/page.test.tsx`)
 - **Specification:** Full details in `docs/06_lobby_page_spec.md`
 
-### 5. Interview Session Page
+### 5. Interview Feedback Page - ✅ COMPLETED
+
+- **File:** `src/app/(app)/interview/[interviewId]/feedback/page.tsx`
+- **Status:** ✅ Fully implemented as a Server Component with client-side polling for feedback generation.
+- **Implementation Details:**
+  - Server-side data fetching using `await api.interview.getById({ id, includeFeedback: true })`.
+  - Redirects to the lobby page if the interview is not in the `COMPLETED` state.
+  - Renders a `<FeedbackPolling>` client component if feedback is still processing.
+    - The polling component uses `useQuery` with a 3-second `refetchInterval`.
+    - On success, it triggers a `router.refresh()` to re-render the server component with the new data.
+  - Renders the final data in the existing `feedback-tabs.tsx` component.
+  - Handles `NOT_FOUND` errors with a user-friendly message.
+- **Tests:** All backend (2) and frontend (page + component) tests passing.
+- **Specification:** Full details in `docs/FEAT16_feedback_page_spec.md`
+
+### 6. Interview Session Page
 
 - **File:** `src/app/(app)/interview/[interviewId]/session/page.tsx`
 - **Problem:** This is a client component that is currently a static mock. It uses hardcoded placeholder values for real-time state and lacks the logic to connect to the real-time backend.
@@ -300,14 +315,14 @@ function CreateInterviewPage() {
 
 This table maps the pages to the official tRPC endpoints as defined in `src/server/api/GEMINI.md`.
 
-| Page | Required Data / Action | Official tRPC Endpoint |
-| :--- | :--- | :--- |
-| **Dashboard** | Fetch a list of the user's past interviews. | `api.interview.getHistory` |
-| **Create Interview** | Create a new interview session record. | `api.interview.createSession` (mutation) |
-| **Profile** | Fetch user profile information (read-only). | `api.user.getProfile` |
-| **Lobby** | Fetch details for a single, specific interview. | `api.interview.getById` |
-| **Feedback** | Fetch all details for an interview, including feedback. | `api.interview.getFeedback` |
-| **Session** | Get the currently active interview. | `api.interview.getCurrent` |
+| Page                 | Required Data / Action                                  | Official tRPC Endpoint                   |
+| :------------------- | :------------------------------------------------------ | :--------------------------------------- |
+| **Dashboard**        | Fetch a list of the user's past interviews.             | `api.interview.getHistory`               |
+| **Create Interview** | Create a new interview session record.                  | `api.interview.createSession` (mutation) |
+| **Profile**          | Fetch user profile information (read-only).             | `api.user.getProfile`                    |
+| **Lobby**            | Fetch details for a single, specific interview.         | `api.interview.getById`                  |
+| **Feedback**         | Fetch all details for an interview, including feedback. | `api.interview.getFeedback`              |
+| **Session**          | Get the currently active interview.                     | `api.interview.getCurrent`               |
 
 > **Note on `getById`:**
 > The `getById` procedure has been refactored to serve multiple pages. It accepts an optional `includeFeedback: boolean` flag to conditionally fetch the full feedback object. The Lobby page calls it without the flag, while the Feedback page calls it with `includeFeedback: true`.
@@ -450,7 +465,7 @@ This is the recommended order of implementation, starting with the simplest, mos
 4.  ✅ **Lobby Page (`getById`)** - COMPLETED
     - **Why fourth?** This is the next step in the user journey, requiring a query for a single, specific interview's details.
 
-5.  **Feedback Page (`getById`)** - PENDING
+5.  ✅ **Feedback Page (`getById`)** - COMPLETED
     - **Why fifth?** This uses the same `api.interview.getById` endpoint as the Lobby and can be implemented immediately after, representing a different view of the same data.
 
 6.  **Interview Session Page (`getCurrent` & WebSocket)** - PENDING

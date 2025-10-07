@@ -10,8 +10,8 @@
 ## Instructions:
 
 1. Start by reading 01_design.md, 02_tdd.md, 03_plan.md for context.
-2. Generate a high level EPIC_xx.md with description, planned changes, development sequencing, and other considerations and instructions.
-3. For each feature, write a spec_xx.md addressing an individual developer (front end, backend) with a high level outline
+2. Generate a high level EPICXX_name.md with description, planned changes, development sequencing, and other considerations and instructions.
+3. For each feature, write a FEATXX_name.md addressing an individual developer (front end, backend) with a high level outline
 4. Write failing tests that the developer must pass for the feature to be considered done. Tests include unit tests and integration tests for individual components, and one e2e tests for the entire epic.
 5. The developer will ask questions, work with them to refine the plan
 
