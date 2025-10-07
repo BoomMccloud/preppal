@@ -5,6 +5,7 @@
 ## Task:
 
 - Your job is to write detailed specifications for each feature to be implemented for development by other developers.
+- YOU MUST NOT PERFORM ANY CODE IMPLEMENTATIONS
 
 ## Instructions:
 

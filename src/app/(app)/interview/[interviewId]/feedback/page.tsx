@@ -1,7 +1,10 @@
+import { redirect } from "next/navigation";
 import { api } from "~/trpc/server";
 import FeedbackTabs from "./feedback-tabs";
 import FeedbackCard from "./_components/FeedbackCard";
 import FeedbackActions from "./_components/FeedbackActions";
+import FeedbackPolling from "./_components/FeedbackPolling";
+import Link from "next/link";
 
 interface PageProps {
   params: Promise<{ interviewId: string }>;
@@ -9,53 +12,80 @@ interface PageProps {
 
 export default async function InterviewFeedbackPage({ params }: PageProps) {
   const { interviewId } = await params;
-  const interview = await api.interview.getFeedback({ interviewId });
 
-  return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mb-8">
-        <h1 className="text-primary-text mb-4 text-4xl font-bold">
-          Interview Feedback
-        </h1>
-        <p className="text-secondary-text text-lg">
-          Interview ID: {interviewId}
-        </p>
-      </div>
+  try {
+    const interview = await api.interview.getById({
+      id: interviewId,
+      includeFeedback: true,
+    });
 
-      {!interview.feedback ? (
-        <FeedbackCard>
+    // Handle non-COMPLETED status with redirect
+    if (interview.status !== "COMPLETED") {
+      console.warn(
+        `[Feedback Page] User attempted to access feedback for non-COMPLETED interview - interviewId: ${interviewId}, status: ${interview.status}`
+      );
+      redirect(`/interview/${interviewId}/lobby`);
+    }
+
+    // Handle COMPLETED but feedback still processing
+    if (interview.feedback === null) {
+      return <FeedbackPolling interviewId={interviewId} />;
+    }
+
+    // Render feedback results
+    return (
+      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mb-8">
+          <h1 className="text-primary-text mb-4 text-4xl font-bold">
+            Interview Feedback
+          </h1>
           <p className="text-secondary-text text-lg">
-            No feedback available for this interview yet.
+            Interview ID: {interviewId}
+          </p>
+        </div>
+
+        <FeedbackCard title="Summary" className="mb-8">
+          <p className="text-secondary-text text-lg leading-relaxed">
+            {interview.feedback.summary}
           </p>
         </FeedbackCard>
-      ) : (
-        <>
-          <FeedbackCard title="Summary" className="mb-8">
-            <p className="text-secondary-text text-lg leading-relaxed">
-              {interview.feedback.summary}
-            </p>
+
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+          <FeedbackCard title="Strengths" className="lg:col-span-1">
+            <div className="text-secondary-text whitespace-pre-wrap">
+              {interview.feedback.strengths}
+            </div>
           </FeedbackCard>
 
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-            <FeedbackCard title="Strengths" className="lg:col-span-1">
-              <div className="text-secondary-text whitespace-pre-wrap">
-                {interview.feedback.strengths}
-              </div>
-            </FeedbackCard>
-
-            <div className="lg:col-span-2">
-              <FeedbackTabs
-                contentAndStructure={interview.feedback.contentAndStructure}
-                communicationAndDelivery={
-                  interview.feedback.communicationAndDelivery
-                }
-                presentation={interview.feedback.presentation}
-              />
-              <FeedbackActions />
-            </div>
+          <div className="lg:col-span-2">
+            <FeedbackTabs
+              contentAndStructure={interview.feedback.contentAndStructure}
+              communicationAndDelivery={
+                interview.feedback.communicationAndDelivery
+              }
+              presentation={interview.feedback.presentation}
+            />
+            <FeedbackActions />
           </div>
-        </>
-      )}
-    </div>
-  );
+        </div>
+      </div>
+    );
+  } catch (error) {
+    // Handle NOT_FOUND or other errors
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-secondary backdrop-blur-sm rounded-lg p-6 border border-secondary-text text-center">
+          <p className="text-primary-text mb-4">
+            Feedback not found or you don&apos;t have access
+          </p>
+          <Link
+            href="/dashboard"
+            className="bg-secondary hover:bg-secondary/80 text-primary-text px-6 py-3 rounded-md transition-colors font-medium border border-secondary-text/10 inline-block"
+          >
+            Return to Dashboard
+          </Link>
+        </div>
+      </div>
+    );
+  }
 }
