@@ -89,7 +89,4 @@ This project is divided into several key architectural components. For more deta
 ### Agent References
 
 - Always reload all files for the latest context
-- `prisma/schema.prisma` is the source of truth for data, do not modify it unless explictly instructed by the user
-- Before starting a task, always append the plan into `/docs/05_current_task.md`.
-- After completing a task, always update the status into `/docs/05_current_task.md`.
 - YOU MUST NOT CODE without first asking permission

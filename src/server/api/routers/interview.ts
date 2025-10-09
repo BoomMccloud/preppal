@@ -2,6 +2,8 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { TRPCError } from "@trpc/server";
 import { Prisma } from "@prisma/client";
+import { SignJWT } from "jose";
+import { env } from "~/env";
 
 // Discriminated union for job description input
 const JobDescriptionInput = z.discriminatedUnion("type", [
@@ -282,5 +284,40 @@ export const interviewRouter = createTRPCRouter({
       }
 
       throw new Error("Interview not found");
+    }),
+
+  generateWsToken: protectedProcedure
+    .input(z.object({ interviewId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      // Verify the interview belongs to the user
+      const interview = await ctx.db.interview.findUnique({
+        where: {
+          id: input.interviewId,
+          userId: ctx.session.user.id,
+        },
+      });
+
+      if (!interview) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Interview not found",
+        });
+      }
+
+      // Generate JWT token valid for 1 hour
+      const secret = new TextEncoder().encode(
+        env.AUTH_SECRET ?? "fallback-secret-for-development"
+      );
+
+      const token = await new SignJWT({
+        userId: ctx.session.user.id,
+        interviewId: input.interviewId,
+      } as Record<string, unknown>)
+        .setProtectedHeader({ alg: "HS256" })
+        .setIssuedAt()
+        .setExpirationTime("1h")
+        .sign(secret);
+
+      return { token };
     }),
 });

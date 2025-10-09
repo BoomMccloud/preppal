@@ -21,11 +21,12 @@ This is the core state machine of the application. It has been simplified to foc
 | State Name | Description | User Sees |
 | :--- | :--- | :--- |
 | **`Idle`** | The user is on the dashboard, ready to begin an interview. | The main application dashboard. |
-| **`Preparing`** | The app is setting up the session (creating DB record, requesting mic, connecting). | A loading indicator or setup screen. |
-| **`PermissionDenied`** | The user has explicitly denied microphone access. | A specific message with instructions and a "Retry" button. |
-| **`Live`** | The interview is active and bi-directional audio is streaming. | The main interview UI. |
+| **`Preparing`** | The app is setting up the session (creating DB record, connecting). | A loading indicator or setup screen. |
+| **`Live`** | The interview is active with real-time communication. | The main interview UI. |
 | **`Processing`** | The user has ended the interview and the system is analyzing the results. | A "Processing your results..." screen. |
 | **`Results`** | The feedback report is ready to view. | The interview feedback/results page. |
+
+**Note**: The session page (`/interview/[interviewId]/session`) uses **local component state** rather than the global Zustand store, as it represents a single-use flow that doesn't need to be shared across the application.
 
 ### State Transitions
 
@@ -62,41 +63,33 @@ Create a new file, for example `src/app/stores/interview-store.ts`, to define th
 import { create } from 'zustand';
 
 // Define the states as a type for type-safety
-type InterviewStatus = 'Idle' | 'Preparing' | 'PermissionDenied' | 'Live' | 'Processing' | 'Results';
+type InterviewStatus = 'Idle' | 'Preparing' | 'Live' | 'Processing' | 'Results';
 
 // Define the shape of the store's state and actions
 // Note: This store handles ONLY UI state. Business data (like interviewId)
 // should be fetched via tRPC to maintain separation of concerns.
 interface InterviewUIState {
   status: InterviewStatus;
-  isReconnecting: boolean;
 
   // Actions to transition between states
   startPreparing: () => void;
   setLive: () => void;
-  setPermissionDenied: () => void;
   startProcessing: () => void;
   setResults: () => void;
   reset: () => void;
-
-  // Action for internal status changes
-  setIsReconnecting: (isReconnecting: boolean) => void;
 }
 
 // Create the store
 export const useInterviewStore = create<InterviewUIState>((set) => ({
   // Initial state
   status: 'Idle',
-  isReconnecting: false,
 
   // Define the actions
   startPreparing: () => set({ status: 'Preparing' }),
   setLive: () => set({ status: 'Live' }),
-  setPermissionDenied: () => set({ status: 'PermissionDenied' }),
   startProcessing: () => set({ status: 'Processing' }),
   setResults: () => set({ status: 'Results' }),
-  reset: () => set({ status: 'Idle', isReconnecting: false }),
-  setIsReconnecting: (isReconnecting) => set({ isReconnecting }),
+  reset: () => set({ status: 'Idle' }),
 }));
 ```
 
@@ -121,11 +114,13 @@ export function MainApp() {
     case 'Idle':
       return <Dashboard />;
     case 'Preparing':
-    case 'PermissionDenied':
       return <InterviewLobby />;
     case 'Live':
       return <InterviewSession />;
-    // ... other cases
+    case 'Processing':
+      return <ProcessingScreen />;
+    case 'Results':
+      return <ResultsPage />;
     default:
       return <Dashboard />;
   }
@@ -183,7 +178,6 @@ import { api } from '~/trpc/react';
 export function InterviewSession() {
   // UI state from Zustand
   const status = useInterviewStore((state) => state.status);
-  const isReconnecting = useInterviewStore((state) => state.isReconnecting);
 
   // Business data from tRPC
   const { data: currentInterview } = api.interview.getCurrent.useQuery();
@@ -197,7 +191,6 @@ export function InterviewSession() {
       <h1>Interview Session</h1>
       <p>Interview ID: {currentInterview.id}</p>
       <p>Status: {currentInterview.status}</p>
-      {isReconnecting && <div>Reconnecting...</div>}
     </div>
   );
 }
