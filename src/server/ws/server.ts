@@ -289,7 +289,8 @@ function startMockTranscriptStream(ws: WebSocket, state: ConnectionState) {
   sendNextMessage();
 }
 
-// Start server if run directly
-if (require.main === module) {
+// Start server if run directly (ES module check)
+const isMainModule = import.meta.url === `file://${process.argv[1]}`;
+if (isMainModule) {
   startServer();
 }
