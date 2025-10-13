@@ -30,6 +30,8 @@ This project is divided into several key architectural components. For more deta
 - **[Protocols (`proto`)](./proto/GEMINI.md)**: This directory contains the protobuf definitions for the real-time communication between the client and server.
 
 ## Agent Instructions 
-- **Always** reload all files for the latest context
-- **Always** ask for explict instructions before coding
-- **
+- **Always** Reload all files for the latest context
+- **Always** Ask for explict instructions before starting to write any code
+- **Always** Only perform tasks that are explictly outlined in the `/docs` folder
+- **Always** Document at the top of each file and for each procedure
+- Keep files to 300 lines of code or less, refactor if needed
