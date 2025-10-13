@@ -59,12 +59,13 @@
 - JWT authentication using tokens from `interview.generateWsToken`
 - Message handlers:
   - `StartRequest`: Authenticates, updates DB to IN_PROGRESS, sends StartResponse
-  - `EndRequest`: Updates DB to COMPLETED, sends SessionEnded, closes connection
+  - `EndRequest`: Updates DB to COMPLETED, creates mock feedback, sends SessionEnded, closes connection
   - `AudioChunk`: Ignored in MVP (logged for debugging)
 - Mock transcript streaming with realistic interview questions:
   - 4 pre-defined questions with variable delays (3-15 seconds)
   - Automatic session termination after final question
-- Database integration for state management (status updates, timestamps)
+- Mock feedback generation: Creates sample feedback when interview completes (for MVP testing)
+- Database integration for state management (status updates, timestamps, feedback creation)
 - Graceful error handling and connection cleanup
 
 **Configuration**:

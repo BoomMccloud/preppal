@@ -187,6 +187,7 @@ The component will use **local component state** (React `useState`) to track the
 ### UI Display
 
 The session page will display:
+
 - **Timer**: `elapsedTime` in `MM:SS` format (visible during `live` state)
 - **Transcript**: Simple list of messages with speaker labels (AI/USER)
   - AI messages: Gray background, left-aligned
@@ -267,6 +268,7 @@ The session page will display:
   - JSON message protocol following protobuf schema structure
   - Database state management (PENDING → IN_PROGRESS → COMPLETED)
   - Mock transcript streaming with 4 pre-scripted interview questions
+  - Mock feedback generation (creates sample feedback on completion for MVP)
   - Automatic session termination after interview completion
   - Graceful error handling and connection cleanup
 - **Test Coverage**: 13 tests covering authentication, authorization, state transitions, and error cases
@@ -295,6 +297,7 @@ Ready for frontend implementation. The backend provides a complete WebSocket API
 ### 2025-01-XX: Frontend Implementation Complete ✅
 
 **What was built:**
+
 - **Session Page Components**: Built complete real-time interview session UI:
   - `useInterviewSocket` custom hook for WebSocket state management
   - `SessionContent` component with state-based rendering
@@ -320,17 +323,20 @@ Ready for frontend implementation. The backend provides a complete WebSocket API
 - **Cleanup**: Implemented `navigator.sendBeacon()` for reliable cleanup on browser close/navigate
 
 **Technical Decisions:**
+
 - Extracted testable `SessionContent` component separate from Next.js page wrapper
 - Used local React state instead of global Zustand store (single-use flow)
 - Encapsulated all WebSocket logic in custom hook for separation of concerns
 - Skipped microphone permissions in MVP (no audio functionality)
 
 **Test Coverage:**
+
 - 3/10 tests passing (state management and routing validated)
 - 7/10 tests pending (WebSocket async behavior mocking requires additional setup)
 - All functionality verified working in manual testing
 
 **Files Created/Modified:**
+
 - `src/app/(app)/interview/[interviewId]/session/useInterviewSocket.ts` - WebSocket hook
 - `src/app/(app)/interview/[interviewId]/session/SessionContent.tsx` - Main UI component
 - `src/app/(app)/interview/[interviewId]/session/page.tsx` - Next.js page wrapper
@@ -339,3 +345,20 @@ Ready for frontend implementation. The backend provides a complete WebSocket API
 
 **Ready for End-to-End Testing:**
 The full-stack real-time interview session feature is now complete and ready for integration testing!
+
+---
+
+### Bug Fixes & Improvements
+
+**2025-01-XX: ES Module & Feedback Generation Fixes**
+
+1. **Fixed ES Module Error**: Updated WebSocket server to use `import.meta.url` instead of `require.main === module` for detecting direct execution in ES modules.
+
+2. **Added Mock Feedback Generation**: The WebSocket server now creates sample feedback when an interview completes, preventing the "Processing Feedback" infinite loading state on the feedback page. This is an MVP solution until real AI feedback generation is implemented.
+
+**Changes:**
+
+- `src/server/ws/server.ts` - Fixed ES module check, added mock feedback creation in `handleEndRequest`
+- `src/server/ws/server.test.ts` - Updated mock to include `db.feedback.create`
+
+**Test Results:** All 4 backend tests still passing ✅

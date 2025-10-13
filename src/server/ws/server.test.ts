@@ -13,6 +13,9 @@ vi.mock("~/server/db", () => ({
       findUnique: vi.fn(),
       update: vi.fn(),
     },
+    feedback: {
+      create: vi.fn(),
+    },
   },
 }));
 
