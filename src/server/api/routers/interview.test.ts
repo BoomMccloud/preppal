@@ -18,6 +18,9 @@ vi.mock("~/server/db", () => ({
       findMany: vi.fn(),
       findFirst: vi.fn(),
     },
+    transcript: {
+      createMany: vi.fn(),
+    },
   },
 }));
 
@@ -640,6 +643,152 @@ describe("interview.generateWsToken", () => {
         id: "unauthorized-interview-id",
         userId: "test-user-id",
       },
+    });
+  });
+});
+
+describe("interview.generateWorkerToken", () => {
+  const mockSession: Session = {
+    user: {
+      id: "test-user-id",
+      name: "John Doe",
+      email: "john@example.com",
+    },
+    expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.resetModules(); // Ensure we can re-import modules with fresh mocks
+  });
+
+  it("should fail for an interview not owned by the user", async () => {
+    const { db } = await import("~/server/db");
+    const { createCaller } = await import("~/server/api/root");
+
+    // Mock findUnique to return null, simulating not found or not owned
+    vi.mocked(db.interview.findUnique).mockResolvedValue(null);
+
+    const caller = createCaller({ db, session: mockSession, headers: new Headers() });
+
+    // Expect the call to be rejected
+    await expect(
+      caller.interview.generateWorkerToken({
+        interviewId: "some-other-users-interview",
+      })
+    ).rejects.toThrow("NOT_FOUND");
+
+    // Verify it was called correctly
+    expect(db.interview.findUnique).toHaveBeenCalledWith({
+      where: {
+        id: "some-other-users-interview",
+        userId: "test-user-id",
+      },
+    });
+  });
+
+  it("should return a valid, decodable JWT for a valid request", async () => {
+    const { db } = await import("~/server/db");
+    const { createCaller } = await import("~/server/api/root");
+    const jwt = await import("jsonwebtoken");
+
+    const mockInterview = {
+      id: "owned-interview-id",
+      userId: "test-user-id",
+      status: "PENDING" as const,
+      // ... other fields
+    };
+
+    // Mock findUnique to return the user-owned interview
+    vi.mocked(db.interview.findUnique).mockResolvedValue(mockInterview as any);
+
+    // Set JWT_SECRET for the test environment
+    process.env.JWT_SECRET = "test-secret-123";
+
+    const caller = createCaller({ db, session: mockSession, headers: new Headers() });
+
+    const { token } = await caller.interview.generateWorkerToken({
+      interviewId: "owned-interview-id",
+    });
+
+    // Assert that a token string was returned
+    expect(typeof token).toBe("string");
+    expect(token.length).toBeGreaterThan(0);
+
+    // Decode the token to verify its contents
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    expect(decoded).toMatchObject({
+      userId: "test-user-id",
+      interviewId: "owned-interview-id",
+    });
+  });
+});
+
+describe("internal.submitTranscript", () => {
+  const mockTranscript = [
+    { speaker: "USER" as const, content: "Hello", timestamp: new Date() },
+    { speaker: "AI" as const, content: "Hi, how can I help?", timestamp: new Date() },
+  ];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.resetModules();
+    process.env.WORKER_SHARED_SECRET = "test-worker-secret";
+  });
+
+  it("should fail if the shared secret is missing", async () => {
+    const { db } = await import("~/server/db");
+    const { internalCaller } = await import("~/server/api/routers/_internal");
+
+    const caller = internalCaller({ db, session: null, headers: new Headers() });
+
+    await expect(
+      caller.submitTranscript({
+        interviewId: "any-interview-id",
+        transcript: mockTranscript,
+      })
+    ).rejects.toThrow("UNAUTHORIZED");
+  });
+
+  it("should fail if the shared secret is incorrect", async () => {
+    const { db } = await import("~/server/db");
+    const { internalCaller } = await import("~/server/api/routers/_internal");
+
+    const headers = new Headers();
+    headers.set("Authorization", "Bearer incorrect-secret");
+
+    const caller = internalCaller({ db, session: null, headers });
+
+    await expect(
+      caller.submitTranscript({
+        interviewId: "any-interview-id",
+        transcript: mockTranscript,
+      })
+    ).rejects.toThrow("UNAUTHORIZED");
+  });
+
+  it("should successfully save transcript entries for a valid request", async () => {
+    const { db } = await import("~/server/db");
+    const { internalCaller } = await import("~/server/api/routers/_internal");
+
+    const headers = new Headers();
+    headers.set("Authorization", `Bearer ${process.env.WORKER_SHARED_SECRET}`);
+
+    const caller = internalCaller({ db, session: null, headers });
+
+    const result = await caller.submitTranscript({
+      interviewId: "target-interview-id",
+      transcript: mockTranscript,
+    });
+
+    expect(result.success).toBe(true);
+
+    // Verify that createMany was called with the correct data structure
+    expect(db.transcript.createMany).toHaveBeenCalledWith({
+      data: mockTranscript.map((entry) => ({
+        ...entry,
+        interviewId: "target-interview-id",
+      })),
     });
   });
 });

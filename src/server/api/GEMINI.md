@@ -1,230 +1,141 @@
 ## Summary of API Endpoints
 
-This defines the following strongly-typed API endpoints optimized for the UI state separation pattern (Zustand handles UI state, tRPC handles business data):
+This document outlines the tRPC API structure, which is divided into two main parts: a public-facing API for the client application and a private, internal API for server-to-server communication.
+
+### Public API (`appRouter`)
+
+This is the main, client-facing router. All procedures are available to the Next.js frontend.
 
 - **`user.getProfile`**: `query` - Gets the current user's data.
+- **`user.updateProfile`**: `mutation` - Updates the current user's profile.
 - **`interview.createSession`**: `mutation` - Creates a new interview entry before starting.
 - **`interview.getCurrent`**: `query` - Gets the active/most recent interview for UI state coordination.
 - **`interview.getHistory`**: `query` - Gets a lightweight list of all past interviews.
 - **`interview.getById`**: `query` - Gets all details for one interview.
 - **`interview.getFeedback`**: `query` - Gets the feedback for an interview.
-- **`interview.generateWsToken`**: `mutation` - Generates a WebSocket token for a live interview session.
+- **`interview.generateWorkerToken`**: `mutation` - Generates a short-lived JWT to authorize a WebSocket connection to the Cloudflare Worker.
 
-## 1. `user` Router
+### Internal API (`internalRouter`)
 
-Handles user profile management. All procedures in this router are protected and require the user to be authenticated.
+This is a private router, not exposed to the client. It is used for secure communication from the Cloudflare Worker back to the main application.
+
+- **`internal.submitTranscript`**: `mutation` - Allows the Cloudflare Worker to submit the final interview transcript to the database.
+
+---
+
+## 1. Public Routers (`user`, `interview`)
+
+These routers are merged into the main `appRouter` and are accessible by the client.
+
+### `user` Router
+
+Handles user profile management. All procedures are protected and require an authenticated user session.
 
 ```typescript
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
-import { type User } from "@prisma/client"; // Import Prisma-generated type
+import { type User } from "@prisma/client";
 
 export const userRouter = createTRPCRouter({
-  /**
-   * Fetches the profile of the currently logged-in user.
-   */
-  getProfile: protectedProcedure
-    // No input required, as user is derived from the session context.
-    .input(z.void())
-    // Returns the full User object.
-    .output(z.custom<User>())
-    .query(async ({ ctx }) => {
-      // Implementation to fetch user from db based on ctx.session.user.id
-      // ...
-    }),
-
-  /**
-   * Updates the profile of the currently logged-in user.
-   * Allows updating mutable fields like name or image.
-   */
+  getProfile: protectedProcedure.input(z.void()).output(z.custom<User>()).query(/* ... */),
   updateProfile: protectedProcedure
-    .input(
-      z.object({
-        name: z.string().min(1).optional(),
-        image: z.string().url().optional(),
-      })
-    )
+    .input(z.object({ name: z.string().optional(), image: z.string().optional() }))
     .output(z.custom<User>())
-    .mutation(async ({ ctx, input }) => {
-      // Implementation to update the user in the db
-      // ...
-    }),
+    .mutation(/* ... */),
 });
 ```
 
-## 2. `interview` Router
+### `interview` Router
 
-Handles the lifecycle and data of interview sessions. All procedures are protected.
+Handles the client-facing lifecycle and data of interview sessions. All procedures are protected.
 
 ```typescript
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
-import {
-  type Interview,
-  type InterviewFeedback,
-  type TranscriptEntry,
-} from "@prisma/client"; // Import Prisma-generated types
-
-// Define a reusable Zod schema for a full interview object
-const fullInterviewSchema = z.custom<
-  Interview & {
-    feedback: InterviewFeedback | null;
-    transcript: TranscriptEntry[];
-  }
->();
+import { type Interview, type InterviewFeedback, type TranscriptEntry } from "@prisma/client";
 
 export const interviewRouter = createTRPCRouter({
   /**
-   * Creates a new interview record in the database before a live session begins.
-   * This is called when the user clicks "Start Interview" for the first time.
-   * It is idempotent based on the `idempotencyKey`.
+   * Creates a new interview record. Called when the user starts a new session.
+   * Idempotent based on the `idempotencyKey`.
    */
-  createSession: protectedProcedure
-    .input(
-      z.object({
-        jobDescription: z.discriminatedUnion("type", [
-          z.object({
-            type: z.literal("text"),
-            content: z.string().min(1),
-          }),
-          z.object({
-            type: z.literal("reference"),
-            jobDescriptionId: z.string(),
-          }),
-        ]),
-        resume: z.discriminatedUnion("type", [
-          z.object({
-            type: z.literal("text"),
-            content: z.string().min(1),
-          }),
-          z.object({
-            type: z.literal("reference"),
-            resumeId: z.string(),
-          }),
-        ]),
-        idempotencyKey: z.string().min(1),
-      })
-    )
-    // Returns the newly created Interview object.
-    .output(z.custom<Interview>())
-    .mutation(async ({ ctx, input }) => {
-      // Implementation to create an Interview record with status 'PENDING'
-      // linked to the current user.
-      // ...
-    }),
+  createSession: protectedProcedure.input(/* ... */).output(z.custom<Interview>()).mutation(/* ... */),
 
   /**
-   * Gets the current active interview for the logged-in user.
-   * Used by UI components to get business data while Zustand manages UI state.
-   * Returns the most recent interview that is IN_PROGRESS.
+   * Gets the current active (IN_PROGRESS) interview for the logged-in user.
    */
-  getCurrent: protectedProcedure
-    .input(z.void())
-    // Returns the current interview or null if none active.
-    .output(z.custom<Interview>().nullable())
-    .query(async ({ ctx }) => {
-      // Implementation to find the most recent interview with status
-      // 'IN_PROGRESS' for the current user.
-      // ...
-    }),
+  getCurrent: protectedProcedure.input(z.void()).output(z.custom<Interview>().nullable()).query(/* ... */),
 
   /**
    * Fetches a list of all past interviews for the logged-in user.
-   * Used for the user's dashboard or history page.
    */
-  getHistory: protectedProcedure
-    .input(z.void())
-    // Returns an array of partial Interview objects for display in a list.
-    .output(
-      z.array(
-        z.object({
-          id: z.string(),
-          status: z.string(),
-          createdAt: z.date(),
-          jobTitleSnapshot: z.string().nullable(),
-        })
-      )
-    )
-    .query(async ({ ctx }) => {
-      // Implementation to fetch all interviews for the user,
-      // ordered by creation date.
-      // ...
-    }),
+  getHistory: protectedProcedure.input(z.void()).output(z.array(/* ... */)).query(/* ... */),
 
   /**
-   * Fetches all details for a single, specific interview session,
-   * including its feedback and full transcript.
-   * This is used to view the results of a completed interview.
+   * Fetches all details for a single, specific interview session.
    */
-  getById: protectedProcedure
-    .input(
-      z.object({
-        id: z.string(),
-        includeFeedback: z.boolean().optional().default(false),
-      })
-    )
-    // Returns the full interview object, which may or may not have feedback yet.
-    .output(fullInterviewSchema.nullable())
-    .query(async ({ ctx, input }) => {
-      // Implementation to find a specific interview by its ID, ensuring
-      // it belongs to the currently logged-in user for security.
-      // ...
-    }),
+  getById: protectedProcedure.input(z.object({ id: z.string() })).output(/* ... */).query(/* ... */),
 
   /**
    * Fetches the feedback for a given interview.
-   * Includes mock data for development purposes.
    */
-  getFeedback: protectedProcedure
-    .input(z.object({ interviewId: z.string() }))
-    .output(fullInterviewSchema.nullable()) // Assuming it returns the interview with feedback
-    .query(async ({ ctx, input }) => {
-      // Implementation to fetch interview and its feedback.
-      // ...
-    }),
+  getFeedback: protectedProcedure.input(z.object({ interviewId: z.string() })).output(/* ... */).query(/* ... */),
 
   /**
-   * Generates a short-lived JWT for authenticating a WebSocket connection
-   * for a specific interview session.
+   * Generates a short-lived (5 min) JWT for authenticating a WebSocket connection
+   * to the Cloudflare Worker for a specific interview.
    */
-  generateWsToken: protectedProcedure
+  generateWorkerToken: protectedProcedure
     .input(z.object({ interviewId: z.string() }))
     .output(z.object({ token: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      // Implementation to verify ownership and generate a JWT.
+      // 1. Verify interview belongs to ctx.session.user.id
+      // 2. Generate JWT with userId and interviewId in claims
+      // 3. Sign with JWT_SECRET
       // ...
     }),
 });
 ```
 
-## Integration with UI State Management
+---
 
-This API design works seamlessly with the separated UI state pattern:
+## 2. Internal Router (`internal`)
 
-**UI State (Zustand)**
-- Manages view transitions (`Idle`, `Preparing`, `Live`, etc.)
-- Handles loading states and reconnection status
-- No business data storage
+This router is **not** merged into the main `appRouter`. It is exposed on a separate, secure API route (`/api/internal/[trpc]`) and is only intended for server-to-server communication.
 
-**Business Data (tRPC)**
-- `interview.getCurrent` provides the active interview data
-- React Query handles caching and synchronization
-- Full type safety from database to UI
+### `internal` Router
 
-**Example Integration:**
 ```typescript
-// Component using both systems
-function InterviewSession() {
-  // UI state from Zustand
-  const uiStatus = useInterviewStore(state => state.status);
+import { z } from "zod";
+import { createTRPCRouter, internalProcedure } from "~/server/api/trpc";
 
-  // Business data from tRPC
-  const { data: currentInterview, isLoading } = api.interview.getCurrent.useQuery();
-
-  if (uiStatus === 'Live' && currentInterview) {
-    return <LiveInterviewUI interview={currentInterview} />;
-  }
-
-  return <LoadingScreen />;
-}
+export const internalRouter = createTRPCRouter({
+  /**
+   * Secure endpoint for the Cloudflare Worker to submit the completed
+   * interview transcript. Authenticated via a shared secret.
+   */
+  submitTranscript: internalProcedure
+    .input(
+      z.object({
+        interviewId: z.string(),
+        transcript: z.array(
+          z.object({
+            speaker: z.enum(["USER", "AI"]),
+            content: z.string(),
+            timestamp: z.date(),
+          })
+        ),
+      })
+    )
+    .output(z.object({ success: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      // 1. Authenticated by `internalProcedure` middleware (shared secret)
+      // 2. Save transcript entries to the database in a transaction.
+      // ...
+    }),
+});
 ```
+
+### `internalProcedure` Middleware
+
+To secure the `internalRouter`, a custom `internalProcedure` is created in `src/server/api/trpc.ts`. This middleware rejects any request that does not contain the correct `WORKER_SHARED_SECRET` in the `Authorization` header, ensuring that only our trusted Cloudflare Worker can access these endpoints.

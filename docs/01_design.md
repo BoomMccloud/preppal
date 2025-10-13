@@ -1,93 +1,105 @@
 # System Design
 
+### Architectural Evolution: Introducing Cloudflare Workers
+
+The original design proposed a monolithic backend where the Next.js server would handle both standard API requests (tRPC) and manage stateful, long-lived WebSocket connections for real-time audio streaming.
+
+Upon review, we have evolved this design to a more robust, scalable, and cost-effective architecture by introducing **Cloudflare Workers with Durable Objects**.
+
+**Why the Change?**
+
+1.  **Separation of Concerns**: This new architecture creates a clean separation. The Next.js application excels at handling business logic, data persistence, and serving the frontend, while Cloudflare's global network is purpose-built for high-performance, real-time communication at the edge.
+2.  **Scalability & Statefulness**: Serverless functions (like Vercel's) are not optimized for long-lived, stateful connections like a 30-minute interview. Cloudflare Durable Objects are designed specifically for this, providing a stateful, single-threaded environment for each interview session that can scale massively.
+3.  **Cost-Effectiveness**: Billing for Durable Objects is based on active use, which is a more efficient model for this use case than keeping a serverless function warm or running for extended periods.
+
+This strategic shift allows us to use the best tool for each job, resulting in a more resilient and efficient system.
+
 ```
-+--------------------------------+
-|                                |
-|    Frontend (Next.js/React)    |
-|                                |
-|  - UI / Meeting Screen         |
-|  - Audio Capture/Playback      |
-|  - Protobuf Encoding/Decoding  |
-|  - tRPC Client (User Data)     |
-|                                |
++--------------------------------+      (2) WebSocket + Token      +---------------------------------+
+|                                |-------------------------------->|                                 |
+|    Frontend (Next.js/React)    |                                |  Cloudflare Worker (Edge)       |
+|                                |      +------------------------->|   - WebSocket Termination       |
+|  - UI / Audio / Protobuf       |      | (5) Transcript          |   - Gemini API Client           |
+|  - tRPC Client (Business Logic)|      |     Submission          |   - Durable Object for State    |
++---------------+----------------+      |                         +----------------+----------------+
+                |                       |                                          | (3) Bi-directional
+(1) tRPC for    |                       |                                          |     Audio Stream
+    Auth/Data   |                       |                                          |
+                |                       |                         +----------------+----------------+
++---------------+----------------+      |                         |                                 |
+|                                |      |                         |   Gemini Live API (Google Cloud)|
+|      Backend (Next.js)         |<-----+                         |                                 |
+|                                |                                +---------------------------------+
+|  - tRPC Router (Business Logic)|
+|  - Prisma ORM                  |
+|  - User/Interview DB Mgmt      |
 +---------------+----------------+
                 |
-(1) tRPC for    | (2) Protobuf over WebSocket
-    User Data   |     for Live Audio Stream
-                |
-+---------------+----------------+
-|                                |
-|      Backend (Next.js)         |
-|                                |
-|  - tRPC Router (User Mgmt)     |
-|  - WebSocket Server            |
-|  - Gemini Live API Client      |
-|  - Protobuf Encoding/Decoding  |
-|                                |
-+---------------+----------------+
-                |                |
-(3) Prisma ORM  |                | (4) Bi-directional
-    Queries     |                |     Audio Stream
-                |                |
-+---------------+--+      +------+-----------------+
-|                  |      |                        |
-|   User Database  |      |   Gemini Live API      |
-|   (PostgreSQL)   |      |   (Google Cloud)       |
-|                  |      |                        |
-+------------------+      +------------------------+
+(4) Prisma ORM  |
+    Queries     |
++---------------+--+
+|                  |
+|   User Database  |
+|   (SQLite/Postgres)|
+|                  |
++------------------+
 ```
 
 ### **Core Technologies**
 
 - **Frontend**: Next.js (React)
-- **Backend**: Next.js (API Routes with a custom WebSocket server)
+- **Backend (Business Logic)**: Next.js (API Routes with tRPC)
+- **Backend (Real-time)**: Cloudflare Workers with Durable Objects
 - **Database**: SQLite (for MVP) with Prisma ORM
 - **Real-time Communication**: WebSockets for the bi-directional audio stream
 - **API (Non-real-time)**: tRPC for standard data fetching (user profiles, etc.)
 - **Data Serialization**: Protocol Buffers (Protobufs) for all real-time audio data
-- **Authentication**: NextAuth.js (included in T3 boilerplate)
+- **Authentication**: NextAuth.js
 
 ### **Component Breakdown**
 
 #### **1. Frontend (Client-Side)**
 
-- **Framework**: Built with Next.js and React, as provided by the T3 boilerplate.
 - **Responsibilities**:
   - **User Interface**: Renders the meeting screen, controls, and feedback display.
   - **Authentication**: Uses NextAuth.js to handle user sign-in and session management.
-  - **Standard Data Fetching**: Uses tRPC to fetch and update user profile information and past interview history from the backend. This is for non-real-time data.
+  - **Business Logic API**: Uses tRPC to communicate with the Next.js backend for all non-real-time data (e.g., creating an interview, fetching history, generating connection tokens).
   - **Real-time Communication**:
-    - Establishes and manages a WebSocket connection to the backend server for the duration of the interview.
-    - Captures microphone audio, encodes it into Protobuf messages using a library like `protobuf.js`.
-    - Streams the Protobuf-encoded audio data to the backend via the WebSocket.
-    - Receives Protobuf-encoded audio from the backend, decodes it, and plays it back to the user in real-time.
+    - Establishes and manages a WebSocket connection to the **Cloudflare Worker** for the duration of the interview.
+    - Captures microphone audio, encodes it into Protobuf messages.
+    - Streams the Protobuf-encoded audio data to the Cloudflare Worker via the WebSocket.
+    - Receives Protobuf-encoded audio from the Worker, decodes it, and plays it back to the user.
 
-#### **2. Backend (Server-Side)**
+#### **2. Backend - Next.js (Business Logic Server)**
 
-- **Framework**: Hosted within the Next.js application, either via API Routes with a custom server setup to handle WebSockets or as a standalone Node.js server.
+- **Framework**: Hosted on Vercel as a standard Next.js application.
 - **Responsibilities**:
-  - **tRPC API**: Handles standard CRUD (Create, Read, Update, Delete) operations for user data. For example, `user.getProfile` or `interview.getHistory`. This leverages the existing T3 stack patterns.
-  - **WebSocket Server**:
-    - Listens for incoming WebSocket connections from the frontend.
-    - Manages the lifecycle of each interview session.
-  - **Gemini Live API Client**:
-    - Upon receiving a WebSocket connection, it initiates and maintains a bi-directional stream with the Google Gemini Live API.
-    - It acts as a proxy, forwarding audio data between the user and the Gemini API.
-  - **Data Handling**:
-    - Receives Protobuf messages from the client, decodes them, and forwards the raw audio data to the Gemini Live API.
-    - Receives audio data from the Gemini Live API, encodes it into Protobuf messages, and sends it to the client via the WebSocket.
+  - **tRPC API**: Handles all standard CRUD operations and business logic.
+    - `user.getProfile`, `interview.getHistory`
+    - **`interview.generateWorkerToken`**: A new, critical endpoint that authorizes a user to connect to the real-time service.
+    - **`interview.submitTranscript`**: A new, internal-only endpoint for the Cloudflare Worker to post the completed interview data back to the database.
+  - **Database Management**: The sole owner of the database connection (via Prisma). It persists all user and interview data.
+  - **Authentication**: Manages user sessions via NextAuth.js.
 
-#### **3. Database**
+#### **3. Backend - Cloudflare Worker (Real-time Server)**
 
-- **ORM**: Prisma handles all database communication with full type safety.
+- **Framework**: Deployed on the Cloudflare Edge network.
 - **Responsibilities**:
-  - Store user profile information (name, goals, etc.).
-  - Persist metadata about each interview session (e.g., start time, end time, topics discussed, AI-generated feedback summary after the call).
-  - The actual audio stream is not stored in the database to keep the MVP simple and efficient.
+  - **WebSocket Server**: Listens for incoming WebSocket connections from the frontend. It uses a **Durable Object** to manage the state for each individual interview session.
+  - **Gemini Live API Client**: The Durable Object initiates and maintains a bi-directional stream with the Google Gemini Live API for the duration of the call.
+  - **Proxy & State Management**: It acts as a secure proxy, forwarding audio data between the user and the Gemini API. It also buffers the transcript and other session metadata within the Durable Object.
+  - **Data Persistence**: Upon interview completion, it calls the `interview.submitTranscript` tRPC endpoint on the Next.js backend to persist the final data.
 
-#### **4. Protobufs: The Communication Schema**
+#### **4. Database**
 
-This is the core of your real-time communication. You would define a `.proto` file that specifies the structure of the messages being sent.
+- **ORM**: Prisma handles all database communication with full type safety, exclusively through the Next.js backend.
+- **Responsibilities**:
+  - Store user profile information.
+  - Persist metadata and the final transcript for each interview session.
+
+#### **5. Protobufs: The Communication Schema**
+
+This remains the unchanged contract for real-time data between the client and the real-time server (the Cloudflare Worker).
 
 **Example `audio.proto` file:**
 
@@ -111,17 +123,16 @@ message ServerAudioChunk {
 
 ### **Data Flow for a Live Interview**
 
-1.  **Initialization**: A user signs in (via NextAuth.js) and clicks "Start Interview." The frontend might make a tRPC call (`interview.startSession`) to the backend to create an interview record in the database via Prisma.
-2.  **WebSocket Connection**: The frontend establishes a WebSocket connection to the backend server.
-3.  **Gemini Connection**: The backend receives the WebSocket connection, authenticates the user, and initiates a bi-directional stream to the Gemini Live API.
-4.  **Client-to-AI Stream**:
-    - The frontend captures a chunk of audio from the user's microphone.
-    - It serializes this audio chunk using the `ClientAudioChunk` Protobuf schema.
-    - The Protobuf message is sent through the WebSocket to the backend.
-    - The backend receives and deserializes the message and immediately forwards the raw audio chunk to the Gemini Live API.
-5.  **AI-to-Client Stream**:
-    - The Gemini Live API sends a chunk of AI-generated audio back to the backend.
-    - The backend serializes this audio using the `ServerAudioChunk` Protobuf schema.
-    - The Protobuf message is sent through the WebSocket to the frontend.
-    - The frontend receives and deserializes the message and plays the audio chunk to the user.
-6.  **Termination**: When the user ends the interview, the WebSocket is closed. The frontend can make a final tRPC call (`interview.endSession`) to update the interview record with duration and any final metadata.
+1.  **Initialization**: A user clicks "Start Interview." The frontend makes a tRPC call (`interview.createSession`) to the Next.js backend to create an interview record in the database.
+2.  **Authorization**: The frontend then calls a new tRPC mutation, `interview.generateWorkerToken`, passing the `interviewId`. The Next.js backend verifies ownership and returns a short-lived JWT.
+3.  **WebSocket Connection**: The frontend establishes a WebSocket connection to the **Cloudflare Worker**, passing the `interviewId` and the JWT for authentication.
+4.  **Durable Object Activation**: The Worker validates the token and forwards the connection to the specific Durable Object instance responsible for this `interviewId`.
+5.  **Gemini Connection**: The Durable Object receives the connection and initiates its own bi-directional stream to the Gemini Live API.
+6.  **Client-to-AI Stream**:
+    - The frontend captures audio, serializes it via Protobuf, and sends it to the Durable Object.
+    - The Durable Object deserializes it and forwards the raw audio to the Gemini Live API.
+7.  **AI-to-Client Stream**:
+    - The Gemini API sends audio back to the Durable Object.
+    - The Durable Object serializes it via Protobuf and sends it down to the frontend.
+    - The frontend deserializes and plays the audio.
+8.  **Termination & Data Persistence**: When the user ends the interview, the WebSocket is closed. The Durable Object bundles the full transcript and makes a secure, server-to-server `fetch` call to the `interview.submitTranscript` tRPC endpoint on the Next.js backend to save the data.
