@@ -69,6 +69,10 @@ void
 
 - **Endpoint**: `ws://localhost:3001` (during development)
 - **Protocol**: The communication adheres to the protobuf schema defined in `proto/interview.proto`. See `proto/GEMINI.md` for a detailed flow description.
+- **Error Codes**: 
+  - `401`: Invalid authentication token
+  - `404`: Interview not found or unauthorized
+  - `500`: Internal server error
 
 #### Backend Requirements (WebSocket Server)
 
@@ -337,10 +341,10 @@ Ready for frontend implementation. The backend provides a complete WebSocket API
 
 **Files Created/Modified:**
 
-- `src/app/(app)/interview/[interviewId]/session/useInterviewSocket.ts` - WebSocket hook
-- `src/app/(app)/interview/[interviewId]/session/SessionContent.tsx` - Main UI component
-- `src/app/(app)/interview/[interviewId]/session/page.tsx` - Next.js page wrapper
-- `src/app/(app)/interview/[interviewId]/session/page.test.tsx` - Test suite
+- `src/app/(app)/interview/[interviewId]/session/useInterviewSocket.ts` - WebSocket hook [@src/app/(app)/interview/[interviewId]/session/useInterviewSocket.ts]
+- `src/app/(app)/interview/[interviewId]/session/SessionContent.tsx` - Main UI component [@src/app/(app)/interview/[interviewId]/session/SessionContent.tsx]
+- `src/app/(app)/interview/[interviewId]/session/page.tsx` - Next.js page wrapper [@src/app/(app)/interview/[interviewId]/session/page.tsx]
+- `src/app/(app)/interview/[interviewId]/session/page.test.tsx` - Test suite [@src/app/(app)/interview/[interviewId]/session/page.test.tsx]
 - `.env.example` - Added NEXT_PUBLIC_WS_URL
 
 **Ready for End-to-End Testing:**
