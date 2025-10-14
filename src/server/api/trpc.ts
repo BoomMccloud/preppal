@@ -131,3 +131,84 @@ export const protectedProcedure = t.procedure
       },
     });
   });
+
+/**
+ * Flexible authentication middleware
+ *
+ * Supports both session-based authentication (for user requests) and
+ * shared secret authentication (for Cloudflare Worker requests).
+ *
+ * This middleware checks for authentication in the following order:
+ * 1. Session authentication (ctx.session.user exists)
+ * 2. Shared secret authentication (Authorization: Bearer <WORKER_SHARED_SECRET> header)
+ *
+ * If either authentication method succeeds, the request proceeds with
+ * an authType field added to the context indicating which auth was used.
+ */
+const flexibleAuthMiddleware = t.middleware(({ ctx, next }) => {
+  // First, check for session authentication
+  if (ctx.session?.user) {
+    return next({
+      ctx: {
+        authType: "user" as const,
+        session: { ...ctx.session, user: ctx.session.user },
+      },
+    });
+  }
+
+  // Second, check for shared secret authentication
+  const authHeader = ctx.headers.get("authorization");
+  if (authHeader?.startsWith("Bearer ")) {
+    const token = authHeader.substring(7);
+    const workerSecret = process.env.WORKER_SHARED_SECRET;
+
+    if (workerSecret && token === workerSecret) {
+      return next({
+        ctx: {
+          authType: "worker" as const,
+        },
+      });
+    }
+  }
+
+  // No valid authentication found
+  throw new TRPCError({ code: "UNAUTHORIZED" });
+});
+
+/**
+ * Flexible procedure
+ *
+ * Uses flexible authentication that accepts either session auth or shared secret auth.
+ * Use this for procedures that need to be called by both users and the Cloudflare Worker.
+ */
+export const flexibleProcedure = t.procedure
+  .use(timingMiddleware)
+  .use(flexibleAuthMiddleware);
+
+/**
+ * Worker-only procedure
+ *
+ * Only accepts shared secret authentication.
+ * Use this for procedures that should only be called by the Cloudflare Worker.
+ */
+export const workerProcedure = t.procedure
+  .use(timingMiddleware)
+  .use(({ ctx, next }) => {
+    const authHeader = ctx.headers.get("authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      throw new TRPCError({ code: "UNAUTHORIZED" });
+    }
+
+    const token = authHeader.substring(7);
+    const workerSecret = process.env.WORKER_SHARED_SECRET;
+
+    if (!workerSecret || token !== workerSecret) {
+      throw new TRPCError({ code: "UNAUTHORIZED" });
+    }
+
+    return next({
+      ctx: {
+        authType: "worker" as const,
+      },
+    });
+  });

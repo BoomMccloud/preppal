@@ -1,9 +1,10 @@
 import { z } from "zod";
-import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import { createTRPCRouter, protectedProcedure, flexibleProcedure, workerProcedure } from "~/server/api/trpc";
 import { TRPCError } from "@trpc/server";
 import { Prisma } from "@prisma/client";
 import { SignJWT } from "jose";
 import { env } from "~/env";
+import jwt from "jsonwebtoken";
 
 // Discriminated union for job description input
 const JobDescriptionInput = z.discriminatedUnion("type", [
@@ -319,5 +320,152 @@ export const interviewRouter = createTRPCRouter({
         .sign(secret);
 
       return { token };
+    }),
+
+  generateWorkerToken: protectedProcedure
+    .input(z.object({ interviewId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      // Verify the interview belongs to the user and is in PENDING status
+      const interview = await ctx.db.interview.findUnique({
+        where: {
+          id: input.interviewId,
+          userId: ctx.session.user.id,
+        },
+      });
+
+      if (!interview) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Interview not found",
+        });
+      }
+
+      // Verify interview is in PENDING state
+      if (interview.status !== "PENDING") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Interview is not in PENDING state",
+        });
+      }
+
+      // Get JWT secret from environment
+      const jwtSecret = process.env.JWT_SECRET;
+      if (!jwtSecret) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "JWT_SECRET not configured",
+        });
+      }
+
+      // Generate JWT token with HS256, valid for 5 minutes
+      const token = jwt.sign(
+        {
+          userId: ctx.session.user.id,
+          interviewId: input.interviewId,
+        },
+        jwtSecret,
+        {
+          algorithm: "HS256",
+          expiresIn: "5m",
+        }
+      );
+
+      return { token };
+    }),
+
+  updateStatus: flexibleProcedure
+    .input(
+      z.object({
+        interviewId: z.string(),
+        status: z.enum(["IN_PROGRESS", "COMPLETED", "ERROR"]),
+        endedAt: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Authorization logic depends on auth type
+      if (ctx.authType === "user") {
+        // User auth: verify ownership
+        const interview = await ctx.db.interview.findUnique({
+          where: {
+            id: input.interviewId,
+            userId: ctx.session.user.id,
+          },
+        });
+
+        if (!interview) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Interview not found",
+          });
+        }
+      } else {
+        // Worker auth: only verify existence
+        const interview = await ctx.db.interview.findUnique({
+          where: { id: input.interviewId },
+        });
+
+        if (!interview) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Interview not found",
+          });
+        }
+      }
+
+      // Prepare update data based on status
+      const updateData: Prisma.InterviewUpdateInput = {
+        status: input.status,
+      };
+
+      if (input.status === "IN_PROGRESS") {
+        updateData.startedAt = new Date();
+      } else if (input.status === "COMPLETED" || input.status === "ERROR") {
+        updateData.endedAt = input.endedAt ? new Date(input.endedAt) : new Date();
+      }
+
+      // Update the interview
+      const updatedInterview = await ctx.db.interview.update({
+        where: { id: input.interviewId },
+        data: updateData,
+      });
+
+      return updatedInterview;
+    }),
+
+  submitTranscript: workerProcedure
+    .input(
+      z.object({
+        interviewId: z.string(),
+        transcript: z.array(
+          z.object({
+            speaker: z.enum(["USER", "AI"]),
+            content: z.string(),
+            timestamp: z.string(),
+          })
+        ),
+        endedAt: z.string(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Perform atomic transaction: save transcript + update status
+      await ctx.db.$transaction([
+        ctx.db.transcriptEntry.createMany({
+          data: input.transcript.map((entry) => ({
+            interviewId: input.interviewId,
+            speaker: entry.speaker,
+            content: entry.content,
+            timestamp: new Date(entry.timestamp),
+          })),
+        }),
+        ctx.db.interview.update({
+          where: { id: input.interviewId },
+          data: {
+            status: "COMPLETED",
+            endedAt: new Date(input.endedAt),
+          },
+        }),
+      ]);
+
+      return { success: true };
     }),
 });
