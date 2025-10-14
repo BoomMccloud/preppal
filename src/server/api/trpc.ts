@@ -133,6 +133,20 @@ export const protectedProcedure = t.procedure
   });
 
 /**
+ * Validates worker authentication via shared secret
+ */
+function validateWorkerAuth(authHeader: string | null): boolean {
+  if (!authHeader?.startsWith("Bearer ")) {
+    return false;
+  }
+
+  const token = authHeader.substring(7);
+  const workerSecret = process.env.WORKER_SHARED_SECRET;
+
+  return workerSecret !== undefined && token === workerSecret;
+}
+
+/**
  * Flexible authentication middleware
  *
  * Supports both session-based authentication (for user requests) and
@@ -158,17 +172,12 @@ const flexibleAuthMiddleware = t.middleware(({ ctx, next }) => {
 
   // Second, check for shared secret authentication
   const authHeader = ctx.headers.get("authorization");
-  if (authHeader?.startsWith("Bearer ")) {
-    const token = authHeader.substring(7);
-    const workerSecret = process.env.WORKER_SHARED_SECRET;
-
-    if (workerSecret && token === workerSecret) {
-      return next({
-        ctx: {
-          authType: "worker" as const,
-        },
-      });
-    }
+  if (validateWorkerAuth(authHeader)) {
+    return next({
+      ctx: {
+        authType: "worker" as const,
+      },
+    });
   }
 
   // No valid authentication found
@@ -195,14 +204,8 @@ export const workerProcedure = t.procedure
   .use(timingMiddleware)
   .use(({ ctx, next }) => {
     const authHeader = ctx.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      throw new TRPCError({ code: "UNAUTHORIZED" });
-    }
 
-    const token = authHeader.substring(7);
-    const workerSecret = process.env.WORKER_SHARED_SECRET;
-
-    if (!workerSecret || token !== workerSecret) {
+    if (!validateWorkerAuth(authHeader)) {
       throw new TRPCError({ code: "UNAUTHORIZED" });
     }
 

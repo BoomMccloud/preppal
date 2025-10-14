@@ -382,34 +382,20 @@ export const interviewRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      // Authorization logic depends on auth type
-      if (ctx.authType === "user") {
-        // User auth: verify ownership
-        const interview = await ctx.db.interview.findUnique({
-          where: {
-            id: input.interviewId,
-            userId: ctx.session.user.id,
-          },
-        });
+      // Verify interview exists (and ownership if user auth)
+      const whereClause = ctx.authType === "user"
+        ? { id: input.interviewId, userId: ctx.session.user.id }
+        : { id: input.interviewId };
 
-        if (!interview) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Interview not found",
-          });
-        }
-      } else {
-        // Worker auth: only verify existence
-        const interview = await ctx.db.interview.findUnique({
-          where: { id: input.interviewId },
-        });
+      const interview = await ctx.db.interview.findUnique({
+        where: whereClause,
+      });
 
-        if (!interview) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Interview not found",
-          });
-        }
+      if (!interview) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Interview not found",
+        });
       }
 
       // Prepare update data based on status
