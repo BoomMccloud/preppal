@@ -197,58 +197,9 @@ async function handleEndRequest(ws: WebSocket, state: ConnectionState) {
       },
     });
 
-    // Create mock feedback for MVP
-    await db.feedback.create({
-      data: {
-        interviewId: state.interviewId,
-        summary:
-          "**MOCK** You demonstrated good communication skills and provided thoughtful responses to the interview questions. Your answers showed understanding of the topics discussed, and you maintained a professional demeanor throughout the session.",
-        strengths: `• **Clear Communication**: You articulated your thoughts clearly and concisely
-• **Professional Demeanor**: Maintained professionalism throughout the interview
-• **Thoughtful Responses**: Took time to consider questions before answering
-• **Engaged Listener**: Showed active engagement with the interviewer's questions`,
-        contentAndStructure: `Your responses were well-structured and addressed the questions directly. You provided relevant examples and maintained good flow throughout the conversation.
-
-**Strengths:**
-- Clear introduction and background
-- Relevant examples to support your points
-- Logical progression of ideas
-- Good use of specific details
-
-**Areas for improvement:**
-- Could provide more quantitative results in examples
-- Consider using the STAR method more consistently
-- Expand on technical details when relevant`,
-        communicationAndDelivery: `You communicated effectively with good pacing and clarity. Your delivery style was conversational yet professional.
-
-**Strengths:**
-- Good speaking pace and clarity
-- Appropriate pause before answering
-- Confident tone
-- Good use of transitions between points
-
-**Areas for improvement:**
-- Could vary vocal tone for emphasis
-- Reduce filler words slightly
-- Consider adding more enthusiasm when discussing achievements`,
-        presentation: `You presented yourself professionally and maintained good engagement throughout the session.
-
-**Strengths:**
-- Professional and focused demeanor
-- Good attention to questions
-- Appropriate level of formality
-- Maintained engagement throughout
-
-**Areas for improvement:**
-- Consider more expressive body language
-- Use hand gestures to emphasize key points
-- Maintain consistent energy level`,
-      },
-    });
-
-    console.log(
-      `[WebSocket] Mock feedback created for interview: ${state.interviewId}`,
-    );
+    // TODO: Trigger feedback generation service
+    // In the future, this should send a message to a background job queue
+    // or trigger a webhook to start the AI feedback generation process
 
     // Send SessionEnded
     const response: ServerToClientMessage = {

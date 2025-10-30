@@ -4,6 +4,20 @@
 
 ---
 
+## 0. Code Verification (October 30, 2025)
+
+A review of the current codebase has **confirmed** that the implementation in `src/app/(app)/interview/[interviewId]/session/useInterviewSocket.ts` and its tests (`page.test.tsx`) are based on the **old specification**.
+
+Specifically, the code currently uses:
+- The `api.interview.generateWsToken` tRPC mutation.
+- A hardcoded `ws://localhost:3001` URL.
+- Logic to send a `StartRequest` message upon connection.
+- JSON parsing for WebSocket messages.
+
+This verification confirms that the refactoring steps outlined below are **necessary and correct**.
+
+---
+
 ## 1. Core Changes from the New Specification
 
 The new specification (`EPIC02`) introduces a unified API contract and a clear separation of concerns between the Next.js application and a new Cloudflare Worker for real-time communication. The "echo server" approach is now obsolete.
