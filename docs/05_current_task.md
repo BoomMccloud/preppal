@@ -33,13 +33,6 @@ The foundational audio components (`AudioRecorder` and `AudioPlayer`) are comple
 
 According to `FEAT17_implementation_plan.md`, FEAT17 requires:
 
-#### Backend Requirements ❌
-
-- [ ] **Cloudflare Worker** for real-time audio processing (or updated WebSocket server)
-- [ ] `generateWorkerToken` tRPC endpoint (different from `generateWsToken`)
-- [ ] Protobuf message handling
-- [ ] Audio processing pipeline (STT/TTS)
-
 #### Frontend Requirements ❌
 
 - [ ] Refactor `useInterviewSocket` to use **Protobuf** instead of JSON
@@ -59,6 +52,10 @@ According to `FEAT17_implementation_plan.md`, FEAT17 requires:
 - [ ] Rewrite `useInterviewSocket` tests for new API contract
 - [ ] Implement E2E test against mock/real server
 - [ ] Test audio capture and playback integration
+
+#### Backend
+
+- Backend is handled by another team
 
 ---
 
