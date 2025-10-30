@@ -2,10 +2,10 @@
 
 ## Task: FEAT17 - Implement Real-Time Client-Side Audio
 
-**Status:** In Progress - Foundation Complete, Integration Pending
+**Status:** In Progress - Starting Frontend Integration
 
 **Summary:**
-The foundational audio components (`AudioRecorder` and `AudioPlayer`) are complete and unit-tested. During work on FEAT17, we discovered that a prerequisite feature (FEAT15 - basic session page) was partially implemented and needed completion. FEAT15 is now complete and provides a working foundation, but it uses a different architecture than what FEAT17 requires.
+FEAT15 (JSON-based session page) is complete and working. We're now beginning FEAT17 frontend integration to migrate to Protobuf + audio. **Backend is being handled by another team** - we're only responsible for the frontend client code. Following TDD approach: write failing tests first, then implement.
 
 ---
 
@@ -55,7 +55,12 @@ According to `FEAT17_implementation_plan.md`, FEAT17 requires:
 
 #### Backend
 
-- Backend is handled by another team
+- **Backend is handled by another team** - We are NOT responsible for:
+  - Cloudflare Worker implementation
+  - Protobuf message handling on server side
+  - Speech-to-text/text-to-speech integration
+  - AI conversation logic
+  - Token generation endpoint
 
 ---
 
@@ -77,57 +82,46 @@ Server (local WebSocket)
 ```
 Client → wss://worker-url/<interviewId>?token=<jwt>
          ↓ Protobuf messages
-         ↓ generateWorkerToken
+         ↓ (Backend team's token endpoint)
          ↓ No StartRequest (auth via URL)
          ↓ Real audio + transcripts
-Cloudflare Worker → STT/TTS/AI
+Cloudflare Worker (Backend team) → STT/TTS/AI
 ```
 
 ---
 
-## Decision Point
+## Our Scope: Frontend Only
 
-We need to decide how to proceed with FEAT17:
+**Decision Made:** Full migration to FEAT17 architecture (Protobuf + audio + Cloudflare Worker)
 
-### Option A: Build FEAT17 Alongside FEAT15
+**What we're building:**
+- Protobuf-based `useInterviewSocket` hook
+- AudioRecorder integration (capture and stream audio)
+- AudioPlayer integration (play AI responses)
+- Updated UI components for audio status
+- Comprehensive tests
 
-- Keep FEAT15 as-is (local WebSocket, JSON, mock transcripts)
-- Build new Cloudflare Worker backend for FEAT17
-- Create new `generateWorkerToken` endpoint
-- Build parallel audio-enabled session page
-- **Pros**: FEAT15 remains working for testing/demo
-- **Cons**: Duplicate code, two session implementations
-
-### Option B: Migrate FEAT15 to FEAT17 Architecture
-
-- Replace local WebSocket with Cloudflare Worker
-- Migrate JSON to Protobuf
-- Integrate audio components
-- **Pros**: Single implementation, cleaner codebase
-- **Cons**: Breaks current working FEAT15, more complex migration
-
-### Option C: Pause FEAT17, Focus on Other Features
-
-- Keep FEAT15 as-is
-- Build feedback generation service (high priority)
-- Return to FEAT17 audio integration later
-- **Pros**: Addresses more immediate needs
-- **Cons**: Audio features delayed
+**What we're NOT building:**
+- Backend/server code (handled by another team)
+- Token generation endpoints
+- Cloudflare Worker logic
 
 ---
 
-## Pending Work for FEAT17
+## FEAT17 Frontend Work (Our Responsibility)
 
-### 1. Backend (Cloudflare Worker or Updated Server)
+### Phase 1: Testing (TDD Approach) - **CURRENT PHASE**
 
-- [ ] Set up Cloudflare Worker or update existing WebSocket server for Protobuf
-- [ ] Implement `generateWorkerToken` tRPC mutation
-- [ ] Add Protobuf message encoding/decoding
-- [ ] Integrate speech-to-text (Google/OpenAI)
-- [ ] Integrate text-to-speech
-- [ ] Integrate AI conversation logic
+- [ ] **Write failing tests for Protobuf-based `useInterviewSocket`** ⬅️ **NEXT IMMEDIATE STEP**
+  - Test Protobuf message encoding/decoding (ClientToServerMessage, ServerToClientMessage)
+  - Test new message handlers: transcript_update, audio_response, session_ended
+  - Test AudioRecorder integration (capturing and streaming audio chunks)
+  - Test AudioPlayer integration (playing AI audio responses)
+  - Test WebSocket URL construction with token parameter
+  - Test removal of StartRequest message logic
+  - Test EndRequest message handling
 
-### 2. Frontend Integration
+### Phase 2: Frontend Integration
 
 - [ ] Refactor `useInterviewSocket.ts` for Protobuf messages
 - [ ] Integrate `AudioRecorder` service
@@ -136,16 +130,15 @@ We need to decide how to proceed with FEAT17:
 - [ ] Update URL construction with token parameter
 - [ ] Remove StartRequest logic
 
-### 3. UI Updates
+### Phase 3: UI Updates
 
 - [ ] Display real-time transcripts from `transcript_update`
 - [ ] Show audio recording status
 - [ ] Handle new connection states
 - [ ] Update error handling
 
-### 4. Testing
+### Phase 4: Integration Testing
 
-- [ ] Rewrite hook tests for Protobuf API
 - [ ] Add integration tests
 - [ ] Implement E2E test
 - [ ] Manual testing with real audio
@@ -172,20 +165,47 @@ We need to decide how to proceed with FEAT17:
 
 ## Next Steps
 
-**Immediate:** Decide on approach (Option A, B, or C above)
+**Immediate Next Action:**
 
-**If continuing with FEAT17:**
+Write failing tests for Protobuf-based `useInterviewSocket` hook following TDD principles.
 
-1. Choose backend architecture (Cloudflare Worker vs local server upgrade)
-2. Implement `generateWorkerToken` endpoint
-3. Begin refactoring `useInterviewSocket` for Protobuf
-4. Test with mock Protobuf messages before full audio integration
+**Reference Specs:**
+- [FEAT17_implementation_plan.md](FEAT17_implementation_plan.md) - Detailed refactoring requirements
+- [proto/interview.proto](../proto/interview.proto) - Protobuf message definitions
+- Current implementation: `src/app/(app)/interview/[interviewId]/session/useInterviewSocket.ts` (JSON-based)
+
+**Test Coverage Plan:**
+
+1. **Protobuf Message Handling**
+   - Encode ClientToServerMessage (audio_chunk, end_request)
+   - Decode ServerToClientMessage (transcript_update, audio_response, session_ended, error)
+
+2. **WebSocket Connection**
+   - URL format: `wss://worker-url/<interviewId>?token=<jwt>`
+   - No StartRequest message (auth via URL token)
+   - Handle connection states (connecting, connected, disconnected, error)
+
+3. **AudioRecorder Integration**
+   - Start/stop recording
+   - Capture audio chunks
+   - Stream via WebSocket as Protobuf messages
+
+4. **AudioPlayer Integration**
+   - Receive audio_response messages
+   - Decode audio data
+   - Play through AudioPlayer service
+
+5. **Message Handlers**
+   - transcript_update: Update transcript state
+   - audio_response: Trigger audio playback
+   - session_ended: Clean up and transition state
+   - error: Handle error states
 
 **Documentation:**
 
-- All FEAT15 docs updated
-- FEAT17 specs exist but implementation not started
-- Architecture gap now clearly documented
+- All FEAT15 docs updated ✅
+- FEAT17 specs exist (implementation not started)
+- Frontend scope clarified (backend = another team)
 
 ---
 
