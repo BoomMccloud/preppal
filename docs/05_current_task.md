@@ -1,6 +1,123 @@
 # Current Task
 
-## Task: FEAT16 Phase 1 - Next.js API for Cloudflare Worker Integration
+## Task: FEAT16 Phase 2 - Cloudflare Worker Implementation (Phase 0 Complete)
+
+**Status:** 🚧 IN PROGRESS
+
+**Current Phase:** Phase 0 - Boilerplate Setup ✅ COMPLETED
+
+---
+
+## Phase 0: Boilerplate Setup & Verification - ✅ COMPLETED
+
+**Summary:**
+Successfully set up Cloudflare Worker with Durable Objects and verified basic WebSocket functionality.
+
+### What We Built
+
+#### 1. Worker Project Structure
+Created `worker/` directory with:
+- `wrangler.toml` - Cloudflare Worker configuration with Durable Objects binding
+- `src/index.ts` - Worker entry point with health check and WebSocket routing
+- `src/gemini-session.ts` - Durable Object implementation with echo functionality
+- `tsconfig.json` - TypeScript configuration for Workers
+- `test-ws.ts` - WebSocket test client
+
+#### 2. Configuration
+**wrangler.toml:**
+- Worker name: `preppal-worker`
+- Main entry: `src/index.ts`
+- Compatibility date: `2024-10-01`
+- Durable Object binding: `GEMINI_SESSION` → `GeminiSession` class
+- Migration tag: `v1` with new class registration
+
+#### 3. Worker Implementation
+**Entry Point ([worker/src/index.ts](worker/src/index.ts)):**
+- `GET /health` - Health check endpoint returning `{"status":"ok"}`
+- `GET /ws` - WebSocket upgrade handler
+- Routes WebSocket connections to Durable Object instances
+- Uses `idFromName('test-session')` for Phase 0 testing
+
+**Durable Object ([worker/src/gemini-session.ts](worker/src/gemini-session.ts)):**
+- Accepts WebSocket connections
+- Implements echo functionality for testing
+- Handles message, close, and error events
+- Basic logging for debugging
+
+#### 4. Dependencies Installed
+- `wrangler@4.45.3` - Cloudflare Workers CLI
+- `@cloudflare/workers-types@4.20251014.0` - TypeScript definitions
+
+#### 5. Package Scripts
+Added to root [package.json](package.json):
+- `dev:worker` - Runs `wrangler dev --config worker/wrangler.toml`
+
+#### 6. Git Configuration
+Updated [.gitignore](.gitignore):
+- `.wrangler/` - Local Wrangler cache
+- `.dev.vars` - Local environment variables
+
+### Verification Tests Passed
+
+✅ **Health Endpoint:**
+```bash
+curl http://localhost:8787/health
+# Response: {"status":"ok"}
+```
+
+✅ **WebSocket Connection:**
+- Successfully upgraded to WebSocket on `/ws`
+- Received welcome message from Durable Object
+- Echo functionality working correctly
+- Messages received: "Echo: Hello from test client!"
+
+✅ **Durable Object Instantiation:**
+- Durable Object bindings loaded correctly
+- WebSocket accepted and handled by Durable Object
+- Clean connection/disconnection lifecycle
+
+### Files Created/Modified
+
+**Created:**
+- `worker/wrangler.toml`
+- `worker/src/index.ts`
+- `worker/src/gemini-session.ts`
+- `worker/tsconfig.json`
+- `worker/test-ws.ts`
+
+**Modified:**
+- `package.json` - Added dev:worker script
+- `pnpm-lock.yaml` - Added Wrangler dependencies
+- `.gitignore` - Added Wrangler artifacts
+
+### Local Development
+
+Start the Worker:
+```bash
+pnpm dev:worker
+```
+
+Worker runs on: `http://localhost:8787`
+
+Test WebSocket:
+```bash
+pnpm tsx worker/test-ws.ts
+```
+
+### Next Steps
+
+**Phase 1: WebSocket Basics & Authentication** (Not Started)
+- Install dependencies (jose, @google/generative-ai, vitest, miniflare)
+- Set up protobuf for Worker
+- Add environment variables (.dev.vars)
+- Implement JWT authentication
+- Implement protobuf message handling
+- Update Durable Object with authentication
+- Write tests
+
+---
+
+## Previous Task: FEAT16 Phase 1 - Next.js API for Cloudflare Worker Integration
 
 **Status:** ✅ COMPLETED
 

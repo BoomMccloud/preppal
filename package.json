@@ -12,6 +12,7 @@
     "db:studio": "prisma studio",
     "dev": "next dev --turbo",
     "dev:ws": "tsx src/server/ws/server.ts",
+    "dev:worker": "wrangler dev --config worker/wrangler.toml",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
     "format:write": "prettier --write \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
     "postinstall": "prisma generate",
@@ -50,6 +51,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20251014.0",
     "@eslint/eslintrc": "^3.3.1",
     "@tailwindcss/postcss": "^4.0.15",
     "@testing-library/jest-dom": "^6.8.0",
@@ -70,7 +72,8 @@
     "tsx": "^4.20.6",
     "typescript": "^5.8.2",
     "typescript-eslint": "^8.27.0",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "wrangler": "^4.45.3"
   },
   "ct3aMetadata": {
     "initVersion": "7.39.3"

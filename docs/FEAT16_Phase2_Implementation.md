@@ -31,191 +31,245 @@ This guide provides detailed, step-by-step instructions for implementing the Clo
 
 ---
 
-## Phase 0: Boilerplate Setup & Verification
+## Phase 0: Boilerplate Setup & Verification ✅ COMPLETED
 
 ### Objective
 Create a minimal, working Cloudflare Worker with Durable Objects that we can verify locally before adding complexity.
 
-### Step 0.1: Install Wrangler CLI
+### Step 0.1: Install Wrangler CLI ✅
 
 ```bash
 pnpm add -D wrangler
 ```
 
-### Step 0.2: Initialize Worker Project
+**Completed:** Installed `wrangler@4.45.3` and `@cloudflare/workers-types@4.20251014.0`
 
-Create a new directory for the worker within the project:
+### Step 0.2: Initialize Worker Project ✅
 
-```bash
-mkdir -p worker
-cd worker
-```
+Created `worker/` directory structure manually (no `wrangler init` needed):
 
-Initialize the worker with Wrangler:
-
-```bash
-pnpm wrangler init
-```
-
-**When prompted:**
-- "Would you like to use TypeScript?" → **Yes**
-- "Would you like to use git?" → **No** (we already have git)
-- "Would you like to install dependencies?" → **Yes**
-
-This creates:
 ```
 worker/
 ├── src/
-│   └── index.ts       # Main worker entry point
-├── package.json
-├── tsconfig.json
-└── wrangler.toml      # Cloudflare configuration
+│   ├── index.ts           # Main worker entry point
+│   └── gemini-session.ts  # Durable Object implementation
+├── tsconfig.json          # TypeScript configuration
+├── wrangler.toml          # Cloudflare configuration
+└── test-ws.ts            # WebSocket test client
 ```
 
-### Step 0.3: Configure Durable Objects
+### Step 0.3: Configure Durable Objects ✅
 
-Edit `worker/wrangler.toml`:
+Created `worker/wrangler.toml`:
 
 ```toml
 name = "preppal-worker"
 main = "src/index.ts"
-compatibility_date = "2024-01-01"
-compatibility_flags = ["nodejs_compat"]
+compatibility_date = "2024-10-01"
 
 # Durable Objects configuration
 [[durable_objects.bindings]]
-name = "INTERVIEW_SESSION"
-class_name = "InterviewSession"
+name = "GEMINI_SESSION"
+class_name = "GeminiSession"
 
-# For migrations (when deploying)
+# Migrations for Durable Objects
 [[migrations]]
 tag = "v1"
-new_classes = ["InterviewSession"]
+new_classes = ["GeminiSession"]
 ```
 
-### Step 0.4: Create Minimal Working Boilerplate
+**Note:** Using `GEMINI_SESSION` binding name and `GeminiSession` class name (not `INTERVIEW_SESSION`/`InterviewSession`).
 
-Replace `worker/src/index.ts` with:
+### Step 0.4: Create Minimal Working Boilerplate ✅
+
+**Created `worker/src/index.ts`:**
 
 ```typescript
-/**
- * Main Worker entry point
- * Handles incoming requests and routes WebSocket upgrades to Durable Objects
- */
-export interface Env {
-  INTERVIEW_SESSION: DurableObjectNamespace;
+// ABOUTME: Cloudflare Worker entry point that routes HTTP/WebSocket requests to Durable Objects
+// ABOUTME: Handles health checks and WebSocket upgrade for Gemini Live API sessions
+
+export { GeminiSession } from './gemini-session';
+
+interface Env {
+	GEMINI_SESSION: DurableObjectNamespace;
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url);
+	async fetch(request: Request, env: Env): Promise<Response> {
+		const url = new URL(request.url);
 
-    // Health check endpoint
-    if (url.pathname === '/health') {
-      return new Response('OK', { status: 200 });
-    }
+		// Health check endpoint
+		if (url.pathname === '/health') {
+			return new Response(JSON.stringify({ status: 'ok' }), {
+				headers: { 'Content-Type': 'application/json' },
+			});
+		}
 
-    // WebSocket upgrade handling
-    if (request.headers.get('Upgrade') === 'websocket') {
-      // Extract interviewId from path: /ws/{interviewId}
-      const pathParts = url.pathname.split('/');
-      const interviewId = pathParts[pathParts.length - 1];
+		// WebSocket endpoint
+		if (url.pathname === '/ws') {
+			// Upgrade to WebSocket
+			if (request.headers.get('Upgrade') !== 'websocket') {
+				return new Response('Expected WebSocket', { status: 426 });
+			}
 
-      if (!interviewId) {
-        return new Response('Missing interviewId in path', { status: 400 });
-      }
+			// Create or get Durable Object instance
+			// For now, use a simple ID - we'll add proper session management later
+			const id = env.GEMINI_SESSION.idFromName('test-session');
+			const stub = env.GEMINI_SESSION.get(id);
 
-      // Get Durable Object instance for this interview
-      const id = env.INTERVIEW_SESSION.idFromName(interviewId);
-      const stub = env.INTERVIEW_SESSION.get(id);
+			// Forward the request to the Durable Object
+			return stub.fetch(request);
+		}
 
-      // Forward the request to the Durable Object
-      return stub.fetch(request);
-    }
-
-    return new Response('Not Found', { status: 404 });
-  },
+		return new Response('Not Found', { status: 404 });
+	},
 };
+```
 
-/**
- * Durable Object for managing a single interview session
- */
-export class InterviewSession implements DurableObject {
-  constructor(private state: DurableObjectState, private env: Env) {}
+**Created `worker/src/gemini-session.ts`:**
 
-  async fetch(request: Request): Promise<Response> {
-    // Handle WebSocket upgrade
-    if (request.headers.get('Upgrade') === 'websocket') {
-      const webSocketPair = new WebSocketPair();
-      const [client, server] = Object.values(webSocketPair);
+```typescript
+// ABOUTME: Durable Object managing individual Gemini Live API WebSocket sessions
+// ABOUTME: Handles WebSocket connections with simple echo functionality for Phase 0 testing
 
-      // Accept the WebSocket connection
-      this.handleWebSocket(server);
+export class GeminiSession implements DurableObject {
+	constructor(
+		private state: DurableObjectState,
+		private env: Record<string, unknown>,
+	) {}
 
-      // Return the client end to complete the handshake
-      return new Response(null, {
-        status: 101,
-        webSocket: client,
-      });
-    }
+	async fetch(request: Request): Promise<Response> {
+		// Handle WebSocket upgrade
+		const upgradeHeader = request.headers.get('Upgrade');
+		if (upgradeHeader !== 'websocket') {
+			return new Response('Expected WebSocket', { status: 426 });
+		}
 
-    return new Response('Expected WebSocket', { status: 400 });
-  }
+		// Create WebSocket pair
+		const webSocketPair = new WebSocketPair();
+		const [client, server] = Object.values(webSocketPair);
 
-  private handleWebSocket(webSocket: WebSocket) {
-    // Accept the WebSocket
-    webSocket.accept();
+		// Accept the WebSocket connection
+		server.accept();
 
-    // Send a test message
-    webSocket.send('Hello from Durable Object!');
+		// Handle messages - echo back for now
+		server.addEventListener('message', (event: MessageEvent) => {
+			const message = event.data;
+			console.log('Received message:', message);
 
-    // Handle incoming messages
-    webSocket.addEventListener('message', (event) => {
-      console.log('Received message:', event.data);
+			// Echo the message back
+			server.send(`Echo: ${message}`);
+		});
 
-      // Echo the message back
-      webSocket.send(`Echo: ${event.data}`);
-    });
+		server.addEventListener('close', () => {
+			console.log('WebSocket closed');
+		});
 
-    // Handle close
-    webSocket.addEventListener('close', (event) => {
-      console.log('WebSocket closed:', event.code, event.reason);
-    });
+		server.addEventListener('error', (event: ErrorEvent) => {
+			console.error('WebSocket error:', event.error);
+		});
 
-    // Handle errors
-    webSocket.addEventListener('error', (event) => {
-      console.error('WebSocket error:', event);
-    });
-  }
+		return new Response(null, {
+			status: 101,
+			webSocket: client,
+		});
+	}
 }
 ```
 
-### Step 0.5: Test Locally
+**Created `worker/tsconfig.json`:**
 
-Start the local dev server:
-
-```bash
-cd worker
-pnpm wrangler dev
+```json
+{
+	"compilerOptions": {
+		"target": "ES2020",
+		"module": "ES2020",
+		"lib": ["ES2020"],
+		"types": ["@cloudflare/workers-types"],
+		"strict": true,
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"moduleResolution": "node",
+		"resolveJsonModule": true,
+		"isolatedModules": true,
+		"noEmit": true
+	},
+	"include": ["src/**/*"],
+	"exclude": ["node_modules"]
+}
 ```
 
-The worker should be accessible at `http://localhost:8787`.
+**Created `worker/test-ws.ts`:**
 
-Test the health endpoint:
+```typescript
+// ABOUTME: Simple WebSocket client for testing the Worker's echo functionality
+// ABOUTME: Connects to local Worker and sends test messages to verify basic WebSocket handling
+
+import { WebSocket } from 'ws';
+
+const ws = new WebSocket('ws://localhost:8787/ws');
+
+ws.on('open', () => {
+	console.log('✓ WebSocket connected');
+	ws.send('Hello from test client!');
+});
+
+ws.on('message', (data) => {
+	console.log('✓ Received:', data.toString());
+	ws.close();
+});
+
+ws.on('close', () => {
+	console.log('✓ WebSocket closed');
+	process.exit(0);
+});
+
+ws.on('error', (error) => {
+	console.error('✗ WebSocket error:', error);
+	process.exit(1);
+});
+```
+
+**Updated root `package.json`:**
+
+Added script:
+```json
+"dev:worker": "wrangler dev --config worker/wrangler.toml"
+```
+
+**Updated `.gitignore`:**
+
+Added:
+```
+# wrangler
+.wrangler/
+.dev.vars
+```
+
+### Step 0.5: Test Locally ✅
+
+**Started dev server:**
+```bash
+pnpm dev:worker
+# Worker running on http://localhost:8787
+```
+
+**Tested health endpoint:**
 ```bash
 curl http://localhost:8787/health
-# Expected: OK
+# Response: {"status":"ok"} ✓
 ```
 
-Test WebSocket connection (using `wscat` or similar):
+**Tested WebSocket connection:**
 ```bash
-npm install -g wscat
-wscat -c ws://localhost:8787/ws/test-interview-123
-# Expected: "Hello from Durable Object!"
-# Type a message and it should be echoed back
+pnpm tsx worker/test-ws.ts
+# Output:
+# ✓ WebSocket connected
+# ✓ Received: Echo: Hello from test client!
+# ✓ WebSocket closed
 ```
 
-**✅ Checkpoint:** If you can connect and receive/send messages, Phase 0 is complete!
+**✅ Checkpoint:** Phase 0 is complete! Worker is running, health check works, and WebSocket echo functionality is verified.
 
 ---
 
