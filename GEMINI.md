@@ -19,19 +19,23 @@ Preppal is an application that uses the Gemini Live API to help users practice i
 
 ## Architectural Concepts
 
-This project is divided into several key architectural components. For more detailed information, please refer to the specific `GEMINI.md` file in each directory.
+This project is divided into several key architectural components. For more detailed information, please refer to the specific `agent.md` file in each directory.
 
-- **[Frontend (`src/app`)](./src/app/GEMINI.md)**: The frontend is built with Next.js and React Server Components. It handles the user interface and client-side interactions.
+- **[Frontend (`src/app`)](./src/app/agent.md)**: The frontend is built with Next.js and React Server Components. It handles the user interface and client-side interactions.
 
-- **[Backend (`src/server/api`)](./src/server/api/GEMINI.md)**: The backend is built with tRPC and provides a typesafe API for the frontend.
+- **[Backend (`src/server/api`)](./src/server/api/agent.md)**: The backend is built with tRPC and provides a typesafe API for the frontend.
 
-- **[Database (`prisma`)](./prisma/GEMINI.md)**: The database schema is defined and managed with Prisma.
+- **[Database (`prisma`)](./prisma/agent.md)**: The database schema is defined and managed with Prisma.
 
-- **[Protocols (`proto`)](./proto/GEMINI.md)**: This directory contains the protobuf definitions for the real-time communication between the client and server.
+- **[Protocols (`proto`)](./proto/agent.md)**: This directory contains the protobuf definitions for the real-time communication between the client and server.
 
-## Agent Instructions 
+- **[Cloudflare Worker (`worker/`)](./worker/agent.md)**: The Cloudflare Worker handles real-time communication with the Gemini Live API and manages interview sessions.
+
+## Agent Instructions
+
 - **Always** Reload all files for the latest context
 - **Always** Ask for explict instructions before starting to write any code
 - **Always** Only perform tasks that are explictly outlined in the `/docs` folder
 - **Always** Document at the top of each file and for each procedure
 - Keep files to 300 lines of code or less, refactor if needed
+- Use boiler plates or reference implementation whenever possible, try to minize the amount of new code
