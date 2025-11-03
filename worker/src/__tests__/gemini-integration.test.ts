@@ -2,7 +2,6 @@
 // ABOUTME: Covers audio conversion, transcript tracking, and bidirectional streaming
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { GoogleGenAI, Modality } from '@google/generative-ai';
 import { AudioConverter } from '../audio-converter';
 import { TranscriptManager } from '../transcript-manager';
 

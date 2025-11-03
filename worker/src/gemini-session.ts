@@ -13,7 +13,7 @@ import {
 import { preppal } from './lib/interview_pb.js';
 import { AudioConverter } from './audio-converter';
 import { TranscriptManager } from './transcript-manager';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI, Modality } from '@google/genai';
 
 export class GeminiSession implements DurableObject {
 	private userId?: string;
@@ -171,19 +171,44 @@ export class GeminiSession implements DurableObject {
 	}
 
 	private async initializeGemini(clientWs: WebSocket): Promise<void> {
-		const ai = new GoogleGenerativeAI(this.env.GEMINI_API_KEY);
-		const model = ai.getGenerativeModel({
-			model: 'gemini-2.0-flash-exp',
-		});
+		const ai = new GoogleGenAI({ apiKey: this.env.GEMINI_API_KEY });
+		const model = 'gemini-2.0-flash-exp';
 
-		// Initialize Gemini Live session
-		this.geminiSession = await model.startChat({
-			generationConfig: {
-				responseModalities: ['AUDIO'],
+		const config = {
+			responseModalities: [Modality.AUDIO, Modality.TEXT],
+			speechConfig: {
+				voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } },
 			},
+		};
+
+		this.geminiSession = await ai.live.connect({
+			model,
+			config,
 		});
 
-		console.log(`Gemini Live connected for interview ${this.interviewId}`);
+		// Set up event handlers
+		this.geminiSession.on('open', () => {
+			console.log(`Gemini Live connected for interview ${this.interviewId}`);
+		});
+
+		this.geminiSession.on('message', (message: any) => {
+			this.handleGeminiMessage(clientWs, message);
+		});
+
+		this.geminiSession.on('error', (error: any) => {
+			console.error('Gemini error:', error);
+			const errorMsg = createErrorResponse(4002, 'AI service error');
+			clientWs.send(encodeServerMessage(errorMsg));
+		});
+
+		this.geminiSession.on('close', () => {
+			console.log('Gemini connection closed');
+			const endMsg = createSessionEnded(
+				preppal.SessionEnded.Reason.GEMINI_ENDED,
+			);
+			clientWs.send(encodeServerMessage(endMsg));
+			clientWs.close(1000, 'AI ended session');
+		});
 	}
 
 	private handleGeminiMessage(clientWs: WebSocket, message: any): void {
