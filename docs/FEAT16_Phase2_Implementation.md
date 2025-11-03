@@ -588,60 +588,275 @@ pnpm test
 ### Objective
 Connect to the Gemini Live API and implement bidirectional audio streaming.
 
-### Step 2.1: Review Gemini Live API Documentation
+### Understanding the Gemini Live API Architecture
 
-**STOP HERE AND ASK JESSE:**
+The Gemini Live API uses a **callback-based connection pattern** with a message queue system. Key characteristics:
 
-The Gemini Live API guide (https://ai.google.dev/gemini-api/docs/live-guide) has multiple implementation patterns. Before proceeding, we need to decide:
+1. **Connection Model**: Uses `ai.live.connect()` with callbacks, not raw WebSockets
+2. **Message Queue**: Responses arrive via `onmessage` callback and need to be queued
+3. **Turn-Based**: Gemini signals completion with `serverContent.turnComplete`
+4. **Audio Format**: Requires base64-encoded PCM audio (`audio/pcm;rate=16000`)
+5. **Bidirectional**: Supports both audio input and audio/text output
 
-1. Which audio format approach to use?
-2. How to handle the connection lifecycle?
-3. Which features to implement (audio only, or text transcription too)?
+Reference: https://ai.google.dev/gemini-api/docs/live-guide#javascript
 
-**Questions for Jesse:**
-- Should we implement audio-only or include real-time transcription?
-- Do we need to handle Gemini's function calling features?
-- Any specific configuration or model preferences?
+### Step 2.1: Configuration Decisions
 
-### Step 2.2: Implement Gemini Connection (TO BE DETAILED AFTER JESSE'S INPUT)
+Based on the spec requirements, we'll implement:
 
-This section will be filled in based on the chosen approach from the Gemini Live API guide.
+- **Audio Modality**: Both audio input AND audio output
+- **Transcription**: Enable `inputAudioTranscription` for real-time transcripts
+- **Model**: `gemini-live-2.5-flash-preview`
+- **Response Modalities**: `[Modality.AUDIO, Modality.TEXT]`
+- **No Function Calling**: Not needed for interview use case
 
-**Placeholder structure:**
+### Step 2.2: Understand the Integration Pattern
 
-Create `worker/src/gemini.ts`:
+The Durable Object will bridge two protocols:
+
+```
+Client (Protobuf)  ⟷  Durable Object  ⟷  Gemini (SDK)
+   AudioChunk      →   Convert to      →   sendRealtimeInput()
+                       base64 PCM
+
+   TranscriptUpdate ←  Process         ←   onmessage callback
+   AudioResponse    ←  message queue   ←   (turn-based)
+```
+
+**Key Implementation Points:**
+- Our protobuf uses raw binary audio (Uint8Array)
+- Gemini expects base64-encoded PCM
+- Gemini returns messages via callback → we need a queue
+- We must track turns (wait for `turnComplete` before processing next)
+
+### Step 2.3: Update GeminiSession Durable Object
+
+Modify `worker/src/gemini-session.ts` to integrate Gemini Live API:
+
+**Implementation approach:**
 
 ```typescript
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI, Modality } from '@google/genai';
+import type { Env } from './index';
 
-export class GeminiSession {
-  private client: any; // TODO: Type based on chosen approach
+export class GeminiSession implements DurableObject {
+  private userId?: string;
+  private interviewId?: string;
+  private geminiSession: any; // Gemini Live session
+  private responseQueue: any[] = [];
+  private transcript: Array<{
+    speaker: 'USER' | 'AI';
+    content: string;
+    timestamp: string;
+  }> = [];
 
-  constructor(apiKey: string) {
-    // TODO: Initialize based on Jesse's input
+  constructor(
+    private state: DurableObjectState,
+    private env: Env,
+  ) {}
+
+  async fetch(request: Request): Promise<Response> {
+    // Extract authentication (from Phase 1)
+    this.userId = request.headers.get('X-User-Id') ?? undefined;
+    this.interviewId = request.headers.get('X-Interview-Id') ?? undefined;
+
+    if (!this.userId || !this.interviewId) {
+      return new Response('Missing authentication context', { status: 401 });
+    }
+
+    // Create WebSocket pair
+    const webSocketPair = new WebSocketPair();
+    const [client, server] = Object.values(webSocketPair);
+
+    server.accept();
+
+    // Initialize Gemini connection
+    try {
+      await this.initializeGemini(server);
+    } catch (error) {
+      console.error('Failed to initialize Gemini:', error);
+      server.close(4002, 'Failed to connect to AI service');
+      return new Response(null, { status: 101, webSocket: client });
+    }
+
+    // Handle client messages
+    server.addEventListener('message', async (event: MessageEvent) => {
+      await this.handleClientMessage(server, event.data);
+    });
+
+    server.addEventListener('close', () => {
+      this.cleanup();
+    });
+
+    return new Response(null, { status: 101, webSocket: client });
   }
 
-  async connect(): Promise<void> {
-    // TODO: Implement connection
+  private async initializeGemini(clientWs: WebSocket): Promise<void> {
+    const ai = new GoogleGenAI({ apiKey: this.env.GEMINI_API_KEY });
+    const model = 'gemini-live-2.5-flash-preview';
+
+    const config = {
+      responseModalities: [Modality.AUDIO, Modality.TEXT],
+      inputAudioTranscription: {},
+    };
+
+    this.geminiSession = await ai.live.connect({
+      model,
+      callbacks: {
+        onopen: () => {
+          console.log(`Gemini connected for interview ${this.interviewId}`);
+        },
+        onmessage: (message: any) => {
+          this.handleGeminiMessage(clientWs, message);
+        },
+        onerror: (error: any) => {
+          console.error('Gemini error:', error.message);
+          // Send error to client
+          const errorMsg = createErrorResponse(4002, 'AI service error');
+          clientWs.send(encodeServerMessage(errorMsg));
+        },
+        onclose: (event: any) => {
+          console.log('Gemini closed:', event.reason);
+          // Send session ended to client
+          const endMsg = createSessionEnded(
+            preppal.SessionEnded.Reason.GEMINI_ENDED,
+          );
+          clientWs.send(encodeServerMessage(endMsg));
+          clientWs.close(1000, 'AI ended session');
+        },
+      },
+      config,
+    });
   }
 
-  async sendAudio(audioData: Uint8Array): Promise<void> {
-    // TODO: Implement audio sending
+  private async handleClientMessage(
+    ws: WebSocket,
+    buffer: ArrayBuffer,
+  ): Promise<void> {
+    const message = decodeClientMessage(buffer);
+
+    if (message.audioChunk) {
+      // Convert binary audio to base64 for Gemini
+      const audioContent = message.audioChunk.audioContent;
+      if (audioContent) {
+        const base64Audio = btoa(
+          String.fromCharCode(...new Uint8Array(audioContent)),
+        );
+
+        // Send to Gemini
+        this.geminiSession.sendRealtimeInput({
+          audio: {
+            data: base64Audio,
+            mimeType: 'audio/pcm;rate=16000',
+          },
+        });
+      }
+    } else if (message.endRequest) {
+      await this.handleEndRequest(ws);
+    }
   }
 
-  onTranscript(callback: (text: string, speaker: 'USER' | 'AI') => void): void {
-    // TODO: Implement transcript handling
+  private handleGeminiMessage(clientWs: WebSocket, message: any): void {
+    // Handle input transcription (user speech)
+    if (message.serverContent?.inputTranscription) {
+      const text = message.serverContent.inputTranscription.text;
+
+      // Save to transcript
+      this.transcript.push({
+        speaker: 'USER',
+        content: text,
+        timestamp: new Date().toISOString(),
+      });
+
+      // Send to client
+      const transcriptMsg = createTranscriptUpdate('USER', text, true);
+      clientWs.send(encodeServerMessage(transcriptMsg));
+    }
+
+    // Handle output transcription (AI speech)
+    if (message.serverContent?.outputTranscription) {
+      const text = message.serverContent.outputTranscription.text;
+
+      // Save to transcript
+      this.transcript.push({
+        speaker: 'AI',
+        content: text,
+        timestamp: new Date().toISOString(),
+      });
+
+      // Send to client
+      const transcriptMsg = createTranscriptUpdate('AI', text, true);
+      clientWs.send(encodeServerMessage(transcriptMsg));
+    }
+
+    // Handle AI text response
+    if (message.text) {
+      const transcriptMsg = createTranscriptUpdate('AI', message.text, true);
+      clientWs.send(encodeServerMessage(transcriptMsg));
+    }
+
+    // Handle AI audio response
+    if (message.data) {
+      // message.data is base64 encoded audio from Gemini
+      // Convert base64 to Uint8Array for protobuf
+      const binaryString = atob(message.data);
+      const audioData = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        audioData[i] = binaryString.charCodeAt(i);
+      }
+
+      const audioMsg = createAudioResponse(audioData);
+      clientWs.send(encodeServerMessage(audioMsg));
+    }
   }
 
-  onAudio(callback: (audioData: Uint8Array) => void): void {
-    // TODO: Implement audio response handling
+  private async handleEndRequest(ws: WebSocket): Promise<void> {
+    console.log(`End request for interview ${this.interviewId}`);
+
+    // Close Gemini connection
+    this.geminiSession?.close();
+
+    // TODO: Submit transcript to Next.js API (Phase 3)
+
+    // Send session ended to client
+    const endMsg = createSessionEnded(
+      preppal.SessionEnded.Reason.USER_INITIATED,
+    );
+    ws.send(encodeServerMessage(endMsg));
+    ws.close(1000, 'Interview ended by user');
   }
 
-  async disconnect(): Promise<void> {
-    // TODO: Implement graceful disconnect
+  private cleanup(): void {
+    if (this.geminiSession) {
+      this.geminiSession.close();
+    }
   }
 }
 ```
+
+**Key Implementation Details:**
+
+1. **Audio Conversion**:
+   - Client → Worker: Protobuf binary (Uint8Array)
+   - Worker → Gemini: Base64-encoded PCM string
+   - Gemini → Worker: Base64-encoded audio in `message.data`
+   - Worker → Client: Protobuf binary (Uint8Array)
+
+2. **Transcript Handling**:
+   - `inputTranscription`: User's speech (from Gemini's STT)
+   - `outputTranscription`: AI's speech text
+   - Store both in `this.transcript` array for later submission
+
+3. **Message Types**:
+   - `message.text`: AI text responses
+   - `message.data`: AI audio responses (base64)
+   - `message.serverContent.inputTranscription`: User speech transcript
+   - `message.serverContent.outputTranscription`: AI speech transcript
+
+4. **Error Handling**:
+   - Gemini connection failures → close client with 4002
+   - Gemini errors → send ErrorResponse to client
+   - Gemini closes → send SessionEnded with GEMINI_ENDED reason
 
 ---
 
