@@ -7,17 +7,26 @@ import {
 	encodeServerMessage,
 	createErrorResponse,
 	createSessionEnded,
+	createTranscriptUpdate,
+	createAudioResponse,
 } from './messages';
 import { preppal } from './lib/interview_pb.js';
+import { AudioConverter } from './audio-converter';
+import { TranscriptManager } from './transcript-manager';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export class GeminiSession implements DurableObject {
 	private userId?: string;
 	private interviewId?: string;
+	private transcriptManager: TranscriptManager;
+	private geminiSession: any;
 
 	constructor(
 		private state: DurableObjectState,
 		private env: Env,
-	) {}
+	) {
+		this.transcriptManager = new TranscriptManager();
+	}
 
 	async fetch(request: Request): Promise<Response> {
 		// Handle WebSocket upgrade
@@ -45,6 +54,23 @@ export class GeminiSession implements DurableObject {
 		// Accept the WebSocket connection
 		server.accept();
 
+		// Initialize Gemini connection
+		try {
+			await this.initializeGemini(server);
+		} catch (error) {
+			console.error('Failed to initialize Gemini:', error);
+			const errorMsg = createErrorResponse(
+				4002,
+				'Failed to connect to AI service',
+			);
+			server.send(encodeServerMessage(errorMsg));
+			server.close(4002, 'Failed to connect to AI service');
+			return new Response(null, {
+				status: 101,
+				webSocket: client,
+			});
+		}
+
 		// Handle messages
 		server.addEventListener('message', async (event: MessageEvent) => {
 			try {
@@ -65,6 +91,7 @@ export class GeminiSession implements DurableObject {
 
 		server.addEventListener('close', () => {
 			console.log(`WebSocket closed for interview ${this.interviewId}`);
+			this.cleanup();
 		});
 
 		server.addEventListener('error', (event: ErrorEvent) => {
@@ -96,15 +123,42 @@ export class GeminiSession implements DurableObject {
 		ws: WebSocket,
 		audioChunk: preppal.IAudioChunk,
 	): Promise<void> {
-		console.log(
-			`Received audio chunk: ${audioChunk.audioContent?.length ?? 0} bytes`,
+		const audioContent = audioChunk.audioContent;
+		if (!audioContent || audioContent.length === 0) {
+			console.warn('Received empty audio chunk');
+			return;
+		}
+
+		console.log(`Received audio chunk: ${audioContent.length} bytes`);
+
+		// Convert binary audio to base64 for Gemini
+		const base64Audio = AudioConverter.binaryToBase64(
+			new Uint8Array(audioContent),
 		);
-		// Phase 1: Just log the audio chunk
-		// Phase 2 will implement Gemini Live API integration
+
+		// Send to Gemini (will be implemented when we add Gemini connection)
+		if (this.geminiSession) {
+			this.geminiSession.sendRealtimeInput({
+				audio: {
+					data: base64Audio,
+					mimeType: 'audio/pcm;rate=16000',
+				},
+			});
+		} else {
+			console.warn('Gemini session not initialized, audio chunk dropped');
+		}
 	}
 
 	private async handleEndRequest(ws: WebSocket): Promise<void> {
 		console.log(`Received end request for interview ${this.interviewId}`);
+
+		// Close Gemini connection if exists
+		if (this.geminiSession) {
+			this.geminiSession.close();
+		}
+
+		// TODO Phase 3: Submit transcript to Next.js API
+		// const transcript = this.transcriptManager.getTranscript();
 
 		// Send session ended message
 		const endedMsg = createSessionEnded(
@@ -114,5 +168,70 @@ export class GeminiSession implements DurableObject {
 
 		// Close the WebSocket
 		ws.close(1000, 'Interview ended by user');
+	}
+
+	private async initializeGemini(clientWs: WebSocket): Promise<void> {
+		const ai = new GoogleGenerativeAI(this.env.GEMINI_API_KEY);
+		const model = ai.getGenerativeModel({
+			model: 'gemini-2.0-flash-exp',
+		});
+
+		// Initialize Gemini Live session
+		this.geminiSession = await model.startChat({
+			generationConfig: {
+				responseModalities: ['AUDIO'],
+			},
+		});
+
+		console.log(`Gemini Live connected for interview ${this.interviewId}`);
+	}
+
+	private handleGeminiMessage(clientWs: WebSocket, message: any): void {
+		// Handle input transcription (user speech)
+		if (message.serverContent?.inputTranscription) {
+			const text = message.serverContent.inputTranscription.text;
+
+			// Save to transcript
+			this.transcriptManager.addUserTranscript(text);
+
+			// Send to client
+			const transcriptMsg = createTranscriptUpdate('USER', text, true);
+			clientWs.send(encodeServerMessage(transcriptMsg));
+		}
+
+		// Handle output transcription (AI speech)
+		if (message.serverContent?.outputTranscription) {
+			const text = message.serverContent.outputTranscription.text;
+
+			// Save to transcript
+			this.transcriptManager.addAITranscript(text);
+
+			// Send to client
+			const transcriptMsg = createTranscriptUpdate('AI', text, true);
+			clientWs.send(encodeServerMessage(transcriptMsg));
+		}
+
+		// Handle AI text response
+		if (message.text) {
+			const transcriptMsg = createTranscriptUpdate('AI', message.text, true);
+			clientWs.send(encodeServerMessage(transcriptMsg));
+		}
+
+		// Handle AI audio response
+		if (message.data) {
+			// message.data is base64 encoded audio from Gemini
+			// Convert base64 to Uint8Array for protobuf
+			const audioData = AudioConverter.base64ToBinary(message.data);
+
+			const audioMsg = createAudioResponse(audioData);
+			clientWs.send(encodeServerMessage(audioMsg));
+		}
+	}
+
+	private cleanup(): void {
+		console.log(`Cleaning up session for interview ${this.interviewId}`);
+		if (this.geminiSession) {
+			this.geminiSession.close();
+		}
 	}
 }
