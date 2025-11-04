@@ -175,7 +175,8 @@ export class GeminiSession implements DurableObject {
 		const model = 'gemini-2.0-flash-exp';
 
 		const config = {
-			responseModalities: [Modality.AUDIO, Modality.TEXT],
+			// IMPORTANT: Use Modality.AUDIO OR Modality.TEXT, never both
+			responseModalities: [Modality.AUDIO],
 			speechConfig: {
 				voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } },
 			},
