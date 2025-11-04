@@ -2,9 +2,9 @@
 // ABOUTME: Automated test script for Phase 3.1 & 3.2 verification
 // ABOUTME: Tests interview lifecycle status updates and transcript submission
 
-const http = require('http');
-const https = require('https');
-const WebSocket = require('ws');
+import http from 'http';
+import https from 'https';
+import WebSocket from 'ws';
 
 // Configuration
 const NEXT_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
@@ -305,15 +305,9 @@ async function runTests() {
   }
 }
 
-// Check if ws module is available
-try {
-  require.resolve('ws');
-} catch {
-  log('\n❌ Error: WebSocket module not found\n', 'red');
-  log('Please install dependencies first:\n', 'yellow');
-  log('  pnpm install\n', 'cyan');
-  process.exit(1);
-}
-
 // Run the tests
-runTests();
+runTests().catch((err) => {
+  log('\n❌ FATAL ERROR\n', 'red');
+  log(`${err.message}\n`, 'red');
+  process.exit(1);
+});
