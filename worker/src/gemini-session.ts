@@ -184,30 +184,27 @@ export class GeminiSession implements DurableObject {
 		this.geminiSession = await ai.live.connect({
 			model,
 			config,
-		});
-
-		// Set up event handlers
-		this.geminiSession.on('open', () => {
-			console.log(`Gemini Live connected for interview ${this.interviewId}`);
-		});
-
-		this.geminiSession.on('message', (message: any) => {
-			this.handleGeminiMessage(clientWs, message);
-		});
-
-		this.geminiSession.on('error', (error: any) => {
-			console.error('Gemini error:', error);
-			const errorMsg = createErrorResponse(4002, 'AI service error');
-			clientWs.send(encodeServerMessage(errorMsg));
-		});
-
-		this.geminiSession.on('close', () => {
-			console.log('Gemini connection closed');
-			const endMsg = createSessionEnded(
-				preppal.SessionEnded.Reason.GEMINI_ENDED,
-			);
-			clientWs.send(encodeServerMessage(endMsg));
-			clientWs.close(1000, 'AI ended session');
+			callbacks: {
+				onopen: () => {
+					console.log(`Gemini Live connected for interview ${this.interviewId}`);
+				},
+				onmessage: (message: any) => {
+					this.handleGeminiMessage(clientWs, message);
+				},
+				onerror: (error: any) => {
+					console.error('Gemini error:', error);
+					const errorMsg = createErrorResponse(4002, 'AI service error');
+					clientWs.send(encodeServerMessage(errorMsg));
+				},
+				onclose: (event: any) => {
+					console.log('Gemini connection closed:', event);
+					const endMsg = createSessionEnded(
+						preppal.SessionEnded.Reason.GEMINI_ENDED,
+					);
+					clientWs.send(encodeServerMessage(endMsg));
+					clientWs.close(1000, 'AI ended session');
+				},
+			},
 		});
 	}
 
