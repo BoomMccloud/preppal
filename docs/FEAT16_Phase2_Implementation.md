@@ -5,7 +5,9 @@
 - ✅ **Phase 0**: Boilerplate Setup & Verification - COMPLETED
 - ✅ **Phase 1.1**: JWT Authentication & Protobuf - COMPLETED
 - ✅ **Phase 2**: Gemini Live API Integration - COMPLETED & VERIFIED
-- ⏳ **Phase 3**: State Management & Error Handling - NOT STARTED
+- 🔄 **Phase 3.1**: Next.js API Client Integration - COMPLETED (pending manual verification)
+- ⏳ **Phase 3.2**: Update Interview Lifecycle - COMPLETED (pending manual verification)
+- ⏳ **Phase 3.3**: Add Error Handling with Retry - NOT STARTED
 
 ---
 
@@ -197,6 +199,121 @@ wrangler secret put GEMINI_API_KEY
 # Deploy
 wrangler deploy --config worker/wrangler.toml
 ```
+
+---
+
+## Phase 3.1 & 3.2: API Client Integration & Lifecycle Management 🔄 PENDING VERIFICATION
+
+### Implementation Status
+
+**✅ COMPLETED** - Code implemented and all tests passing (42 worker tests). Requires manual verification with deployed backend.
+
+**Components Built:**
+1. **ApiClient** ([worker/src/api-client.ts](../worker/src/api-client.ts)) - HTTP client for tRPC endpoints
+2. **GeminiSession Integration** ([worker/src/gemini-session.ts](../worker/src/gemini-session.ts)) - Lifecycle status updates
+3. **Test Suite** ([worker/src/__tests__/api-client.test.ts](../worker/src/__tests__/api-client.test.ts)) - 6 comprehensive tests
+
+**Test Coverage:** 42/42 worker tests passing (6 API client + 36 existing)
+
+---
+
+### API Client Implementation
+
+The `ApiClient` class handles communication with Next.js backend tRPC endpoints:
+
+```typescript
+export class ApiClient {
+  constructor(apiUrl: string, workerSecret: string) {}
+
+  async updateStatus(interviewId: string, status: string): Promise<void>
+  async submitTranscript(
+    interviewId: string,
+    transcript: TranscriptEntry[],
+    endedAt: string
+  ): Promise<void>
+}
+```
+
+**Authentication:**
+- Uses `Authorization: Bearer <WORKER_SHARED_SECRET>` header
+- Aligns with FEAT16 spec for worker-only endpoints
+
+**Endpoints:**
+- `POST {API_URL}/api/trpc/interview.updateStatus`
+- `POST {API_URL}/api/trpc/interview.submitTranscript`
+
+---
+
+### Lifecycle Integration Points
+
+**1. WebSocket Connection Success** (`GeminiSession.fetch()`)
+```typescript
+await this.initializeGemini(server);
+await this.apiClient.updateStatus(this.interviewId, 'IN_PROGRESS');
+```
+- Status: `PENDING` → `IN_PROGRESS`
+- Backend sets `startedAt` timestamp
+
+**2. User Ends Session** (`handleEndRequest()`)
+```typescript
+const transcript = this.transcriptManager.getTranscript();
+const endedAt = new Date().toISOString();
+await this.apiClient.submitTranscript(interviewId, transcript, endedAt);
+```
+- Saves all transcript entries to database
+- Backend atomically updates status to `COMPLETED` and sets `endedAt`
+
+**3. Gemini Connection Fails** (`initializeGemini()` catch block)
+```typescript
+catch (error) {
+  await this.apiClient.updateStatus(this.interviewId, 'ERROR');
+}
+```
+- Status: `PENDING` → `ERROR`
+- Backend sets `endedAt` timestamp
+
+**4. Gemini Error/Close** (callbacks)
+```typescript
+onerror: async (error) => {
+  await this.apiClient.updateStatus(this.interviewId, 'ERROR');
+}
+```
+- Status: `IN_PROGRESS` → `ERROR`
+- Backend sets `endedAt` timestamp
+
+---
+
+### Manual Verification Checklist
+
+To verify Phase 3.1 & 3.2:
+
+- [ ] **Happy Path:**
+  1. Create interview → status is `PENDING`
+  2. Connect WebSocket → status changes to `IN_PROGRESS`, `startedAt` set
+  3. Send audio, receive responses
+  4. Send `EndRequest` → transcript saved, status `COMPLETED`, `endedAt` set
+  5. Verify `TranscriptEntry` table has conversation entries
+
+- [ ] **Error Path:**
+  1. Create interview → status is `PENDING`
+  2. Use invalid Gemini API key → connection fails
+  3. Verify status changes to `ERROR`, `endedAt` set
+
+- [ ] **Database Verification:**
+  - Query `Interview` table for status transitions
+  - Verify timestamps (`startedAt`, `endedAt`) are correct
+  - Verify `TranscriptEntry` table has correct speaker/content/timestamp
+
+---
+
+### Known Limitations (Phase 3.3 TODO)
+
+Current implementation does NOT include:
+- ❌ Retry logic with exponential backoff for network failures
+- ❌ Graceful degradation if transcript submission fails
+- ❌ Comprehensive error logging/monitoring
+
+These will be addressed in Phase 3.3.
 
 ---
 
