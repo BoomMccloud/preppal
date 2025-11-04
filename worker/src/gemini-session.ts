@@ -14,18 +14,24 @@ import { preppal } from './lib/interview_pb.js';
 import { AudioConverter } from './audio-converter';
 import { TranscriptManager } from './transcript-manager';
 import { GoogleGenAI, Modality } from '@google/genai';
+import { ApiClient } from './api-client';
 
 export class GeminiSession implements DurableObject {
 	private userId?: string;
 	private interviewId?: string;
 	private transcriptManager: TranscriptManager;
 	private geminiSession: any;
+	private apiClient: ApiClient;
 
 	constructor(
 		private state: DurableObjectState,
 		private env: Env,
 	) {
 		this.transcriptManager = new TranscriptManager();
+		this.apiClient = new ApiClient(
+			env.NEXT_PUBLIC_API_URL,
+			env.WORKER_SHARED_SECRET,
+		);
 	}
 
 	async fetch(request: Request): Promise<Response> {
@@ -57,8 +63,20 @@ export class GeminiSession implements DurableObject {
 		// Initialize Gemini connection
 		try {
 			await this.initializeGemini(server);
+
+			// Update interview status to IN_PROGRESS
+			await this.apiClient.updateStatus(this.interviewId, 'IN_PROGRESS');
+			console.log(`Interview ${this.interviewId} status updated to IN_PROGRESS`);
 		} catch (error) {
 			console.error('Failed to initialize Gemini:', error);
+
+			// Update status to ERROR
+			try {
+				await this.apiClient.updateStatus(this.interviewId, 'ERROR');
+			} catch (apiError) {
+				console.error('Failed to update status to ERROR:', apiError);
+			}
+
 			const errorMsg = createErrorResponse(
 				4002,
 				'Failed to connect to AI service',
@@ -157,8 +175,22 @@ export class GeminiSession implements DurableObject {
 			this.geminiSession.close();
 		}
 
-		// TODO Phase 3: Submit transcript to Next.js API
-		// const transcript = this.transcriptManager.getTranscript();
+		// Submit transcript to Next.js API
+		try {
+			const transcript = this.transcriptManager.getTranscript();
+			const endedAt = new Date().toISOString();
+
+			await this.apiClient.submitTranscript(
+				this.interviewId!,
+				transcript,
+				endedAt,
+			);
+			console.log(
+				`Transcript submitted for interview ${this.interviewId} (${transcript.length} entries)`,
+			);
+		} catch (error) {
+			console.error('Failed to submit transcript:', error);
+		}
 
 		// Send session ended message
 		const endedMsg = createSessionEnded(
@@ -192,13 +224,29 @@ export class GeminiSession implements DurableObject {
 				onmessage: (message: any) => {
 					this.handleGeminiMessage(clientWs, message);
 				},
-				onerror: (error: any) => {
+				onerror: async (error: any) => {
 					console.error('Gemini error:', error);
+
+					// Update status to ERROR
+					try {
+						await this.apiClient.updateStatus(this.interviewId!, 'ERROR');
+					} catch (apiError) {
+						console.error('Failed to update status to ERROR:', apiError);
+					}
+
 					const errorMsg = createErrorResponse(4002, 'AI service error');
 					clientWs.send(encodeServerMessage(errorMsg));
 				},
-				onclose: (event: any) => {
+				onclose: async (event: any) => {
 					console.log('Gemini connection closed:', event);
+
+					// Update status to ERROR (unexpected close)
+					try {
+						await this.apiClient.updateStatus(this.interviewId!, 'ERROR');
+					} catch (apiError) {
+						console.error('Failed to update status to ERROR:', apiError);
+					}
+
 					const endMsg = createSessionEnded(
 						preppal.SessionEnded.Reason.GEMINI_ENDED,
 					);
