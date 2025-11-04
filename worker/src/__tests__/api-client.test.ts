@@ -37,7 +37,7 @@ describe('ApiClient', () => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-worker-secret': mockWorkerSecret,
+            'Authorization': `Bearer ${mockWorkerSecret}`,
           },
           body: JSON.stringify({
             interviewId,
@@ -59,7 +59,7 @@ describe('ApiClient', () => {
       await apiClient.updateStatus(interviewId, status);
 
       const callArgs = mockFetch.mock.calls[0][1];
-      expect(callArgs.headers['x-worker-secret']).toBe(mockWorkerSecret);
+      expect(callArgs.headers['Authorization']).toBe(`Bearer ${mockWorkerSecret}`);
     });
 
     it('should throw error when API request fails', async () => {
@@ -78,14 +78,18 @@ describe('ApiClient', () => {
   describe('submitTranscript', () => {
     it('should send POST request to submit transcript', async () => {
       const interviewId = 'interview-123';
-      const transcript = 'User: Hello\nAI: Hi there!';
+      const transcript = [
+        { speaker: 'USER' as const, content: 'Hello', timestamp: '2024-01-01T00:00:00Z' },
+        { speaker: 'AI' as const, content: 'Hi there!', timestamp: '2024-01-01T00:00:01Z' }
+      ];
+      const endedAt = '2024-01-01T00:00:02Z';
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
       });
 
-      await apiClient.submitTranscript(interviewId, transcript);
+      await apiClient.submitTranscript(interviewId, transcript, endedAt);
 
       expect(mockFetch).toHaveBeenCalledTimes(1);
       expect(mockFetch).toHaveBeenCalledWith(
@@ -94,11 +98,12 @@ describe('ApiClient', () => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-worker-secret': mockWorkerSecret,
+            'Authorization': `Bearer ${mockWorkerSecret}`,
           },
           body: JSON.stringify({
             interviewId,
             transcript,
+            endedAt,
           }),
         }
       );
@@ -106,20 +111,28 @@ describe('ApiClient', () => {
 
     it('should include worker secret in request headers', async () => {
       const interviewId = 'interview-123';
-      const transcript = 'Test transcript';
+      const transcript = [
+        { speaker: 'USER' as const, content: 'Test', timestamp: '2024-01-01T00:00:00Z' }
+      ];
+      const endedAt = '2024-01-01T00:00:01Z';
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
       });
 
-      await apiClient.submitTranscript(interviewId, transcript);
+      await apiClient.submitTranscript(interviewId, transcript, endedAt);
 
       const callArgs = mockFetch.mock.calls[0][1];
-      expect(callArgs.headers['x-worker-secret']).toBe(mockWorkerSecret);
+      expect(callArgs.headers['Authorization']).toBe(`Bearer ${mockWorkerSecret}`);
     });
 
     it('should throw error when API request fails', async () => {
+      const transcript = [
+        { speaker: 'USER' as const, content: 'Test', timestamp: '2024-01-01T00:00:00Z' }
+      ];
+      const endedAt = '2024-01-01T00:00:01Z';
+
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 404,
@@ -127,7 +140,7 @@ describe('ApiClient', () => {
       });
 
       await expect(
-        apiClient.submitTranscript('interview-123', 'transcript')
+        apiClient.submitTranscript('interview-123', transcript, endedAt)
       ).rejects.toThrow('Failed to submit transcript: 404 Not Found');
     });
   });
