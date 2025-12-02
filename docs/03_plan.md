@@ -23,35 +23,34 @@
 
 ### Phase 2: Frontend Implementation (Parallel to Phase 1)
 
-**Goal:** Build the user interface and client-side logic, working against the defined mock backend.
+**Goal:** Build the user interface and client-side logic. **Current Focus: FEAT17**
 
 | Task                               | Description                                                                                     | Status         |
 | :--------------------------------- | :---------------------------------------------------------------------------------------------- | :------------- |
 | **1. Build UI Components**         | Create all the React components for the meeting screen, login page, profile page, etc.          | ✅ Complete    |
-| **2. Implement State Management**  | Set up client-side state management (e.g., Zustand, Jotai, or React Context) for session state. | ❌ Not Started |
-| **3. Connect to tRPC API**         | Connect UI components to tRPC endpoints to replace hardcoded data.                              | 🟡 In Progress |
-| **4. Implement WebSocket Client**  | Write the client-side code to connect to the WebSocket server.                                  | ❌ Not Started |
+| **2. Connect to tRPC API**         | Connect UI components to tRPC endpoints to replace hardcoded data.                              | ✅ Complete    |
+| **3. Implement State Management**  | Set up client-side state management (e.g., Zustand, Jotai, or React Context) for session state. | 🟡 In Progress |
+| **4. Implement WebSocket Client**  | Update client to use `generateWorkerToken` and connect to the Cloudflare Worker.                | ❌ Not Started |
 | **5. Implement Audio & Protobufs** | Write the logic to capture mic audio, handle Protobufs, and stream over the WebSocket.          | ❌ Not Started |
 
 ### Phase 3: Cloudflare Worker & Gemini Integration
 
-**Goal:** Replace the mock server with a robust, scalable real-time backend using Cloudflare Workers and connect to the live Gemini API.
+**Goal:** Replace the mock server with a robust, scalable real-time backend using Cloudflare Workers and connect to the live Gemini API. **(FEAT16)**
 
-| Task                                    | Description                                                                                          | Status         |
-| :-------------------------------------- | :--------------------------------------------------------------------------------------------------- | :------------- |
-| **1. Implement Worker Auth in Next.js** | Create `interview.generateWorkerToken` and `interview.submitTranscript` tRPC endpoints.              | ❌ Not Started |
-| **2. Develop Cloudflare Worker**        | Build the stateless entrypoint Worker to handle WebSocket connections and route to Durable Objects.  | ❌ Not Started |
-| **3. Develop Durable Object**           | Implement the stateful logic for managing a single interview session, including WebSocket lifecycle. | ❌ Not Started |
-| **4. Connect to Real Gemini API**       | Integrate the Durable Object with the Gemini Live API for bi-directional audio streaming.            | ❌ Not Started |
-| **5. Update Frontend WebSocket Client** | Modify the client to authenticate with the new tRPC endpoint and connect to the Cloudflare Worker.   | ❌ Not Started |
+| Task                                    | Description                                                                                          | Status      |
+| :-------------------------------------- | :--------------------------------------------------------------------------------------------------- | :---------- |
+| **1. Implement Worker Auth in Next.js** | Create `interview.generateWorkerToken` and `interview.submitTranscript` tRPC endpoints.              | ✅ Complete |
+| **2. Develop Cloudflare Worker**        | Build the stateless entrypoint Worker to handle WebSocket connections and route to Durable Objects.  | ✅ Complete |
+| **3. Develop Durable Object**           | Implement the stateful logic for managing a single interview session, including WebSocket lifecycle. | ✅ Complete |
+| **4. Connect to Real Gemini API**       | Integrate the Durable Object with the Gemini Live API for bi-directional audio streaming.            | ✅ Complete |
 
 ### Phase 4: Final Integration and End-to-End Testing
 
 **Goal:** Connect all the real components and verify the complete user flow.
 
-| Task                              | Description                                                               | Status         |
-| :-------------------------------- | :------------------------------------------------------------------------ | :------------- |
-| **1. Connect to Real Gemini API** | Swap the `MockGeminiClient` for the real implementation.                  | ❌ Not Started |
-| **2. Full-Stack Connection**      | Deploy the frontend and backend to a shared staging environment.          | ❌ Not Started |
-| **3. Write E2E Tests**            | Use Playwright to write tests that simulate a complete user journey.      | ❌ Not Started |
-| **4. Manual QA and Bug Fixing**   | The whole team participates in testing to find bugs and usability issues. | ❌ Not Started |
+| Task                                    | Description                                                               | Status         |
+| :-------------------------------------- | :------------------------------------------------------------------------ | :------------- |
+| **1. Update Frontend WebSocket Client** | Modify the client to authenticate with the new tRPC endpoint and connect to the Cloudflare Worker. | ❌ Not Started |
+| **2. Full-Stack Connection**            | Deploy the frontend and backend to a shared staging environment.          | ❌ Not Started |
+| **3. Write E2E Tests**                  | Use Playwright to write tests that simulate a complete user journey.      | ❌ Not Started |
+| **4. Manual QA and Bug Fixing**         | The whole team participates in testing to find bugs and usability issues. | ❌ Not Started |
