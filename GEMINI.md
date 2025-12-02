@@ -35,7 +35,7 @@ This project is divided into several key architectural components. For more deta
 
 - Address the user as Mr. User
 - Reload all files for the latest context
-- Write a tasks.md file describing the planned tasks
-- Add documentation at the top of each file and for each procedure
+- Use /docs/05_current_task.md file document the current task
+- Add descriptions at the beginning of each file
 - Keep files to 300 lines of code or less, refactor if needed
 - Use boiler plates or reference implementation whenever possible, minize the amount of new code

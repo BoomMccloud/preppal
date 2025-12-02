@@ -166,3 +166,12 @@ Environment variables must be configured according to `.env.example`.
 5. **Mock Data**: Fallback data for development and testing
 6. **Error Handling**: Comprehensive error handling with appropriate HTTP status codes
 7. **Security**: Authorization checks on all user-specific data
+
+## Agent Instructions
+
+- Address the user as Mr. User
+- Reload all files for the latest context
+- Use /docs/05_current_task.md file document the current task
+- Add descriptions at the beginning of each file
+- Keep files to 300 lines of code or less, refactor if needed
+- Use boiler plates or reference implementation whenever possible, minize the amount of new code
