@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// ABOUTME: Automated test script for Cloudflare Worker verification
+// ABOUTME: Automated integration test for Cloudflare Worker
 // ABOUTME: Tests worker protobuf handling and API call behavior (mocked backend)
 
 import http from 'http';
@@ -15,10 +15,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Load environment variables from worker's .dev.vars file
-dotenv.config({ path: join(__dirname, '../worker/.dev.vars') });
+dotenv.config({ path: join(__dirname, '../.dev.vars') });
 
 // Load protobuf definitions from .proto file
-const root = await protobuf.load(join(__dirname, '../proto/interview.proto'));
+const root = await protobuf.load(join(__dirname, '../../proto/interview.proto'));
 const preppal = {
   ClientToServerMessage: root.lookupType('preppal.ClientToServerMessage'),
   ServerToClientMessage: root.lookupType('preppal.ServerToClientMessage'),
