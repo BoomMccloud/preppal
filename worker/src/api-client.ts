@@ -16,7 +16,7 @@ export class ApiClient {
   async updateStatus(interviewId: string, status: string): Promise<void> {
     const url = `${this.apiUrl}/api/trpc/interview.updateStatus`;
 
-    console.log(`[API] Calling updateStatus: ${url}`);
+    console.log(`[API] Calling updateStatus for interview ${interviewId} to ${status}: ${url}`);
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -29,10 +29,13 @@ export class ApiClient {
       }),
     });
 
-    console.log(`[API] updateStatus response: ${response.status} ${response.statusText}`);
+    console.log(`[API] updateStatus response for interview ${interviewId}: ${response.status} ${response.statusText}`);
     if (!response.ok) {
-      throw new Error(`Failed to update status: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error(`[API] updateStatus error details for interview ${interviewId}:`, errorText);
+      throw new Error(`Failed to update status: ${response.status} ${response.statusText} - ${errorText}`);
     }
+    console.log(`[API] Successfully updated status for interview ${interviewId} to ${status}`);
   }
 
   async submitTranscript(
@@ -42,7 +45,7 @@ export class ApiClient {
   ): Promise<void> {
     const url = `${this.apiUrl}/api/trpc/interview.submitTranscript`;
 
-    console.log(`[API] Calling submitTranscript: ${url}`);
+    console.log(`[API] Calling submitTranscript for interview ${interviewId} with ${transcript.length} entries: ${url}`);
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -56,9 +59,12 @@ export class ApiClient {
       }),
     });
 
-    console.log(`[API] submitTranscript response: ${response.status} ${response.statusText}`);
+    console.log(`[API] submitTranscript response for interview ${interviewId}: ${response.status} ${response.statusText}`);
     if (!response.ok) {
-      throw new Error(`Failed to submit transcript: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error(`[API] submitTranscript error details for interview ${interviewId}:`, errorText);
+      throw new Error(`Failed to submit transcript: ${response.status} ${response.statusText} - ${errorText}`);
     }
+    console.log(`[API] Successfully submitted transcript for interview ${interviewId} with ${transcript.length} entries`);
   }
 }

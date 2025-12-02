@@ -199,40 +199,77 @@ async function connectToWorker(interviewId, token, step) {
 async function sendAudioChunks(ws, step) {
   return new Promise((resolve, reject) => {
     try {
-      const fakeAudioData = Buffer.alloc(1600);
-      for (let i = 0; i < fakeAudioData.length; i++) {
-        fakeAudioData[i] = Math.floor(Math.random() * 256);
-      }
-
-      const message = preppal.ClientToServerMessage.create({
-        audioChunk: { audioContent: fakeAudioData },
-      });
-
-      const encoded = preppal.ClientToServerMessage.encode(message).finish();
-      ws.send(encoded);
-
-      success(step, 'Sending test audio chunks');
-
-      // Listen for any responses from worker after sending audio
+      // Array to store all responses from worker
+      const responses = [];
       let responseCount = 0;
+
+      // Set up persistent message listener
       const responseHandler = (data) => {
+        responseCount++;
         try {
           const serverMessage = preppal.ServerToClientMessage.decode(new Uint8Array(data));
-          responseCount++;
+          responses.push(serverMessage.toJSON());
+
           info(`Received response #${responseCount}: ${JSON.stringify(serverMessage.toJSON())}`);
 
-          // Optional: Check for specific fields in responses
+          // Log specific message types
           if (serverMessage.transcriptUpdate) {
             info(`Transcript update: ${serverMessage.transcriptUpdate.text}`);
           }
+          if (serverMessage.audioProcessed) {
+            info('Audio processed confirmation received');
+          }
+          if (serverMessage.audioResponse) {
+            info('Audio response received from AI');
+          }
         } catch (decodeErr) {
-          info(`Failed to decode response: ${decodeErr.message}`);
+          info(`Failed to decode response #${responseCount}: ${decodeErr.message}`);
         }
       };
 
-      ws.once('message', responseHandler);
+      ws.on('message', responseHandler);
 
-      resolve();
+      // Function to send a single audio chunk
+      const sendSingleChunk = () => {
+        const fakeAudioData = Buffer.alloc(1600);
+        for (let j = 0; j < fakeAudioData.length; j++) {
+          fakeAudioData[j] = Math.floor(Math.random() * 256);
+        }
+
+        const message = preppal.ClientToServerMessage.create({
+          audioChunk: { audioContent: fakeAudioData },
+        });
+
+        const encoded = preppal.ClientToServerMessage.encode(message).finish();
+        ws.send(encoded);
+        info(`Sent audio chunk (${fakeAudioData.length} bytes)`);
+      };
+
+      // Send multiple audio chunks to simulate real usage
+      sendSingleChunk(); // Send first chunk immediately
+
+      // Send remaining chunks with delays
+      setTimeout(() => {
+        sendSingleChunk();
+
+        setTimeout(() => {
+          sendSingleChunk();
+
+          // Give some time to receive responses before resolving
+          setTimeout(() => {
+            success(step, `Sending test audio chunks (${responseCount} responses received)`);
+
+            // Store responses for later verification
+            ws.testResponses = responses;
+
+            // Remove listener to prevent memory leaks
+            ws.removeListener('message', responseHandler);
+
+            resolve();
+          }, 2000); // Wait a bit more for responses
+        }, 500);
+      }, 500);
+
     } catch (err) {
       error(step, 'Failed to send audio');
       info(`Error: ${err.message}`);
@@ -356,6 +393,10 @@ async function runTests() {
 
     // Step 5: Send audio chunks
     await sendAudioChunks(ws, '5/7');
+
+    // Wait for worker to process audio before ending session
+    info('Waiting for worker to process audio...');
+    await new Promise(resolve => setTimeout(resolve, 5000));
 
     // Step 6: Send end request
     await sendEndRequest(ws, '6/7');

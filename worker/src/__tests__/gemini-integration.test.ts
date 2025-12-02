@@ -1,58 +1,59 @@
 // ABOUTME: Tests for Gemini Live API integration in GeminiSession Durable Object
 // ABOUTME: Covers audio conversion, transcript tracking, and bidirectional streaming
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { AudioConverter } from '../audio-converter';
 import { TranscriptManager } from '../transcript-manager';
+import { GoogleGenAI, Modality } from '@google/genai';
+import { ApiClient } from '../api-client';
+import { Env } from '../index';
+import { GeminiSession } from '../gemini-session';
 
-/**
- * Gemini connection manager
- */
-export class GeminiConnectionManager {
-	private session: any;
-	private isConnected: boolean = false;
+// Mock the GoogleGenAI and ApiClient modules
+vi.mock('@google/genai');
+vi.mock('../api-client');
 
-	constructor(
-		private apiKey: string,
-		private callbacks: {
-			onopen: () => void;
-			onmessage: (message: any) => void;
-			onerror: (error: any) => void;
-			onclose: (event: any) => void;
-		},
-	) {}
-
-	/**
-	 * Initialize connection to Gemini Live API
-	 */
-	async connect(): Promise<void> {
-		// To be implemented
-		throw new Error('Not implemented');
-	}
-
-	/**
-	 * Send audio to Gemini
-	 */
-	sendAudio(base64Audio: string): void {
-		// To be implemented
-		throw new Error('Not implemented');
-	}
-
-	/**
-	 * Close the Gemini connection
-	 */
-	close(): void {
-		// To be implemented
-		throw new Error('Not implemented');
-	}
-
-	/**
-	 * Check if connection is active
-	 */
-	isActive(): boolean {
-		return this.isConnected;
-	}
+// Mock WebSocketPair for the Cloudflare Workers environment
+class MockWebSocket {
+    send = vi.fn();
+    close = vi.fn();
+    addEventListener = vi.fn();
+    removeEventListener = vi.fn();
+    accept = vi.fn();
 }
+
+class MockWebSocketPair {
+    client = new MockWebSocket();
+    server = new MockWebSocket();
+    constructor() {
+        vi.spyOn(this.server, 'accept').mockImplementation(() => {
+            // Simulate the server accepting the connection
+            // In a real WebSocket, this would change its readyState
+            // For testing purposes, we just need to know it was called.
+        });
+    }
+}
+
+// Globally mock WebSocketPair if it's not defined, as it's a Workers API
+if (typeof WebSocketPair === 'undefined') {
+    global.WebSocketPair = MockWebSocketPair as any;
+}
+
+// Mock the global Response object to allow status 101 for WebSocket upgrades
+const OriginalResponse = Response;
+global.Response = class MockResponse extends OriginalResponse {
+    constructor(body?: BodyInit | null, init?: ResponseInit) {
+        if (init && init.status === 101 && 'webSocket' in init) {
+            // When status is 101 and webSocket is present, this is a WebSocket upgrade response.
+            // We don't call super() here because the native Response constructor in Node.js
+            // does not allow status 101, even with a webSocket property.
+            // Instead, we return a minimal object that fulfills the test's needs.
+            return { status: 101, webSocket: init.webSocket } as any;
+        } else {
+            super(body, init);
+        }
+    }
+} as any;
 
 describe('Audio Conversion', () => {
 	it('should convert binary audio to base64 string', () => {
@@ -194,61 +195,130 @@ describe('Transcript Manager', () => {
 	});
 });
 
-describe('Gemini Connection Manager', () => {
-	let callbacks: {
-		onopen: ReturnType<typeof vi.fn>;
-		onmessage: ReturnType<typeof vi.fn>;
-		onerror: ReturnType<typeof vi.fn>;
-		onclose: ReturnType<typeof vi.fn>;
-	};
+describe('GeminiSession - Error Handling', () => {
+    let mockConsoleError: ReturnType<typeof vi.spyOn>;
+    let mockUpdateStatus: ReturnType<typeof vi.fn>;
+    let mockClientWs: MockWebSocket;
+    let env: Env;
+    let durableObjectState: DurableObjectState;
+    let mockServerWs: MockWebSocket; // Added for explicit mock server WebSocket
 
-	beforeEach(() => {
-		callbacks = {
-			onopen: vi.fn(),
-			onmessage: vi.fn(),
-			onerror: vi.fn(),
-			onclose: vi.fn(),
-		};
-	});
+    beforeEach(() => {
+        // Mock console.error
+        mockConsoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-	it('should initialize with connection parameters', () => {
-		const manager = new GeminiConnectionManager('test-api-key', callbacks);
+        // Mock ApiClient's updateStatus method
+        mockUpdateStatus = vi.fn();
+        (ApiClient as unknown as vi.Mock).mockImplementation(() => ({
+            updateStatus: mockUpdateStatus,
+            submitTranscript: vi.fn(),
+        }));
 
-		expect(manager).toBeDefined();
-		expect(manager.isActive()).toBe(false);
-	});
+        // Mock WebSocketPair's client and server WebSockets
+        const mockPair = new MockWebSocketPair();
+        mockClientWs = mockPair.client;
+        mockServerWs = mockPair.server;
 
-	it('should connect to Gemini Live API', async () => {
-		const manager = new GeminiConnectionManager('test-api-key', callbacks);
+        // Restore global WebSocketPair mock before each test to ensure fresh mocks
+        if (typeof WebSocketPair === 'undefined') {
+            global.WebSocketPair = MockWebSocketPair as any;
+        }
 
-		// This will fail until implemented
-		await expect(manager.connect()).rejects.toThrow('Not implemented');
-	});
+        vi.spyOn(global, 'WebSocketPair').mockImplementation(() => {
+            const newPair = new MockWebSocketPair();
+            mockClientWs = newPair.client;
+            mockServerWs = newPair.server;
+            return newPair as any;
+        });
 
-	it('should send audio data to Gemini', async () => {
-		const manager = new GeminiConnectionManager('test-api-key', callbacks);
 
-		const base64Audio = 'AAECA/8=';
+        // Mock Env
+        env = {
+            GEMINI_API_KEY: 'test-api-key',
+            WORKER_SHARED_SECRET: 'test-secret',
+            NEXT_PUBLIC_API_URL: 'http://localhost:3000',
+        };
 
-		// This will fail until implemented
-		expect(() => manager.sendAudio(base64Audio)).toThrow('Not implemented');
-	});
+        // Mock DurableObjectState
+        durableObjectState = {
+            blockConcurrencyWhile: vi.fn(async (cb) => await cb()),
+            storage: {
+                get: vi.fn(),
+                put: vi.fn(),
+                delete: vi.fn(),
+                list: vi.fn(),
+            } as any,
+        } as DurableObjectState;
+    });
 
-	it('should close connection properly', () => {
-		const manager = new GeminiConnectionManager('test-api-key', callbacks);
+    afterEach(() => {
+        mockConsoleError.mockRestore();
+        vi.clearAllMocks();
+    });
 
-		// Should not throw even if not connected
-		expect(() => manager.close()).toThrow('Not implemented');
-	});
+    it('should log error and update status to ERROR when Gemini connection fails', async () => {
+        const mockError = new Error('Gemini connection failed');
+        (GoogleGenAI as unknown as vi.Mock).mockImplementation(() => ({
+            live: {
+                connect: vi.fn(() => {
+                    throw mockError;
+                }),
+            },
+        }));
 
-	it('should track connection state', async () => {
-		const manager = new GeminiConnectionManager('test-api-key', callbacks);
+        const session = new GeminiSession(durableObjectState, env);
+        const request = new Request('http://localhost/', {
+            headers: {
+                Upgrade: 'websocket',
+                'X-User-Id': 'test-user',
+                'X-Interview-Id': 'test-interview',
+            },
+        });
 
-		expect(manager.isActive()).toBe(false);
+        const response = await session.fetch(request);
 
-		// After connection, should be active
-		// (will be implemented later)
-	});
+        expect(mockConsoleError).toHaveBeenCalledWith('[GeminiSession] Failed to initialize Gemini:', mockError);
+        expect(mockUpdateStatus).toHaveBeenCalledWith('test-interview', 'ERROR');
+        expect(response.status).toBe(101); // WebSocket upgrade response
+    });
+
+    it('should log error and update status to ERROR when Gemini onerror callback is invoked', async () => {
+        let geminiOnErrorCallback: (error: any) => void;
+
+        (GoogleGenAI as unknown as vi.Mock).mockImplementation(() => ({
+            live: {
+                connect: vi.fn(({ callbacks }) => {
+                    geminiOnErrorCallback = callbacks.onerror;
+                    return {
+                        sendRealtimeInput: vi.fn(),
+                        close: vi.fn(),
+                    };
+                }),
+            },
+        }));
+
+        const session = new GeminiSession(durableObjectState, env);
+        const request = new Request('http://localhost/', {
+            headers: {
+                Upgrade: 'websocket',
+                'X-User-Id': 'test-user',
+                'X-Interview-Id': 'test-interview',
+            },
+        });
+
+        // Trigger the fetch, which initializes GeminiSession and sets up callbacks
+        await session.fetch(request);
+
+        const mockGeminiError = new Error('Simulated Gemini runtime error');
+        await geminiOnErrorCallback!(mockGeminiError); // Manually invoke the onerror callback
+
+        expect(mockConsoleError).toHaveBeenCalledWith(
+            `[GeminiSession] Gemini Live API error for interview test-interview:`,
+            mockGeminiError
+        );
+        expect(mockUpdateStatus).toHaveBeenCalledWith('test-interview', 'ERROR');
+        expect(mockClientWs.send).toHaveBeenCalled(); // Should send an error message to client
+    });
 });
 
 describe('Gemini Message Handling', () => {

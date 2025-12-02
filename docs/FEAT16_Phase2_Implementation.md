@@ -7,7 +7,8 @@
 - ✅ **Phase 2**: Gemini Live API Integration - COMPLETED & VERIFIED
 - ✅ **Phase 3.1**: Next.js API Client Integration - COMPLETED & VERIFIED
 - ✅ **Phase 3.2**: Update Interview Lifecycle - COMPLETED & VERIFIED
-- ⏳ **Phase 3.3**: Add Error Handling with Retry - NOT STARTED
+- ⏭️ **Phase 3.3**: Add Error Handling with Retry - MOVED to `docs/todo/FEAT16_Phase3.3_error_handling.md`
+- ✅ **Phase 4**: Testing & Deployment - COMPLETED
 
 ---
 
@@ -173,25 +174,37 @@ In `GeminiSession`:
 2. **On User Ends Session**: Submit transcript, update status to `COMPLETED`
 3. **On Error**: Update status to `ERROR`
 
-#### 3.3: Add Error Handling
-
-- Network failures → retry with exponential backoff
-- Gemini errors → log and notify client
-- Transcript submission failures → log (don't fail session)
-
 ---
 
-## Phase 4: Testing & Deployment ⏳ NOT STARTED
+## Phase 4: Testing & Deployment ✅ COMPLETED
 
-### Local Testing
+### Local Testing ✅ COMPLETED
 ```bash
 pnpm dev:worker                    # Start wrangler dev
 node worker/test-websocket.js      # Test WebSocket connection
 ```
+**Verification Results:**
+- WebSocket connection established successfully.
+- Gemini session initialized and connected.
+- Audio chunks received and processed.
+- Status updates (IN_PROGRESS, COMPLETED) sent to API.
+- Transcript submitted successfully.
 
-### Deployment
+### Deployment ✅ COMPLETED
 ```bash
 # Set secrets in production
+wrangler secret put JWT_SECRET
+wrangler secret put WORKER_SHARED_SECRET
+wrangler secret put GEMINI_API_KEY
+
+# Deploy
+wrangler deploy --config worker/wrangler.toml
+```
+
+**Deployment Results:**
+- **URL:** `https://preppal-worker.boom-mccloud.workers.dev`
+- **Fix:** Updated `wrangler.toml` to use `new_sqlite_classes` for Durable Objects on Cloudflare Free Plan.
+- **Status:** Successfully deployed and active.
 wrangler secret put JWT_SECRET
 wrangler secret put WORKER_SHARED_SECRET
 wrangler secret put GEMINI_API_KEY
@@ -326,17 +339,6 @@ To verify Phase 3.1 & 3.2:
   - Query `Interview` table for status transitions
   - Verify timestamps (`startedAt`, `endedAt`) are correct
   - Verify `TranscriptEntry` table has correct speaker/content/timestamp
-
----
-
-### Known Limitations (Phase 3.3 TODO)
-
-Current implementation does NOT include:
-- ❌ Retry logic with exponential backoff for network failures
-- ❌ Graceful degradation if transcript submission fails
-- ❌ Comprehensive error logging/monitoring
-
-These will be addressed in Phase 3.3.
 
 ---
 

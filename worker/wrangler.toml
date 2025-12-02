@@ -18,4 +18,4 @@ class_name = "GeminiSession"
 # Migrations for Durable Objects
 [[migrations]]
 tag = "v1"
-new_classes = ["GeminiSession"]
+new_sqlite_classes = ["GeminiSession"]
