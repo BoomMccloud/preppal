@@ -26,7 +26,7 @@ export class AudioPlayer {
 
   public stop() {
     if (this.audioContext) {
-      this.audioContext.close();
+      void this.audioContext.close();
       this.audioContext = null;
       this.workletNode = null;
     }
@@ -40,7 +40,7 @@ export class AudioPlayer {
     const pcm16 = new Int16Array(pcm16ArrayBuffer);
     const pcm32 = new Float32Array(pcm16.length);
     for (let i = 0; i < pcm16.length; i++) {
-      pcm32[i] = pcm16[i] / 32768.0; // Convert to -1.0 to 1.0 range
+      pcm32[i] = pcm16[i]! / 32768.0; // Convert to -1.0 to 1.0 range
     }
 
     // 2. Post the Float32Array to the worklet.

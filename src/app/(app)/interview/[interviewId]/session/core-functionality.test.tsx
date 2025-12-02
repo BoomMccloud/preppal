@@ -129,6 +129,6 @@ describe("Interview Session Core Functionality", () => {
     // Verify the mutate function was called with correct argument
     expect(mockMutate).toHaveBeenCalledTimes(1);
     const callArgs = mockMutate.mock.calls[0];
-    expect(callArgs[0]).toEqual({ interviewId: mockInterviewId });
+    expect(callArgs?.[0]).toEqual({ interviewId: mockInterviewId });
   });
 });

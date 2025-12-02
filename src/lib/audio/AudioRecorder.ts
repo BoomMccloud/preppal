@@ -25,8 +25,8 @@ export class AudioRecorder {
       );
 
       // The worklet will post messages (audio chunks) back to us
-      this.workletNode.port.onmessage = (event) => {
-        onAudioData(event.data); // event.data is the ArrayBuffer
+      this.workletNode.port.onmessage = (event: MessageEvent) => {
+        onAudioData(event.data as ArrayBuffer); // event.data is the ArrayBuffer
       };
 
       source.connect(this.workletNode);
@@ -42,7 +42,7 @@ export class AudioRecorder {
       this.stream.getTracks().forEach((track) => track.stop());
     }
     if (this.audioContext) {
-      this.audioContext.close();
+      void this.audioContext.close();
       this.audioContext = null;
       this.workletNode = null;
     }

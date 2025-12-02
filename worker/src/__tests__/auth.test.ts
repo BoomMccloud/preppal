@@ -21,7 +21,10 @@ describe("validateJWT", () => {
     };
 
     const { jwtVerify } = await import("jose");
-    vi.mocked(jwtVerify).mockResolvedValue({ payload: mockPayload });
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: mockPayload,
+      protectedHeader: { alg: "HS256" }, // Minimal required protectedHeader
+    });
 
     const { validateJWT } = await import("../auth");
     const result = await validateJWT("valid-token", testSecret);
@@ -35,7 +38,7 @@ describe("validateJWT", () => {
     expect(jwtVerify).toHaveBeenCalledWith(
       "valid-token",
       expect.any(Uint8Array),
-      { algorithms: ["HS256"] }
+      { algorithms: ["HS256"] },
     );
   });
 
@@ -67,8 +70,8 @@ describe("validateJWT", () => {
     vi.mocked(jwtVerify).mockRejectedValue(new Error("Invalid token"));
 
     const { validateJWT } = await import("../auth");
-    await expect(validateJWT("invalid-token-format", testSecret)).rejects.toThrow(
-      "JWT validation failed",
-    );
+    await expect(
+      validateJWT("invalid-token-format", testSecret),
+    ).rejects.toThrow("JWT validation failed");
   });
 });

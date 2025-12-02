@@ -117,9 +117,9 @@ async function generateWorkerToken(step) {
 
     // Sign the JWT token
     const token = await new SignJWT(payload)
-      .setProtectedHeader({ alg: 'HS256' })
+      .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()
-      .setExpirationTime('5m')
+      .setExpirationTime("5m")
       .sign(secretKey);
 
     success(step, "Generating worker token");

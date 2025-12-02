@@ -36,6 +36,12 @@ export function useInterviewSocket({
   const [error, setError] = useState<string | null>(null);
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
 
+  // Use ref to track state for cleanup function without adding state as dependency
+  const stateRef = useRef<SessionState>("initializing");
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
   const wsRef = useRef<WebSocket | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const speakingTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -59,7 +65,7 @@ export function useInterviewSocket({
 
     // Construct WebSocket URL with interview ID and token as query parameters
     const workerUrl =
-      process.env.NEXT_PUBLIC_WORKER_URL || "http://localhost:8787";
+      process.env.NEXT_PUBLIC_WORKER_URL ?? "http://localhost:8787";
     const wsUrl = `${workerUrl}/${interviewId}?token=${encodeURIComponent(token)}`;
 
     const ws = new WebSocket(wsUrl);
@@ -69,15 +75,15 @@ export function useInterviewSocket({
 
     ws.onopen = () => {
       // Initialize audio services
-      initializeAudioServices();
+      void initializeAudioServices();
     };
 
-    ws.onmessage = async (event) => {
+    ws.onmessage = async (event: MessageEvent) => {
       try {
         console.log("WebSocket message received:", {
           type: typeof event.data,
           isBuffer: event.data instanceof ArrayBuffer,
-          data: event.data,
+          data: event.data as unknown,
         });
 
         // Handle binary Protobuf messages
@@ -91,10 +97,10 @@ export function useInterviewSocket({
             setTranscript((prev) => [
               ...prev,
               {
-                text: message.transcriptUpdate.text,
+                text: message.transcriptUpdate.text!,
                 speaker:
                   message.transcriptUpdate.speaker === "USER" ? "USER" : "AI",
-                is_final: message.transcriptUpdate.isFinal,
+                is_final: message.transcriptUpdate.isFinal!,
               },
             ]);
           } else if (message.audioResponse) {
@@ -107,7 +113,7 @@ export function useInterviewSocket({
               // Calculate duration to update speaking state
               // Assuming 24kHz sample rate (Gemini default) and 16-bit depth (2 bytes per sample)
               const sampleRate = 24000;
-              const numSamples = audioData.byteLength / 2;
+              const numSamples = audioData!.byteLength / 2;
               const durationMs = (numSamples / sampleRate) * 1000;
 
               setIsAiSpeaking(true);
@@ -132,7 +138,7 @@ export function useInterviewSocket({
             onSessionEnded();
           } else if (message.error) {
             // Error from server
-            setError(message.error.message);
+            setError(message.error?.message ?? "Unknown error");
             setState("error");
             stopTimer();
             cleanupAudioServices();
@@ -153,7 +159,7 @@ export function useInterviewSocket({
     };
 
     ws.onclose = () => {
-      if (state === "live" || state === "connecting") {
+      if (stateRef.current === "live" || stateRef.current === "connecting") {
         setError("Connection lost. Please return to the dashboard.");
         setState("error");
         stopTimer();
@@ -261,7 +267,10 @@ export function useInterviewSocket({
 
       if (wsRef.current) {
         // If still live, send EndRequest
-        if (state === "live" && wsRef.current.readyState === WebSocket.OPEN) {
+        if (
+          stateRef.current === "live" &&
+          wsRef.current.readyState === WebSocket.OPEN
+        ) {
           try {
             const endRequest = interview_pb.preppal.EndRequest.create();
             const message = interview_pb.preppal.ClientToServerMessage.create({
@@ -281,12 +290,12 @@ export function useInterviewSocket({
         wsRef.current.close();
       }
     };
-  }, [interviewId]);
+  }, [interviewId, generateToken]);
 
   // Handle browser close/navigate with sendBeacon
   useEffect(() => {
     const handleBeforeUnload = () => {
-      if (state === "live" && wsRef.current) {
+      if (stateRef.current === "live" && wsRef.current) {
         // Use sendBeacon for reliable cleanup
         navigator.sendBeacon(`/api/cleanup?interview=${interviewId}`);
       }
@@ -297,7 +306,7 @@ export function useInterviewSocket({
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
-  }, [state, interviewId]);
+  }, [interviewId]);
 
   return {
     state,

@@ -26,6 +26,8 @@ describe("ApiClient", () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
+        statusText: "OK",
+        text: vi.fn().mockResolvedValue(""),
       });
 
       await apiClient.updateStatus(interviewId, status);
@@ -54,12 +56,14 @@ describe("ApiClient", () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
+        statusText: "OK",
+        text: vi.fn().mockResolvedValue(""),
       });
 
       await apiClient.updateStatus(interviewId, status);
 
-      const callArgs = mockFetch.mock.calls[0][1];
-      expect(callArgs.headers["Authorization"]).toBe(
+      const callArgs = mockFetch.mock.calls?.[0]?.[1];
+      expect(callArgs?.headers["Authorization"]).toBe(
         `Bearer ${mockWorkerSecret}`,
       );
     });
@@ -69,11 +73,12 @@ describe("ApiClient", () => {
         ok: false,
         status: 500,
         statusText: "Internal Server Error",
+        text: vi.fn().mockResolvedValue("Database connection failed"),
       });
 
       await expect(
         apiClient.updateStatus("interview-123", "IN_PROGRESS"),
-      ).rejects.toThrow("Failed to update status: 500 Internal Server Error");
+      ).rejects.toThrow("Failed to update status: 500 Internal Server Error - Database connection failed");
     });
   });
 
@@ -97,6 +102,8 @@ describe("ApiClient", () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
+        statusText: "OK",
+        text: vi.fn().mockResolvedValue(""),
       });
 
       await apiClient.submitTranscript(interviewId, transcript, endedAt);
@@ -133,12 +140,14 @@ describe("ApiClient", () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
+        statusText: "OK",
+        text: vi.fn().mockResolvedValue(""),
       });
 
       await apiClient.submitTranscript(interviewId, transcript, endedAt);
 
-      const callArgs = mockFetch.mock.calls[0][1];
-      expect(callArgs.headers["Authorization"]).toBe(
+      const callArgs = mockFetch.mock.calls?.[0]?.[1]; // Added optional chaining
+      expect(callArgs?.headers["Authorization"]).toBe(
         `Bearer ${mockWorkerSecret}`,
       );
     });
@@ -157,11 +166,12 @@ describe("ApiClient", () => {
         ok: false,
         status: 404,
         statusText: "Not Found",
+        text: vi.fn().mockResolvedValue("Interview not found"),
       });
 
       await expect(
         apiClient.submitTranscript("interview-123", transcript, endedAt),
-      ).rejects.toThrow("Failed to submit transcript: 404 Not Found");
+      ).rejects.toThrow("Failed to submit transcript: 404 Not Found - Interview not found");
     });
   });
 });

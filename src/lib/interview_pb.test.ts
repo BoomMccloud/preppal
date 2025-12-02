@@ -15,7 +15,7 @@ describe("Protobuf Usage", () => {
 
       expect(message.audioChunk).toBeDefined();
       expect(message.audioChunk?.audioContent).toEqual(audioContent);
-      expect(message.endRequest).toBeUndefined();
+      expect(message.endRequest).toBeNull();
     });
 
     // TODO: This test is failing after the protobuf schema update.

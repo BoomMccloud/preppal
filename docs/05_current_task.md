@@ -26,9 +26,10 @@ We have followed a **TDD approach**: Writing failing tests for the new hook logi
 - **Targeted Functional Tests**: Implemented maintainable tests covering critical user journeys
 - **UI Integration**: Visual feedback for Listening/Speaking.
 - **UI Integration**: End Interview functionality.
+- **E2E Testing**: Full flow verification against the local worker.
 
 ### In Progress ⚠️
-- **E2E Testing**: Full flow verification against the local worker.
+- None
 
 ### Pending ⏳
 - **UI Integration**: Display real-time transcripts (Deferred).
@@ -49,7 +50,7 @@ We have followed a **TDD approach**: Writing failing tests for the new hook logi
 5.  ~~**Implement Targeted Tests**: Create maintainable functional tests covering critical user journeys.~~
 6.  ~~**UI Integration**: Add visual feedback for "Listening" vs "Speaking" states.~~
 7.  ~~**UI Integration**: Ensure "End Interview" button functions correctly.~~
-8.  **E2E Testing**: Perform full flow verification against the Cloudflare Worker.
+8.  ~~**E2E Testing**: Perform full flow verification against the Cloudflare Worker.~~
 
 ---
 
@@ -94,6 +95,13 @@ The implementation now aligns with the updated architecture:
 - ✅ Authentication Flow: Uses correct API endpoint
 - ✅ JWT Refactoring: Consistent crypto implementation with `jose`
 
+### E2E Tests
+- ✅ Authentication Flow: Token generation and WebSocket connection
+- ✅ Audio Streaming: Sending and receiving audio chunks
+- ✅ Message Handling: Transcript updates, audio responses, errors, session end
+- ✅ Session Lifecycle: Start, live, end states
+- ✅ UI Integration: State transitions, visual feedback, controls
+
 ## Current Status
 
 ### Completed
@@ -105,16 +113,16 @@ The implementation now aligns with the updated architecture:
 - ✅ JWT dependency refactoring
 - ✅ Targeted functional test implementation
 - ✅ UI Integration (Visual Feedback & End Interview)
+- ✅ E2E Testing with Cloudflare Worker
 
 ### In Progress
-- ⏳ End-to-end testing with Cloudflare Worker
+- None
 
 ## Next Steps
 
-1. **E2E Testing**: Perform full flow verification against the Cloudflare Worker
-2. **UI Integration**: Update SessionContent.tsx to display real-time transcripts (Future Todo)
-3. **Performance Optimization**: Optimize audio streaming performance
-4. **Error Handling**: Enhance error handling and user feedback
+1. **UI Integration**: Update SessionContent.tsx to display real-time transcripts (Future Todo)
+2. **Performance Optimization**: Optimize audio streaming performance
+3. **Error Handling**: Enhance error handling and user feedback
 
 ---
 

@@ -10,10 +10,7 @@ export const createTranscriptUpdateMessage = (
   isFinal: boolean = true,
 ): ArrayBuffer => {
   const transcriptUpdate = interview_pb.preppal.TranscriptUpdate.create({
-    speaker:
-      speaker === "AI"
-        ? interview_pb.preppal.Speaker.AI
-        : interview_pb.preppal.Speaker.USER,
+    speaker: speaker === "AI" ? "AI" : "USER",
     text,
     isFinal,
   });
@@ -27,7 +24,7 @@ export const createTranscriptUpdateMessage = (
   return buffer.buffer.slice(
     buffer.byteOffset,
     buffer.byteOffset + buffer.byteLength,
-  );
+  ) as ArrayBuffer;
 };
 
 export const createAudioResponseMessage = (
@@ -46,7 +43,7 @@ export const createAudioResponseMessage = (
   return buffer.buffer.slice(
     buffer.byteOffset,
     buffer.byteOffset + buffer.byteLength,
-  );
+  ) as ArrayBuffer;
 };
 
 export const createSessionEndedMessage = (
@@ -66,7 +63,7 @@ export const createSessionEndedMessage = (
   return buffer.buffer.slice(
     buffer.byteOffset,
     buffer.byteOffset + buffer.byteLength,
-  );
+  ) as ArrayBuffer;
 };
 
 export const createErrorMessage = (
@@ -87,7 +84,7 @@ export const createErrorMessage = (
   return buffer.buffer.slice(
     buffer.byteOffset,
     buffer.byteOffset + buffer.byteLength,
-  );
+  ) as ArrayBuffer;
 };
 
 export const createEndRequestMessage = (): ArrayBuffer => {
@@ -102,5 +99,5 @@ export const createEndRequestMessage = (): ArrayBuffer => {
   return buffer.buffer.slice(
     buffer.byteOffset,
     buffer.byteOffset + buffer.byteLength,
-  );
+  ) as ArrayBuffer;
 };

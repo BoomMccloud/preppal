@@ -192,16 +192,34 @@ describe("interview.getHistory", () => {
     const mockInterviewsFromDb = [
       {
         id: "int-1",
+        userId: "test-user-id",
         status: "COMPLETED" as const,
+        jobTitleSnapshot: "Frontend Developer with a very long description",
         jobDescriptionSnapshot:
           "Frontend Developer with a very long description",
-        createdAt: new Date(),
+        resumeSnapshot: "some resume content",
+        idempotencyKey: "idempotency-key-1",
+        createdAt: new Date("2023-01-01T00:00:00Z"),
+        updatedAt: new Date("2023-01-01T00:00:00Z"),
+        startedAt: new Date("2023-01-01T00:00:00Z"),
+        endedAt: new Date("2023-01-01T01:00:00Z"),
+        resumeId: null,
+        jobDescriptionId: null,
       },
       {
         id: "int-2",
+        userId: "test-user-id",
         status: "PENDING" as const,
-        jobDescriptionSnapshot: "Backend Developer",
-        createdAt: new Date(),
+        jobTitleSnapshot: "Backend Developer",
+        jobDescriptionSnapshot: "Backend Developer Description",
+        resumeSnapshot: "some other resume content",
+        idempotencyKey: "idempotency-key-2",
+        createdAt: new Date("2023-01-02T00:00:00Z"),
+        updatedAt: new Date("2023-01-02T00:00:00Z"),
+        startedAt: null,
+        endedAt: null,
+        resumeId: null,
+        jobDescriptionId: null,
       },
     ];
 
@@ -222,16 +240,16 @@ describe("interview.getHistory", () => {
     expect(result).toHaveLength(2);
 
     // Check first interview
-    expect(result[0].id).toBe("int-1");
-    expect(result[0].status).toBe("COMPLETED");
-    expect(result[0].createdAt).toBe(mockInterviewsFromDb[0].createdAt);
-    expect(result[0].jobTitleSnapshot).toBe("Frontend Developer with a very"); // First 30 chars
+    expect(result![0].id).toBe("int-1");
+    expect(result![0].status).toBe("COMPLETED");
+    expect(result![0].createdAt).toBe(mockInterviewsFromDb[0].createdAt);
+    expect(result![0].jobTitleSnapshot).toBe("Frontend Developer with a very"); // First 30 chars
 
     // Check second interview
-    expect(result[1].id).toBe("int-2");
-    expect(result[1].status).toBe("PENDING");
-    expect(result[1].createdAt).toBe(mockInterviewsFromDb[1].createdAt);
-    expect(result[1].jobTitleSnapshot).toBe("Backend Developer");
+    expect(result![1].id).toBe("int-2");
+    expect(result![1].status).toBe("PENDING");
+    expect(result![1].createdAt).toBe(mockInterviewsFromDb[1].createdAt);
+    expect(result![1].jobTitleSnapshot).toBe("Backend Developer Description");
 
     // 2. Check if the database was called with the correct query
     expect(db.interview.findMany).toHaveBeenCalledWith({
@@ -287,10 +305,11 @@ describe("interview.getById", () => {
       feedback: {
         id: "feedback-id",
         interviewId: "interview-with-feedback-id",
-        overallScore: 85,
-        strengths: ["Good communication", "Technical knowledge"],
-        improvements: ["Practice behavioral questions"],
-        detailedFeedback: "Overall great performance...",
+        summary: "Overall great performance...",
+        strengths: "Good communication, Technical knowledge",
+        contentAndStructure: "Overall great performance...",
+        communicationAndDelivery: "Clear and concise",
+        presentation: "Good posture, eye contact",
         createdAt: new Date(),
       },
     };
@@ -316,11 +335,10 @@ describe("interview.getById", () => {
     expect(result).toBeDefined();
     expect(result?.id).toBe("interview-with-feedback-id");
     expect(result?.feedback).toBeDefined();
-    expect(result?.feedback?.overallScore).toBe(85);
-    expect(result?.feedback?.strengths).toEqual([
-      "Good communication",
-      "Technical knowledge",
-    ]);
+    expect(result?.feedback?.summary).toBe("Overall great performance...");
+    expect(result?.feedback?.strengths).toBe(
+      "Good communication, Technical knowledge",
+    );
 
     // Verify database call included feedback relation
     expect(db.interview.findUnique).toHaveBeenCalledWith({
@@ -404,11 +422,18 @@ describe("interview.getCurrent", () => {
 
     const mockCurrentInterview = {
       id: "in-progress-interview-id",
-      status: "IN_PROGRESS" as const,
       userId: "test-user-id",
-      // Add other necessary fields that the procedure is expected to return
+      status: "IN_PROGRESS" as const,
       jobTitleSnapshot: "Senior Developer",
-      createdAt: new Date(),
+      jobDescriptionSnapshot: "Senior Developer Job Description",
+      resumeSnapshot: "Senior Developer Resume Content",
+      idempotencyKey: "idempotency-key-current",
+      createdAt: new Date("2023-03-01T00:00:00Z"),
+      updatedAt: new Date("2023-03-01T00:00:00Z"),
+      startedAt: new Date("2023-03-01T00:00:00Z"),
+      endedAt: null,
+      resumeId: null,
+      jobDescriptionId: null,
     };
 
     // Mock the database call for findFirst

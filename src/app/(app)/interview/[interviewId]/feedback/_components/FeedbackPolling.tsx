@@ -53,7 +53,7 @@ export default function FeedbackPolling({ interviewId }: FeedbackPollingProps) {
             Your feedback is being generated. This may take a minute...
           </p>
           <p className="text-secondary-text text-sm">
-            We're analyzing your interview performance
+            We&apos;re analyzing your interview performance
           </p>
         </div>
       </FeedbackCard>

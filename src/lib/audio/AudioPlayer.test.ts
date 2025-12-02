@@ -110,9 +110,9 @@ describe("AudioPlayer", () => {
       expect(mockPostMessage).toHaveBeenCalled();
       // Verify that the posted data is a Float32Array
       const callArgs = mockPostMessage.mock.calls[0];
-      expect(callArgs[0]).toBeInstanceOf(Float32Array);
+      expect(callArgs?.[0]).toBeInstanceOf(Float32Array);
       // Verify transferable buffer was used
-      expect(callArgs[1]).toEqual([callArgs[0].buffer]);
+      expect(callArgs?.[1]).toEqual([callArgs?.[0].buffer]);
     });
 
     it("should not process if worklet node is not initialized", () => {

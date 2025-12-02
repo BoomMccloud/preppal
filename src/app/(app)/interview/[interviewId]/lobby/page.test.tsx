@@ -35,7 +35,9 @@ describe("LobbyPage (Server Component)", () => {
     );
 
     // Act
-    const Page = await LobbyPage({ params: Promise.resolve({ interviewId: mockInterviewId }) });
+    const Page = await LobbyPage({
+      params: Promise.resolve({ interviewId: mockInterviewId }),
+    });
     render(Page);
 
     // Assert
@@ -54,7 +56,9 @@ describe("LobbyPage (Server Component)", () => {
     });
 
     // Act
-    await LobbyPage({ params: Promise.resolve({ interviewId: mockInterviewId }) });
+    await LobbyPage({
+      params: Promise.resolve({ interviewId: mockInterviewId }),
+    });
 
     // Assert
     expect(redirect).toHaveBeenCalledWith(
@@ -71,7 +75,9 @@ describe("LobbyPage (Server Component)", () => {
     });
 
     // Act
-    const Page = await LobbyPage({ params: Promise.resolve({ interviewId: mockInterviewId }) });
+    const Page = await LobbyPage({
+      params: Promise.resolve({ interviewId: mockInterviewId }),
+    });
     render(Page);
 
     // Assert
@@ -91,7 +97,9 @@ describe("LobbyPage (Server Component)", () => {
     });
 
     // Act
-    const Page = await LobbyPage({ params: Promise.resolve({ interviewId: mockInterviewId }) });
+    const Page = await LobbyPage({
+      params: Promise.resolve({ interviewId: mockInterviewId }),
+    });
     render(Page);
 
     // Assert
@@ -117,7 +125,7 @@ describe("LobbyPage (Server Component)", () => {
 
       // Act
       const Page = await LobbyPage({
-        params: { interviewId: mockInterviewId },
+        params: Promise.resolve({ interviewId: mockInterviewId }),
       });
       render(Page);
 
@@ -138,7 +146,7 @@ describe("LobbyPage (Server Component)", () => {
 
       // Act
       const Page = await LobbyPage({
-        params: { interviewId: mockInterviewId },
+        params: Promise.resolve({ interviewId: mockInterviewId }),
       });
       render(Page);
 
@@ -161,7 +169,7 @@ describe("LobbyPage (Server Component)", () => {
 
       // Act
       const Page = await LobbyPage({
-        params: { interviewId: mockInterviewId },
+        params: Promise.resolve({ interviewId: mockInterviewId }),
       });
       render(Page);
 
@@ -181,7 +189,7 @@ describe("LobbyPage (Server Component)", () => {
 
       // Act
       const Page = await LobbyPage({
-        params: { interviewId: mockInterviewId },
+        params: Promise.resolve({ interviewId: mockInterviewId }),
       });
       render(Page);
 

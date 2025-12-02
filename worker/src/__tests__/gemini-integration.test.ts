@@ -1,12 +1,13 @@
 // ABOUTME: Tests for Gemini Live API integration in GeminiSession Durable Object
 // ABOUTME: Covers audio conversion, transcript tracking, and bidirectional streaming
 
+/// <reference types="@cloudflare/workers-types" />
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { AudioConverter } from "../audio-converter";
 import { TranscriptManager } from "../transcript-manager";
 import { GoogleGenAI, Modality } from "@google/genai";
 import { ApiClient } from "../api-client";
-import { Env } from "../index";
+import type { Env } from "../index"; // Added type keyword
 import { GeminiSession } from "../gemini-session";
 
 // Mock the GoogleGenAI and ApiClient modules
@@ -36,7 +37,7 @@ class MockWebSocketPair {
 
 // Globally mock WebSocketPair if it's not defined, as it's a Workers API
 if (typeof WebSocketPair === "undefined") {
-  global.WebSocketPair = MockWebSocketPair as any;
+  (global as any).WebSocketPair = MockWebSocketPair as any;
 }
 
 // Mock the global Response object to allow status 101 for WebSocket upgrades
@@ -127,9 +128,9 @@ describe("Transcript Manager", () => {
     const transcript = manager.getTranscript();
 
     expect(transcript).toHaveLength(1);
-    expect(transcript[0].speaker).toBe("USER");
-    expect(transcript[0].content).toBe("Hello, how are you?");
-    expect(transcript[0].timestamp).toBeDefined();
+    expect(transcript?.[0]?.speaker).toBe("USER");
+    expect(transcript?.[0]?.content).toBe("Hello, how are you?");
+    expect(transcript?.[0]?.timestamp).toBeDefined();
   });
 
   it("should add AI transcript entries", () => {
@@ -138,9 +139,9 @@ describe("Transcript Manager", () => {
     const transcript = manager.getTranscript();
 
     expect(transcript).toHaveLength(1);
-    expect(transcript[0].speaker).toBe("AI");
-    expect(transcript[0].content).toBe("I am doing well, thank you!");
-    expect(transcript[0].timestamp).toBeDefined();
+    expect(transcript?.[0]?.speaker).toBe("AI");
+    expect(transcript?.[0]?.content).toBe("I am doing well, thank you!");
+    expect(transcript?.[0]?.timestamp).toBeDefined();
   });
 
   it("should maintain conversation order", () => {
@@ -151,9 +152,9 @@ describe("Transcript Manager", () => {
     const transcript = manager.getTranscript();
 
     expect(transcript).toHaveLength(3);
-    expect(transcript[0].content).toBe("First message");
-    expect(transcript[1].content).toBe("Second message");
-    expect(transcript[2].content).toBe("Third message");
+    expect(transcript?.[0]?.content).toBe("First message");
+    expect(transcript?.[1]?.content).toBe("Second message");
+    expect(transcript?.[2]?.content).toBe("Third message");
   });
 
   it("should include timestamps for all entries", () => {
@@ -162,7 +163,7 @@ describe("Transcript Manager", () => {
     const transcript = manager.getTranscript();
 
     // Timestamp should be ISO 8601 format
-    expect(transcript[0].timestamp).toMatch(
+    expect(transcript?.[0]?.timestamp).toMatch(
       /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/,
     );
   });
@@ -200,7 +201,7 @@ describe("GeminiSession - Error Handling", () => {
   let mockUpdateStatus: ReturnType<typeof vi.fn>;
   let mockClientWs: MockWebSocket;
   let env: Env;
-  let durableObjectState: DurableObjectState;
+  let durableObjectState: DurableObjectState; // Corrected type
   let mockServerWs: MockWebSocket; // Added for explicit mock server WebSocket
 
   beforeEach(() => {
@@ -221,10 +222,10 @@ describe("GeminiSession - Error Handling", () => {
 
     // Restore global WebSocketPair mock before each test to ensure fresh mocks
     if (typeof WebSocketPair === "undefined") {
-      global.WebSocketPair = MockWebSocketPair as any;
+      (global as any).WebSocketPair = MockWebSocketPair as any;
     }
 
-    vi.spyOn(global, "WebSocketPair").mockImplementation(() => {
+    vi.spyOn(global as any, "WebSocketPair").mockImplementation(() => {
       const newPair = new MockWebSocketPair();
       mockClientWs = newPair.client;
       mockServerWs = newPair.server;
@@ -236,6 +237,9 @@ describe("GeminiSession - Error Handling", () => {
       GEMINI_API_KEY: "test-api-key",
       WORKER_SHARED_SECRET: "test-secret",
       NEXT_PUBLIC_API_URL: "http://localhost:3000",
+      // Add missing properties
+      GEMINI_SESSION: {} as DurableObjectNamespace, // Mock as empty object, or a more specific mock if needed
+      JWT_SECRET: "some-super-secret-jwt-key-minimum-32-chars",
     };
 
     // Mock DurableObjectState
@@ -406,8 +410,8 @@ describe("Integration: End-to-End Flow", () => {
     manager.addUserTranscript("transcribed text");
     const transcript = manager.getTranscript();
     expect(transcript).toHaveLength(1);
-    expect(transcript[0].speaker).toBe("USER");
-    expect(transcript[0].content).toBe("transcribed text");
+    expect(transcript?.[0]?.speaker).toBe("USER");
+    expect(transcript?.[0]?.content).toBe("transcribed text");
   });
 
   it("should handle complete AI response -> audio flow", () => {
@@ -425,7 +429,7 @@ describe("Integration: End-to-End Flow", () => {
     manager.addAITranscript("AI response text");
     const transcript = manager.getTranscript();
     expect(transcript).toHaveLength(1);
-    expect(transcript[0].speaker).toBe("AI");
-    expect(transcript[0].content).toBe("AI response text");
+    expect(transcript?.[0]?.speaker).toBe("AI");
+    expect(transcript?.[0]?.content).toBe("AI response text");
   });
 });

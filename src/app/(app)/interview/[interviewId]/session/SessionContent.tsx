@@ -76,7 +76,7 @@ export function SessionContent({ interviewId }: SessionContentProps) {
         <div className="max-w-md space-y-4 text-center">
           <h1 className="text-2xl font-bold text-red-600">Connection Error</h1>
           <p className="text-gray-700">
-            {error || "Connection lost. Please return to the dashboard."}
+            {error ?? "Connection lost. Please return to the dashboard."}
           </p>
           <button
             onClick={() => router.push("/dashboard")}
