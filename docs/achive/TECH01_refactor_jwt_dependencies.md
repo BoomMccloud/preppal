@@ -53,7 +53,7 @@ pnpm remove jsonwebtoken @types/jsonwebtoken
 ```
 
 ## Status
-- [ ] Refactor `generateWorkerToken` in `src/server/api/routers/interview.ts` to use `jose`.
-- [ ] Update all callsites of `generateWorkerToken` to await the result.
-- [ ] Verify functionality with tests.
-- [ ] Remove `jsonwebtoken` and `@types/jsonwebtoken` from `package.json`.
+- [x] Refactor `generateWorkerToken` in `src/server/api/routers/interview.ts` to use `jose`.
+- [x] Update all callsites of `generateWorkerToken` to await the result.
+- [x] Verify functionality with tests.
+- [x] Remove `jsonwebtoken` and `@types/jsonwebtoken` from `package.json`.

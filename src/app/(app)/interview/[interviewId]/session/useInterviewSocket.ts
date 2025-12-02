@@ -69,6 +69,12 @@ export function useInterviewSocket({
 
     ws.onmessage = async (event) => {
       try {
+        console.log("WebSocket message received:", {
+          type: typeof event.data,
+          isBuffer: event.data instanceof ArrayBuffer,
+          data: event.data
+        });
+        
         // Handle binary Protobuf messages
         if (event.data instanceof ArrayBuffer) {
           const message = interview_pb.preppal.ServerToClientMessage.decode(new Uint8Array(event.data));

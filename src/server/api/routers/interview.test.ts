@@ -715,7 +715,7 @@ describe("interview.generateWorkerToken", () => {
   it("should return a valid, decodable JWT for a valid PENDING interview", async () => {
     const { db } = await import("~/server/db");
     const { createCaller } = await import("~/server/api/root");
-    const jwt = await import("jsonwebtoken");
+    const jose = await import("jose");
 
     const mockInterview = {
       id: "owned-interview-id",
@@ -740,9 +740,10 @@ describe("interview.generateWorkerToken", () => {
     expect(typeof token).toBe("string");
     expect(token.length).toBeGreaterThan(0);
 
-    // Decode the token to verify its contents
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    expect(decoded).toMatchObject({
+    // Decode the token to verify its contents using jose
+    const secret = new TextEncoder().encode(process.env.JWT_SECRET);
+    const decoded = await jose.jwtVerify(token, secret);
+    expect(decoded.payload).toMatchObject({
       userId: "test-user-id",
       interviewId: "owned-interview-id",
     });
@@ -751,7 +752,7 @@ describe("interview.generateWorkerToken", () => {
   it("should JWT contain correct claims including exp and iat", async () => {
     const { db } = await import("~/server/db");
     const { createCaller } = await import("~/server/api/root");
-    const jwt = await import("jsonwebtoken");
+    const jose = await import("jose");
 
     const mockInterview = {
       id: "owned-interview-id",
@@ -769,21 +770,23 @@ describe("interview.generateWorkerToken", () => {
     });
     const afterTime = Math.floor(Date.now() / 1000);
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET) as any;
+    // Decode the token to verify its contents using jose
+    const secret = new TextEncoder().encode(process.env.JWT_SECRET);
+    const decoded = await jose.jwtVerify(token, secret);
 
     // Verify all required claims exist
-    expect(decoded).toHaveProperty("userId");
-    expect(decoded).toHaveProperty("interviewId");
-    expect(decoded).toHaveProperty("iat");
-    expect(decoded).toHaveProperty("exp");
+    expect(decoded.payload).toHaveProperty("userId");
+    expect(decoded.payload).toHaveProperty("interviewId");
+    expect(decoded.payload).toHaveProperty("iat");
+    expect(decoded.payload).toHaveProperty("exp");
 
     // Verify iat is within reasonable time
-    expect(decoded.iat).toBeGreaterThanOrEqual(beforeTime);
-    expect(decoded.iat).toBeLessThanOrEqual(afterTime);
+    expect(decoded.payload.iat).toBeGreaterThanOrEqual(beforeTime);
+    expect(decoded.payload.iat).toBeLessThanOrEqual(afterTime);
 
     // Verify exp is 5 minutes from iat (300 seconds)
-    const expectedExpiration = decoded.iat + 300;
-    expect(decoded.exp).toBe(expectedExpiration);
+    const expectedExpiration = (decoded.payload.iat as number) + 300;
+    expect(decoded.payload.exp).toBe(expectedExpiration);
   });
 });
 

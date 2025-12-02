@@ -4,7 +4,6 @@ import { TRPCError } from "@trpc/server";
 import { Prisma } from "@prisma/client";
 import { SignJWT } from "jose";
 import { env } from "~/env";
-import jwt from "jsonwebtoken";
 
 // Discriminated union for job description input
 const JobDescriptionInput = z.discriminatedUnion("type", [
@@ -357,18 +356,16 @@ export const interviewRouter = createTRPCRouter({
         });
       }
 
-      // Generate JWT token with HS256, valid for 5 minutes
-      const token = jwt.sign(
-        {
-          userId: ctx.session.user.id,
-          interviewId: input.interviewId,
-        },
-        jwtSecret,
-        {
-          algorithm: "HS256",
-          expiresIn: "5m",
-        }
-      );
+      // Generate JWT token with HS256, valid for 5 minutes using jose
+      const secret = new TextEncoder().encode(jwtSecret);
+      const token = await new SignJWT({
+        userId: ctx.session.user.id,
+        interviewId: input.interviewId,
+      } as Record<string, unknown>)
+        .setProtectedHeader({ alg: "HS256" })
+        .setIssuedAt()
+        .setExpirationTime("5m")
+        .sign(secret);
 
       return { token };
     }),

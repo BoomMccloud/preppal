@@ -175,3 +175,4 @@ Environment variables must be configured according to `.env.example`.
 - Add descriptions at the beginning of each file
 - Keep files to 300 lines of code or less, refactor if needed
 - Use boiler plates or reference implementation whenever possible, minize the amount of new code
+- run pnpm format && pnpm lint before submitting code
