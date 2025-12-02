@@ -128,6 +128,8 @@ describe("useInterviewSocket Integration Test", () => {
       isLoading: false,
       isSuccess: false,
       isError: false,
+      data: { token: mockToken },
+      error: null,
     });
   });
 
@@ -189,6 +191,8 @@ describe("useInterviewSocket Integration Test", () => {
       isLoading: false,
       isSuccess: false,
       isError: false,
+      data: null,
+      error: new Error("Authentication failed"),
     });
 
     const { result } = renderHook(() =>

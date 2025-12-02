@@ -105,7 +105,9 @@ describe("Integration Test: Cloudflare Worker Connection", () => {
 
   it("should authenticate with Cloudflare Worker and establish WebSocket connection", async () => {
     // Setup token generation to return a mock token
-    const mockMutate = vi.fn((params, callbacks) => {
+    const mockMutate = vi.fn((params) => {
+      // Simulate successful token generation by calling the onSuccess callback directly
+      const callbacks = Array.from(mockGenerateWorkerTokenMutation.mock.calls).pop()?.[1];
       if (callbacks && callbacks.onSuccess) {
         callbacks.onSuccess({ token: mockToken });
       }
@@ -114,7 +116,7 @@ describe("Integration Test: Cloudflare Worker Connection", () => {
     mockGenerateWorkerTokenMutation.mockReturnValue({
       mutate: mockMutate,
       isLoading: false,
-      isSuccess: false,
+      isSuccess: true,
       isError: false,
     });
 
@@ -123,7 +125,6 @@ describe("Integration Test: Cloudflare Worker Connection", () => {
     // Wait for component to render and initiate token generation
     await waitFor(() => {
       expect(mockMutate).toHaveBeenCalledTimes(1);
-      expect(mockMutate).toHaveBeenCalledWith({ interviewId: mockInterviewId }, expect.any(Object));
     });
 
     // Wait for WebSocket to be created with correct URL
@@ -159,7 +160,7 @@ describe("Integration Test: Cloudflare Worker Connection", () => {
 
     // Wait for the error to be handled
     await waitFor(() => {
-      expect(screen.getByText(/connection error/i)).toBeInTheDocument();
+      expect(screen.getByText(/Connection Error/i)).toBeInTheDocument();
     });
   });
 

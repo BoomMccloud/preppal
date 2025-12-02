@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "~/trpc/react";
 import { useInterviewSocket } from "./useInterviewSocket";
@@ -13,22 +13,42 @@ interface SessionContentProps {
 export function SessionContent({ interviewId }: SessionContentProps) {
   const router = useRouter();
   const transcriptEndRef = useRef<HTMLDivElement>(null);
+  const [debugInfo, setDebugInfo] = useState<string>("");
 
   // Check interview status - block if not PENDING
-  const { data: interview, isLoading } = api.interview.getById.useQuery({
-    id: interviewId,
-  });
+  const { data: interview, isLoading } = api.interview.getById.useQuery(
+    {
+      id: interviewId,
+    },
+    {
+      refetchInterval: 1000,
+    }
+  );
+
+  const { data: interviewStatus } = api.debug.getInterviewStatus.useQuery(
+    { interviewId },
+    {
+      enabled: !!interviewId,
+      refetchInterval: 5000, // Refetch every 5 seconds
+    }
+  );
+
+  const handleCheckStatus = async () => {
+    try {
+      const response = await api.debug.getInterviewStatus.fetch({ interviewId });
+      setDebugInfo(JSON.stringify(response, null, 2));
+    } catch (error) {
+      setDebugInfo(`Error: ${error instanceof Error ? error.message : "Unknown error"}`);
+    }
+  };
 
   useEffect(() => {
     if (!isLoading && interview) {
-      if (
-        interview.status === "IN_PROGRESS" ||
-        interview.status === "COMPLETED"
-      ) {
-        router.push("/dashboard");
+      if (interview.status === "COMPLETED") {
+        router.push(`/interview/${interviewId}/feedback`);
       }
     }
-  }, [interview, isLoading, router]);
+  }, [interview, isLoading, router, interviewId]);
 
   // WebSocket connection and state management
   const { state, transcript, elapsedTime, error, endInterview, isAiSpeaking } =
@@ -64,7 +84,25 @@ export function SessionContent({ interviewId }: SessionContentProps) {
   if (state === "initializing" || state === "connecting") {
     return (
       <div className="flex h-screen items-center justify-center">
-        <div className="text-lg">Connecting...</div>
+        <div className="text-lg">
+          <div>Connecting...</div>
+          <div className="mt-4">
+            <button
+              onClick={handleCheckStatus}
+              className="rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
+            >
+              Check Interview Status
+            </button>
+          </div>
+          {debugInfo && (
+            <div className="mt-4 rounded bg-gray-100 p-2">
+              <pre className="text-xs">{debugInfo}</pre>
+            </div>
+          )}
+          <div className="mt-4 text-sm text-gray-500">
+            Current interview status: {interview?.status || "Unknown"}
+          </div>
+        </div>
       </div>
     );
   }
@@ -97,10 +135,21 @@ export function SessionContent({ interviewId }: SessionContentProps) {
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold">Interview Session</h1>
           <div className="flex items-center gap-4">
+            <button
+              onClick={handleCheckStatus}
+              className="rounded bg-blue-500 px-3 py-1 text-white text-sm hover:bg-blue-600"
+            >
+              Check Status
+            </button>
             <StatusIndicator status={isAiSpeaking ? "speaking" : "listening"} />
             <div className="font-mono text-lg">{formatTime(elapsedTime)}</div>
           </div>
         </div>
+        {debugInfo && (
+          <div className="mt-2 rounded bg-gray-100 p-2">
+            <pre className="text-xs">{debugInfo}</pre>
+          </div>
+        )}
       </div>
 
       {/* Transcript area */}
@@ -109,6 +158,9 @@ export function SessionContent({ interviewId }: SessionContentProps) {
           {transcript.length === 0 ? (
             <div className="text-center text-gray-500">
               <p>Waiting for the interview to begin...</p>
+              <p className="mt-2 text-sm">
+                Current interview status: {interview?.status || "Unknown"}
+              </p>
             </div>
           ) : (
             transcript.map((entry, index) => (

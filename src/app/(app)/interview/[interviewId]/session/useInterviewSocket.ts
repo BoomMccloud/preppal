@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "~/trpc/react";
 import { AudioRecorder } from "~/lib/audio/AudioRecorder";
 import { AudioPlayer } from "~/lib/audio/AudioPlayer";
-import * as interview_pb from "~/lib/interview_pb";
+import { preppal } from "~/lib/interview_pb";
 
 type SessionState = "initializing" | "connecting" | "live" | "ending" | "error";
 
@@ -68,12 +68,15 @@ export function useInterviewSocket({
       process.env.NEXT_PUBLIC_WORKER_URL ?? "http://localhost:8787";
     const wsUrl = `${workerUrl}/${interviewId}?token=${encodeURIComponent(token)}`;
 
+    console.log(`[WebSocket] Connecting to: ${wsUrl}`);
+
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.binaryType = "arraybuffer"; // Set to receive binary data
 
     ws.onopen = () => {
+      console.log(`[WebSocket] Connected successfully`);
       // Initialize audio services
       void initializeAudioServices();
     };
@@ -88,9 +91,11 @@ export function useInterviewSocket({
 
         // Handle binary Protobuf messages
         if (event.data instanceof ArrayBuffer) {
-          const message = interview_pb.preppal.ServerToClientMessage.decode(
+          const message = preppal.ServerToClientMessage.decode(
             new Uint8Array(event.data),
           );
+
+          console.log(`[WebSocket] Received message:`, message);
 
           if (message.transcriptUpdate) {
             // Add transcript entry
@@ -131,6 +136,7 @@ export function useInterviewSocket({
             }
           } else if (message.sessionEnded) {
             // Session ended
+            console.log(`[WebSocket] Session ended`);
             setState("ending");
             stopTimer();
             cleanupAudioServices();
@@ -138,6 +144,7 @@ export function useInterviewSocket({
             onSessionEnded();
           } else if (message.error) {
             // Error from server
+            console.log(`[WebSocket] Error from server:`, message.error);
             setError(message.error?.message ?? "Unknown error");
             setState("error");
             stopTimer();
@@ -151,14 +158,16 @@ export function useInterviewSocket({
       }
     };
 
-    ws.onerror = () => {
+    ws.onerror = (event) => {
+      console.error(`[WebSocket] Error:`, event);
       setError("Connection lost. Please return to the dashboard.");
       setState("error");
       stopTimer();
       cleanupAudioServices();
     };
 
-    ws.onclose = () => {
+    ws.onclose = (event) => {
+      console.log(`[WebSocket] Closed:`, event);
       if (stateRef.current === "live" || stateRef.current === "connecting") {
         setError("Connection lost. Please return to the dashboard.");
         setState("error");
@@ -171,7 +180,8 @@ export function useInterviewSocket({
   const initializeAudioServices = async () => {
     try {
       // Initialize audio player
-      audioPlayerRef.current = new AudioPlayer();
+      // Gemini defaults to 24kHz for audio output
+      audioPlayerRef.current = new AudioPlayer(24000);
       await audioPlayerRef.current.start();
 
       // Initialize audio recorder
@@ -180,16 +190,16 @@ export function useInterviewSocket({
         // Send audio chunk to WebSocket when recorded
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
           try {
-            const audioChunkMessage = interview_pb.preppal.AudioChunk.create({
+            const audioChunkMessage = preppal.AudioChunk.create({
               audioContent: new Uint8Array(audioChunk),
             });
 
-            const message = interview_pb.preppal.ClientToServerMessage.create({
+            const message = preppal.ClientToServerMessage.create({
               audioChunk: audioChunkMessage,
             });
 
             const buffer =
-              interview_pb.preppal.ClientToServerMessage.encode(
+              preppal.ClientToServerMessage.encode(
                 message,
               ).finish();
             wsRef.current.send(buffer);
@@ -242,13 +252,13 @@ export function useInterviewSocket({
       stopTimer();
 
       try {
-        const endRequest = interview_pb.preppal.EndRequest.create();
-        const message = interview_pb.preppal.ClientToServerMessage.create({
+        const endRequest = preppal.EndRequest.create();
+        const message = preppal.ClientToServerMessage.create({
           endRequest: endRequest,
         });
 
         const buffer =
-          interview_pb.preppal.ClientToServerMessage.encode(message).finish();
+          preppal.ClientToServerMessage.encode(message).finish();
         wsRef.current.send(buffer);
       } catch (err) {
         console.error("Error sending end request:", err);
@@ -260,8 +270,18 @@ export function useInterviewSocket({
   useEffect(() => {
     generateToken({ interviewId });
 
+    // Periodically check interview status
+    const statusCheckInterval = setInterval(() => {
+      if (state === "connecting" || state === "live") {
+        console.log(`[StatusCheck] Checking interview status for ${interviewId}`);
+        // Note: In a real implementation, you would call an API to check the status
+        // For now, we're just logging that we're checking
+      }
+    }, 5000); // Check every 5 seconds
+
     // Cleanup on unmount
     return () => {
+      clearInterval(statusCheckInterval);
       stopTimer();
       cleanupAudioServices();
 
@@ -272,13 +292,13 @@ export function useInterviewSocket({
           wsRef.current.readyState === WebSocket.OPEN
         ) {
           try {
-            const endRequest = interview_pb.preppal.EndRequest.create();
-            const message = interview_pb.preppal.ClientToServerMessage.create({
+            const endRequest = preppal.EndRequest.create();
+            const message = preppal.ClientToServerMessage.create({
               endRequest: endRequest,
             });
 
             const buffer =
-              interview_pb.preppal.ClientToServerMessage.encode(
+              preppal.ClientToServerMessage.encode(
                 message,
               ).finish();
             wsRef.current.send(buffer);

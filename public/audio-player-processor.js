@@ -5,9 +5,14 @@ class AudioPlayerProcessor extends AudioWorkletProcessor {
     this.chunks = [];
     // An offset to track our position within the first chunk in the queue.
     this.chunkOffset = 0;
+    this.hasReceivedData = false;
 
     // Listen for chunks sent from the main thread.
     this.port.onmessage = (event) => {
+      if (!this.hasReceivedData) {
+        console.log("[AudioWorklet] Received first audio chunk", event.data.length);
+        this.hasReceivedData = true;
+      }
       const chunk = event.data; // This is a Float32Array
       this.chunks.push(chunk);
     };

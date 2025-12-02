@@ -388,6 +388,8 @@ export const interviewRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      console.log(`[UPDATE_STATUS] Called with interviewId: ${input.interviewId}, status: ${input.status}, authType: ${ctx.authType}`);
+
       // Verify interview exists (and ownership if user auth)
       const whereClause =
         ctx.authType === "user"
@@ -398,7 +400,10 @@ export const interviewRouter = createTRPCRouter({
         where: whereClause,
       });
 
+      console.log(`[UPDATE_STATUS] Found interview:`, interview);
+
       if (!interview) {
+        console.log(`[UPDATE_STATUS] Interview not found for id: ${input.interviewId}`);
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Interview not found",
@@ -412,17 +417,23 @@ export const interviewRouter = createTRPCRouter({
 
       if (input.status === "IN_PROGRESS") {
         updateData.startedAt = new Date();
+        console.log(`[UPDATE_STATUS] Setting startedAt for interview ${input.interviewId}`);
       } else if (input.status === "COMPLETED" || input.status === "ERROR") {
         updateData.endedAt = input.endedAt
           ? new Date(input.endedAt)
           : new Date();
+        console.log(`[UPDATE_STATUS] Setting endedAt for interview ${input.interviewId}`);
       }
+
+      console.log(`[UPDATE_STATUS] Updating interview ${input.interviewId} with data:`, updateData);
 
       // Update the interview
       const updatedInterview = await ctx.db.interview.update({
         where: { id: input.interviewId },
         data: updateData,
       });
+
+      console.log(`[UPDATE_STATUS] Successfully updated interview ${input.interviewId}:`, updatedInterview);
 
       return updatedInterview;
     }),

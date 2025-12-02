@@ -14,36 +14,90 @@ export class ApiClient {
   ) {}
 
   async updateStatus(interviewId: string, status: string): Promise<void> {
+    // Use single endpoint for tRPC calls
     const url = `${this.apiUrl}/api/trpc/interview.updateStatus`;
 
     console.log(
       `[API] Calling updateStatus for interview ${interviewId} to ${status}: ${url}`,
     );
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${this.workerSecret}`,
-      },
-      body: JSON.stringify({
+
+    // Format request according to tRPC single request format with superjson
+    const requestBody = {
+      json: {
         interviewId,
         status,
-      }),
-    });
+      },
+    };
+
+    console.log(`[API] Request body:`, JSON.stringify(requestBody, null, 2));
+
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.workerSecret}`,
+        },
+        body: JSON.stringify(requestBody),
+      });
+    } catch (error) {
+      console.error(
+        `[API] Network error calling updateStatus for interview ${interviewId}:`,
+        error,
+      );
+      throw new Error(
+        `Network error calling updateStatus: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
+    }
 
     console.log(
       `[API] updateStatus response for interview ${interviewId}: ${response.status} ${response.statusText}`,
     );
+
+    // Log response headers for debugging
+    console.log(`[API] Response headers:`, [...response.headers.entries()]);
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error(
-        `[API] updateStatus error details for interview ${interviewId}:`,
+        `[API] updateStatus HTTP error details for interview ${interviewId}:`,
         errorText,
       );
       throw new Error(
-        `Failed to update status: ${response.status} ${response.statusText} - ${errorText}`,
+        `HTTP error calling updateStatus: ${response.status} ${response.statusText} - ${errorText}`,
       );
     }
+
+    // Parse tRPC response
+    let jsonResponse: any;
+    try {
+      const responseText = await response.text();
+      console.log(`[API] Raw response text:`, responseText);
+      jsonResponse = JSON.parse(responseText);
+    } catch (error) {
+      console.error(
+        `[API] Failed to parse JSON response for updateStatus interview ${interviewId}:`,
+        error,
+      );
+      throw new Error(
+        `Failed to parse JSON response from updateStatus: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
+    }
+
+    console.log(`[API] Parsed JSON response:`, JSON.stringify(jsonResponse, null, 2));
+
+    if (jsonResponse.error) {
+      const error = jsonResponse.error;
+      console.error(
+        `[API] updateStatus tRPC error for interview ${interviewId}:`,
+        error,
+      );
+      throw new Error(
+        `tRPC error in updateStatus: ${error.json?.message || "Unknown tRPC error"}`,
+      );
+    }
+
     console.log(
       `[API] Successfully updated status for interview ${interviewId} to ${status}`,
     );
@@ -54,37 +108,82 @@ export class ApiClient {
     transcript: TranscriptEntry[],
     endedAt: string,
   ): Promise<void> {
+    // Use single endpoint for tRPC calls
     const url = `${this.apiUrl}/api/trpc/interview.submitTranscript`;
 
     console.log(
       `[API] Calling submitTranscript for interview ${interviewId} with ${transcript.length} entries: ${url}`,
     );
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${this.workerSecret}`,
-      },
-      body: JSON.stringify({
+
+    // Format request according to tRPC single request format with superjson
+    const requestBody = {
+      json: {
         interviewId,
         transcript,
         endedAt,
-      }),
-    });
+      },
+    };
+
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.workerSecret}`,
+        },
+        body: JSON.stringify(requestBody),
+      });
+    } catch (error) {
+      console.error(
+        `[API] Network error calling submitTranscript for interview ${interviewId}:`,
+        error,
+      );
+      throw new Error(
+        `Network error calling submitTranscript: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
+    }
 
     console.log(
       `[API] submitTranscript response for interview ${interviewId}: ${response.status} ${response.statusText}`,
     );
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error(
-        `[API] submitTranscript error details for interview ${interviewId}:`,
+        `[API] submitTranscript HTTP error details for interview ${interviewId}:`,
         errorText,
       );
       throw new Error(
-        `Failed to submit transcript: ${response.status} ${response.statusText} - ${errorText}`,
+        `HTTP error calling submitTranscript: ${response.status} ${response.statusText} - ${errorText}`,
       );
     }
+
+    // Parse tRPC response
+    let jsonResponse: any;
+    try {
+      jsonResponse = await response.json();
+    } catch (error) {
+      console.error(
+        `[API] Failed to parse JSON response for submitTranscript interview ${interviewId}:`,
+        error,
+      );
+      throw new Error(
+        `Failed to parse JSON response from submitTranscript: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
+    }
+
+    if (jsonResponse.error) {
+      const error = jsonResponse.error;
+      console.error(
+        `[API] submitTranscript tRPC error for interview ${interviewId}:`,
+        error,
+      );
+      throw new Error(
+        `tRPC error in submitTranscript: ${error.json?.message || "Unknown tRPC error"}`,
+      );
+    }
+
     console.log(
       `[API] Successfully submitted transcript for interview ${interviewId} with ${transcript.length} entries`,
     );

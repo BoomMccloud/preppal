@@ -2081,4 +2081,6 @@ $root.preppal = (function () {
   return preppal;
 })();
 
-module.exports = $root;
+// Add ES module export for compatibility with Next.js app directory
+export { $root as default };
+export const preppal = $root.preppal;

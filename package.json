@@ -25,7 +25,10 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:ci": "vitest run",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "debug:list-interviews": "tsx scripts/list-interviews.ts",
+    "debug:check-status": "tsx scripts/check-interview-status.ts",
+    "debug:update-status": "tsx scripts/update-interview-status.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
