@@ -19,7 +19,7 @@ export default function FeedbackPolling({ interviewId }: FeedbackPollingProps) {
     },
     {
       refetchInterval: 3000, // Poll every 3 seconds
-    }
+    },
   );
 
   // Watch for feedback becoming available and refresh
@@ -48,7 +48,7 @@ export default function FeedbackPolling({ interviewId }: FeedbackPollingProps) {
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
       <FeedbackCard title="Processing Feedback" className="text-center">
         <div className="flex flex-col items-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent"></div>
+          <div className="border-accent h-12 w-12 animate-spin rounded-full border-b-2"></div>
           <p className="text-secondary-text text-lg">
             Your feedback is being generated. This may take a minute...
           </p>

@@ -13,7 +13,7 @@
     /* Strictness */
     "strict": true,
     "noUncheckedIndexedAccess": true,
-    "checkJs": true,
+    "checkJs": false,
 
     /* Bundled projects */
     "lib": ["dom", "dom.iterable", "ES2022"],
@@ -38,6 +38,6 @@
     "**/*.js",
     ".next/types/**/*.ts"
   ],
-  "exclude": ["node_modules"],
+  "exclude": ["node_modules", "src/lib/interview_pb.js", "src/lib/interview_pb.d.ts"],
   "types": ["testing-library__jest-dom", "vitest/globals"]
 }

@@ -10,9 +10,9 @@ export default async function SignInPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-primary">
-      <div className="max-w-md w-full bg-secondary/50 backdrop-blur-sm rounded-lg p-8 border border-secondary-text/10">
-        <h1 className="text-3xl font-bold text-accent text-center mb-8">
+    <div className="bg-primary flex min-h-screen items-center justify-center">
+      <div className="bg-secondary/50 border-secondary-text/10 w-full max-w-md rounded-lg border p-8 backdrop-blur-sm">
+        <h1 className="text-accent mb-8 text-center text-3xl font-bold">
           Sign In to PrepPal
         </h1>
         <SignInForm />

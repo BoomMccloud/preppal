@@ -45,7 +45,7 @@ describe("DashboardPage", () => {
     expect(screen.getByText(/failed to load sessions/i)).toBeInTheDocument();
   });
 
-  it('should display an empty state message when there are no interviews', () => {
+  it("should display an empty state message when there are no interviews", () => {
     // ARRANGE: Mock the hook to return an empty array
     mockUseQuery.mockReturnValue({
       data: [],
@@ -57,9 +57,13 @@ describe("DashboardPage", () => {
     render(<DashboardPage />);
 
     // ASSERT
-    expect(screen.getByText(/your recent interview sessions will appear here/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/your recent interview sessions will appear here/i),
+    ).toBeInTheDocument();
     // Ensure no interview links are rendered
-    expect(screen.queryByRole("link", { name: /session/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /session/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("should render a list of interviews with correct links", () => {
@@ -89,7 +93,9 @@ describe("DashboardPage", () => {
 
     // ASSERT
     // Check for the rendered text
-    expect(screen.getByText("Senior Frontend Developer...")).toBeInTheDocument();
+    expect(
+      screen.getByText("Senior Frontend Developer..."),
+    ).toBeInTheDocument();
     expect(screen.getByText("Backend Engineer...")).toBeInTheDocument();
 
     // Check for the correct links

@@ -1,7 +1,15 @@
 /**
  * @vitest-environment node
  */
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+  vi,
+} from "vitest";
 import WebSocket from "ws";
 import { SignJWT } from "jose";
 import { env } from "~/env";
@@ -90,7 +98,7 @@ describe("WebSocket Server with Audio Echo", () => {
 
       // Generate valid token
       const secret = new TextEncoder().encode(
-        env.AUTH_SECRET ?? "fallback-secret-for-development"
+        env.AUTH_SECRET ?? "fallback-secret-for-development",
       );
       const token = await new SignJWT({
         userId: "user-123",
@@ -117,7 +125,7 @@ describe("WebSocket Server with Audio Echo", () => {
                   sample_rate_hertz: 16000,
                 },
               },
-            })
+            }),
           );
         });
 

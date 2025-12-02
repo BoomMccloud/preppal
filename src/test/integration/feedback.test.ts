@@ -187,7 +187,11 @@ describe("Feedback Page Integration Tests", () => {
     const otherUserCaller = appRouter.createCaller({
       db,
       session: {
-        user: { id: otherUser.id, name: otherUser.name, email: otherUser.email },
+        user: {
+          id: otherUser.id,
+          name: otherUser.name,
+          email: otherUser.email,
+        },
         expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
       },
       headers: new Headers(),
@@ -198,14 +202,14 @@ describe("Feedback Page Integration Tests", () => {
       otherUserCaller.interview.getById({
         id: interview.id,
         includeFeedback: true,
-      })
+      }),
     ).rejects.toThrow(TRPCError);
 
     await expect(
       otherUserCaller.interview.getById({
         id: interview.id,
         includeFeedback: true,
-      })
+      }),
     ).rejects.toMatchObject({
       code: "NOT_FOUND",
     });

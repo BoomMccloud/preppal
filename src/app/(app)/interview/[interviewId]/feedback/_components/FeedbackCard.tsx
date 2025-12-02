@@ -13,12 +13,12 @@ export default function FeedbackCard({
 }: FeedbackCardProps) {
   return (
     <div
-      className={`bg-secondary backdrop-blur-sm rounded-lg p-6 border border-secondary-text ${
+      className={`bg-secondary border-secondary-text rounded-lg border p-6 backdrop-blur-sm ${
         className ?? ""
       }`}
     >
       {title && (
-        <h2 className="text-2xl font-semibold text-primary-text mb-4">
+        <h2 className="text-primary-text mb-4 text-2xl font-semibold">
           {title}
         </h2>
       )}

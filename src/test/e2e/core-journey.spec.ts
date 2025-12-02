@@ -29,11 +29,13 @@ test.describe("Core User Journey", () => {
     await test.step("Login", async () => {
       await page.goto("/signin");
       await expect(
-        page.getByRole("heading", { name: "Sign In to PrepPal" })
+        page.getByRole("heading", { name: "Sign In to PrepPal" }),
       ).toBeVisible();
 
       // Click the button to reveal the credentials form
-      await page.getByRole("button", { name: "Sign in with Credentials" }).click();
+      await page
+        .getByRole("button", { name: "Sign in with Credentials" })
+        .click();
 
       // Fill in and submit the login form
       await page.getByLabel("Email").fill(userEmail);
@@ -43,7 +45,7 @@ test.describe("Core User Journey", () => {
       // Verify successful login by checking for the dashboard URL
       await expect(page).toHaveURL("/dashboard");
       await expect(
-        page.getByRole("heading", { name: "Interview History" })
+        page.getByRole("heading", { name: "Interview History" }),
       ).toBeVisible();
     });
 
@@ -55,11 +57,13 @@ test.describe("Core User Journey", () => {
       // Fill in the job description and resume
       await page
         .getByLabel("Job Description")
-        .fill("Senior Software Engineer specializing in Next.js and TypeScript.");
+        .fill(
+          "Senior Software Engineer specializing in Next.js and TypeScript.",
+        );
       await page
         .getByLabel("Your Resume")
         .fill(
-          "Experienced developer with 5 years of building full-stack applications."
+          "Experienced developer with 5 years of building full-stack applications.",
         );
 
       await page.getByRole("button", { name: "Create Interview" }).click();
@@ -70,7 +74,7 @@ test.describe("Core User Journey", () => {
       // After creation, we should be in the lobby
       await expect(page).toHaveURL(/\/interview\/.+\/lobby/);
       await expect(
-        page.getByRole("heading", { name: "Interview Lobby" })
+        page.getByRole("heading", { name: "Interview Lobby" }),
       ).toBeVisible();
 
       // Extract the interview ID from the URL for later use
@@ -100,14 +104,16 @@ test.describe("Core User Journey", () => {
 
       // First, check for the processing state. This confirms the polling component is working.
       await expect(
-        page.getByText("Your feedback is being generated. This may take a minute...")
+        page.getByText(
+          "Your feedback is being generated. This may take a minute...",
+        ),
       ).toBeVisible();
 
       // Now, wait for the feedback to be ready.
       // Playwright's `expect` has a built-in timeout, which is perfect for this async operation.
       // We'll wait up to 90 seconds for the feedback to appear.
       await expect(
-        page.getByRole("heading", { name: "Interview Feedback" })
+        page.getByRole("heading", { name: "Interview Feedback" }),
       ).toBeVisible({ timeout: 90000 });
 
       // Verify that the feedback content is displayed
@@ -128,7 +134,7 @@ test.describe("Core User Journey", () => {
       // Verify successful logout
       await expect(page).toHaveURL("/signin");
       await expect(
-        page.getByRole("heading", { name: "Sign In to PrepPal" })
+        page.getByRole("heading", { name: "Sign In to PrepPal" }),
       ).toBeVisible();
     });
   });

@@ -48,7 +48,7 @@ describe("FeedbackPolling (Client Component)", () => {
       },
       expect.objectContaining({
         refetchInterval: 3000,
-      })
+      }),
     );
   });
 
@@ -64,7 +64,9 @@ describe("FeedbackPolling (Client Component)", () => {
       isLoading: false,
     });
 
-    const { rerender } = render(<FeedbackPolling interviewId={mockInterviewId} />);
+    const { rerender } = render(
+      <FeedbackPolling interviewId={mockInterviewId} />,
+    );
 
     // Act - simulate feedback becoming available
     mockUseQuery.mockReturnValue({
@@ -102,7 +104,7 @@ describe("FeedbackPolling (Client Component)", () => {
 
     // Assert
     expect(
-      screen.getByText(/your feedback is being generated/i)
+      screen.getByText(/your feedback is being generated/i),
     ).toBeInTheDocument();
   });
 
@@ -119,7 +121,7 @@ describe("FeedbackPolling (Client Component)", () => {
 
     // Assert
     expect(
-      screen.getByText(/could not retrieve feedback/i)
+      screen.getByText(/could not retrieve feedback/i),
     ).toBeInTheDocument();
   });
 
@@ -132,9 +134,11 @@ describe("FeedbackPolling (Client Component)", () => {
     });
 
     // Act
-    const { container } = render(<FeedbackPolling interviewId={mockInterviewId} />);
+    const { container } = render(
+      <FeedbackPolling interviewId={mockInterviewId} />,
+    );
 
     // Assert - check for FeedbackCard-like structure
-    expect(container.querySelector('.bg-secondary')).toBeInTheDocument();
+    expect(container.querySelector(".bg-secondary")).toBeInTheDocument();
   });
 });

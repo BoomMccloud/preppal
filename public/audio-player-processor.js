@@ -31,7 +31,10 @@ class AudioPlayerProcessor extends AudioWorkletProcessor {
       // Get the current chunk we're reading from.
       const currentChunk = this.chunks[0];
       const remainingInChunk = currentChunk.length - this.chunkOffset;
-      const toWrite = Math.min(channel.length - samplesWritten, remainingInChunk);
+      const toWrite = Math.min(
+        channel.length - samplesWritten,
+        remainingInChunk,
+      );
 
       // Copy the data from our chunk to the output buffer.
       for (let i = 0; i < toWrite; i++) {
@@ -53,4 +56,4 @@ class AudioPlayerProcessor extends AudioWorkletProcessor {
   }
 }
 
-registerProcessor('audio-player-processor', AudioPlayerProcessor);
+registerProcessor("audio-player-processor", AudioPlayerProcessor);

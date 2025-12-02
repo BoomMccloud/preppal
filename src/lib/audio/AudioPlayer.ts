@@ -11,11 +11,16 @@ export class AudioPlayer {
     if (this.audioContext) return;
 
     this.audioContext = new AudioContext({ sampleRate: this.sampleRate });
-    
-    // The worklet file must be served publicly.
-    await this.audioContext.audioWorklet.addModule('/audio-player-processor.js');
 
-    this.workletNode = new AudioWorkletNode(this.audioContext, 'audio-player-processor');
+    // The worklet file must be served publicly.
+    await this.audioContext.audioWorklet.addModule(
+      "/audio-player-processor.js",
+    );
+
+    this.workletNode = new AudioWorkletNode(
+      this.audioContext,
+      "audio-player-processor",
+    );
     this.workletNode.connect(this.audioContext.destination);
   }
 

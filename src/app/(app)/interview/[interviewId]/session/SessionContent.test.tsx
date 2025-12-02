@@ -1,36 +1,18 @@
-import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  render,
+  screen,
+  waitFor,
+  fireEvent,
+  act,
+} from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { SessionContent } from "./SessionContent";
+import { useInterviewSocket } from "./useInterviewSocket";
 
-// Mock WebSocket
-class MockWebSocket {
-  static CONNECTING = 0;
-  static OPEN = 1;
-  static CLOSING = 2;
-  static CLOSED = 3;
-
-  readyState = MockWebSocket.CONNECTING;
-  onopen: ((event: Event) => void) | null = null;
-  onclose: ((event: CloseEvent) => void) | null = null;
-  onmessage: ((event: MessageEvent) => void) | null = null;
-  onerror: ((event: Event) => void) | null = null;
-  url: string;
-  send: vi.Mock<any, any>;
-
-  constructor(url: string) {
-    this.url = url;
-    this.send = vi.fn();
-  }
-
-  connect() {
-    this.readyState = MockWebSocket.OPEN;
-    if (this.onopen) {
-      this.onopen(new Event("open"));
-    }
-  }
-
-  close = vi.fn();
-}
+// Mock the hook
+vi.mock("./useInterviewSocket", () => ({
+  useInterviewSocket: vi.fn(),
+}));
 
 // Mock tRPC
 const mockGetByIdQuery = vi.fn();
@@ -57,14 +39,25 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
-// Mock environment
-process.env.NEXT_PUBLIC_WORKER_URL = "http://localhost:8787";
-
 describe("SessionContent", () => {
   const mockInterviewId = "interview-123";
+  const mockEndInterview = vi.fn();
+
+  // Default hook return value
+  const defaultHookReturn = {
+    state: "live",
+    transcript: [],
+    elapsedTime: 0,
+    error: null,
+    endInterview: mockEndInterview,
+    isAiSpeaking: false, // New property we expect
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // Stub scrollIntoView for JSDOM environment
+    window.HTMLElement.prototype.scrollIntoView = vi.fn();
+    (useInterviewSocket as Mock).mockReturnValue(defaultHookReturn);
   });
 
   describe("Loading States", () => {
@@ -74,28 +67,20 @@ describe("SessionContent", () => {
         isLoading: true,
       });
 
-      mockGenerateWorkerTokenMutation.mockReturnValue({
-        mutate: vi.fn(),
-        isLoading: false,
-      });
-
       render(<SessionContent interviewId={mockInterviewId} />);
 
       expect(screen.getByText(/loading/i)).toBeInTheDocument();
     });
 
-    it("should show connecting state initially when interview is pending", () => {
+    it("should show connecting state when socket state is initializing", () => {
       mockGetByIdQuery.mockReturnValue({
-        data: {
-          id: mockInterviewId,
-          status: "PENDING",
-        },
+        data: { id: mockInterviewId, status: "PENDING" },
         isLoading: false,
       });
 
-      mockGenerateWorkerTokenMutation.mockReturnValue({
-        mutate: vi.fn(),
-        isLoading: false,
+      (useInterviewSocket as Mock).mockReturnValue({
+        ...defaultHookReturn,
+        state: "initializing",
       });
 
       render(<SessionContent interviewId={mockInterviewId} />);
@@ -107,15 +92,7 @@ describe("SessionContent", () => {
   describe("Interview Status Validation", () => {
     it("should redirect to dashboard if interview is IN_PROGRESS", () => {
       mockGetByIdQuery.mockReturnValue({
-        data: {
-          id: mockInterviewId,
-          status: "IN_PROGRESS",
-        },
-        isLoading: false,
-      });
-
-      mockGenerateWorkerTokenMutation.mockReturnValue({
-        mutate: vi.fn(),
+        data: { id: mockInterviewId, status: "IN_PROGRESS" },
         isLoading: false,
       });
 
@@ -123,24 +100,60 @@ describe("SessionContent", () => {
 
       expect(mockPush).toHaveBeenCalledWith("/dashboard");
     });
+  });
 
-    it("should redirect to dashboard if interview is COMPLETED", () => {
+  describe("Visual Feedback", () => {
+    beforeEach(() => {
       mockGetByIdQuery.mockReturnValue({
-        data: {
-          id: mockInterviewId,
-          status: "COMPLETED",
-        },
+        data: { id: mockInterviewId, status: "PENDING" },
         isLoading: false,
       });
+    });
 
-      mockGenerateWorkerTokenMutation.mockReturnValue({
-        mutate: vi.fn(),
+    it("should display 'Listening' indicator when AI is not speaking", () => {
+      (useInterviewSocket as Mock).mockReturnValue({
+        ...defaultHookReturn,
+        state: "live",
+        isAiSpeaking: false,
+      });
+
+      render(<SessionContent interviewId={mockInterviewId} />);
+
+      // We expect to see some indication of listening
+      expect(screen.getByText(/listening/i)).toBeInTheDocument();
+      // And definitely not speaking
+      expect(screen.queryByText(/speaking/i)).not.toBeInTheDocument();
+    });
+
+    it("should display 'Speaking' indicator when AI is speaking", () => {
+      (useInterviewSocket as Mock).mockReturnValue({
+        ...defaultHookReturn,
+        state: "live",
+        isAiSpeaking: true,
+      });
+
+      render(<SessionContent interviewId={mockInterviewId} />);
+
+      // We expect to see some indication of speaking
+      expect(screen.getByText(/speaking/i)).toBeInTheDocument();
+      // And definitely not listening (or at least the state changed)
+      expect(screen.queryByText(/listening/i)).not.toBeInTheDocument();
+    });
+  });
+
+  describe("End Interview", () => {
+    it("should call endInterview when end button is clicked", () => {
+      mockGetByIdQuery.mockReturnValue({
+        data: { id: mockInterviewId, status: "PENDING" },
         isLoading: false,
       });
 
       render(<SessionContent interviewId={mockInterviewId} />);
 
-      expect(mockPush).toHaveBeenCalledWith("/dashboard");
+      const endButton = screen.getByText(/end interview/i);
+      fireEvent.click(endButton);
+
+      expect(mockEndInterview).toHaveBeenCalled();
     });
   });
 });

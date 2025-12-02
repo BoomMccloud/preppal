@@ -1,9 +1,8 @@
+import { render, screen, fireEvent } from "@testing-library/react";
+import { InterviewControls } from "./InterviewControls";
+import { vi, test, expect } from "vitest";
 
-import { render, screen, fireEvent } from '@testing-library/react';
-import { InterviewControls } from './InterviewControls';
-import { vi, test, expect } from 'vitest';
-
-test('renders buttons and handles clicks', () => {
+test("renders buttons and handles clicks", () => {
   const onEndCall = vi.fn();
   const onToggleMute = vi.fn();
 
@@ -12,16 +11,16 @@ test('renders buttons and handles clicks', () => {
       interviewId="test-123"
       onEndCall={onEndCall}
       onToggleMute={onToggleMute}
-    />
+    />,
   );
 
   // Get buttons by their roles
-  const muteButton = screen.getByRole('button');
-  const endCallLink = screen.getByRole('link');
+  const muteButton = screen.getByRole("button");
+  const endCallLink = screen.getByRole("link");
 
   expect(muteButton).toBeInTheDocument();
   expect(endCallLink).toBeInTheDocument();
-  expect(endCallLink).toHaveAttribute('href', '/interview/test-123/feedback');
+  expect(endCallLink).toHaveAttribute("href", "/interview/test-123/feedback");
 
   fireEvent.click(muteButton);
   expect(onToggleMute).toHaveBeenCalledTimes(1);

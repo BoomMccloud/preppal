@@ -20,7 +20,8 @@ export default function FeedbackTabs({
   communicationAndDelivery,
   presentation,
 }: FeedbackTabsProps) {
-  const [activeTab, setActiveTab] = useState<typeof tabs[number]["id"]>("content");
+  const [activeTab, setActiveTab] =
+    useState<(typeof tabs)[number]["id"]>("content");
 
   const getTabContent = (tabId: typeof activeTab) => {
     switch (tabId) {
@@ -38,15 +39,15 @@ export default function FeedbackTabs({
   return (
     <FeedbackCard title="Detailed Analysis">
       {/* Tab Navigation */}
-      <div className="flex space-x-1 mb-6">
+      <div className="mb-6 flex space-x-1">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors border ${
+            className={`rounded-md border px-4 py-2 text-sm font-medium transition-colors ${
               activeTab === tab.id
                 ? "bg-accent text-primary border-accent font-semibold"
-                : "text-secondary-text hover:text-primary-text hover:bg-accent/10 border-transparent hover:border-accent/20"
+                : "text-secondary-text hover:text-primary-text hover:bg-accent/10 hover:border-accent/20 border-transparent"
             }`}
           >
             {tab.label}

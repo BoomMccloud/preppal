@@ -7,18 +7,22 @@ export class AudioRecorder {
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       this.audioContext = new AudioContext();
-      
+
       // IMPORTANT: The worklet file must be served publicly
-      await this.audioContext.audioWorklet.addModule('/audio-processor.js');
+      await this.audioContext.audioWorklet.addModule("/audio-processor.js");
 
       const source = this.audioContext.createMediaStreamSource(this.stream);
-      
-      this.workletNode = new AudioWorkletNode(this.audioContext, 'resampling-processor', {
-        processorOptions: {
-          nativeSampleRate: this.audioContext.sampleRate, // The browser's native sample rate
-          targetSampleRate: 16000, // Our target
+
+      this.workletNode = new AudioWorkletNode(
+        this.audioContext,
+        "resampling-processor",
+        {
+          processorOptions: {
+            nativeSampleRate: this.audioContext.sampleRate, // The browser's native sample rate
+            targetSampleRate: 16000, // Our target
+          },
         },
-      });
+      );
 
       // The worklet will post messages (audio chunks) back to us
       this.workletNode.port.onmessage = (event) => {
@@ -28,14 +32,14 @@ export class AudioRecorder {
       source.connect(this.workletNode);
       // We don't connect to the destination, to avoid the user hearing themselves.
     } catch (error) {
-      console.error('Failed to start audio recording:', error);
+      console.error("Failed to start audio recording:", error);
       throw error;
     }
   }
 
   stop() {
     if (this.stream) {
-      this.stream.getTracks().forEach(track => track.stop());
+      this.stream.getTracks().forEach((track) => track.stop());
     }
     if (this.audioContext) {
       this.audioContext.close();

@@ -14,7 +14,9 @@ class ResamplingProcessor extends AudioWorkletProcessor {
 
       // Downsample by taking every Nth sample.
       const ratio = this.nativeSampleRate / this.targetSampleRate;
-      const downsampled = new Float32Array(Math.floor(audioData.length / ratio));
+      const downsampled = new Float32Array(
+        Math.floor(audioData.length / ratio),
+      );
       for (let i = 0, j = 0; j < downsampled.length; i += ratio, j++) {
         downsampled[j] = audioData[Math.floor(i)];
       }
@@ -32,4 +34,4 @@ class ResamplingProcessor extends AudioWorkletProcessor {
   }
 }
 
-registerProcessor('resampling-processor', ResamplingProcessor);
+registerProcessor("resampling-processor", ResamplingProcessor);

@@ -22,7 +22,7 @@ export default async function InterviewFeedbackPage({ params }: PageProps) {
     // Handle non-COMPLETED status with redirect
     if (interview.status !== "COMPLETED") {
       console.warn(
-        `[Feedback Page] User attempted to access feedback for non-COMPLETED interview - interviewId: ${interviewId}, status: ${interview.status}`
+        `[Feedback Page] User attempted to access feedback for non-COMPLETED interview - interviewId: ${interviewId}, status: ${interview.status}`,
       );
       redirect(`/interview/${interviewId}/lobby`);
     }
@@ -73,14 +73,14 @@ export default async function InterviewFeedbackPage({ params }: PageProps) {
   } catch (error) {
     // Handle NOT_FOUND or other errors
     return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-secondary backdrop-blur-sm rounded-lg p-6 border border-secondary-text text-center">
+      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="bg-secondary border-secondary-text rounded-lg border p-6 text-center backdrop-blur-sm">
           <p className="text-primary-text mb-4">
             Feedback not found or you don&apos;t have access
           </p>
           <Link
             href="/dashboard"
-            className="bg-secondary hover:bg-secondary/80 text-primary-text px-6 py-3 rounded-md transition-colors font-medium border border-secondary-text/10 inline-block"
+            className="bg-secondary hover:bg-secondary/80 text-primary-text border-secondary-text/10 inline-block rounded-md border px-6 py-3 font-medium transition-colors"
           >
             Return to Dashboard
           </Link>

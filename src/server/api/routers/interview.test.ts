@@ -50,8 +50,10 @@ describe("interview.createSession", () => {
       userId: "test-user-id",
       status: "PENDING" as const,
       jobTitleSnapshot: null,
-      jobDescriptionSnapshot: "We are looking for a senior frontend developer...",
-      resumeSnapshot: "John Doe - Senior Frontend Developer with 5 years experience...",
+      jobDescriptionSnapshot:
+        "We are looking for a senior frontend developer...",
+      resumeSnapshot:
+        "John Doe - Senior Frontend Developer with 5 years experience...",
       idempotencyKey: "test-key-123",
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -82,7 +84,8 @@ describe("interview.createSession", () => {
       },
       resume: {
         type: "text",
-        content: "John Doe - Senior Frontend Developer with 5 years experience...",
+        content:
+          "John Doe - Senior Frontend Developer with 5 years experience...",
       },
       idempotencyKey: "test-key-123",
     });
@@ -91,8 +94,12 @@ describe("interview.createSession", () => {
     expect(result).toEqual(mockInterview);
     expect(result.status).toBe("PENDING");
     expect(result.userId).toBe("test-user-id");
-    expect(result.jobDescriptionSnapshot).toBe("We are looking for a senior frontend developer...");
-    expect(result.resumeSnapshot).toBe("John Doe - Senior Frontend Developer with 5 years experience...");
+    expect(result.jobDescriptionSnapshot).toBe(
+      "We are looking for a senior frontend developer...",
+    );
+    expect(result.resumeSnapshot).toBe(
+      "John Doe - Senior Frontend Developer with 5 years experience...",
+    );
     expect(result.idempotencyKey).toBe("test-key-123");
 
     // Verify findUnique was called to check for existing interview
@@ -103,8 +110,12 @@ describe("interview.createSession", () => {
     // Verify create was called with correct data structure
     const createCall = vi.mocked(db.interview.create).mock.calls[0]?.[0];
     expect(createCall?.data.userId).toBe("test-user-id");
-    expect(createCall?.data.jobDescriptionSnapshot).toBe("We are looking for a senior frontend developer...");
-    expect(createCall?.data.resumeSnapshot).toBe("John Doe - Senior Frontend Developer with 5 years experience...");
+    expect(createCall?.data.jobDescriptionSnapshot).toBe(
+      "We are looking for a senior frontend developer...",
+    );
+    expect(createCall?.data.resumeSnapshot).toBe(
+      "John Doe - Senior Frontend Developer with 5 years experience...",
+    );
     expect(createCall?.data.idempotencyKey).toBe("test-key-123");
     expect(createCall?.data.status).toBe("PENDING");
   });
@@ -182,7 +193,8 @@ describe("interview.getHistory", () => {
       {
         id: "int-1",
         status: "COMPLETED" as const,
-        jobDescriptionSnapshot: "Frontend Developer with a very long description",
+        jobDescriptionSnapshot:
+          "Frontend Developer with a very long description",
         createdAt: new Date(),
       },
       {
@@ -196,7 +208,11 @@ describe("interview.getHistory", () => {
     // Mock the database call
     vi.mocked(db.interview.findMany).mockResolvedValue(mockInterviewsFromDb);
 
-    const caller = createCaller({ db, session: mockSession, headers: new Headers() });
+    const caller = createCaller({
+      db,
+      session: mockSession,
+      headers: new Headers(),
+    });
 
     // ACT
     const result = await caller.interview.getHistory();
@@ -280,7 +296,9 @@ describe("interview.getById", () => {
     };
 
     // Mock findUnique to return interview with feedback
-    vi.mocked(db.interview.findUnique).mockResolvedValue(mockInterviewWithFeedback);
+    vi.mocked(db.interview.findUnique).mockResolvedValue(
+      mockInterviewWithFeedback,
+    );
 
     const caller = createCaller({
       db,
@@ -299,7 +317,10 @@ describe("interview.getById", () => {
     expect(result?.id).toBe("interview-with-feedback-id");
     expect(result?.feedback).toBeDefined();
     expect(result?.feedback?.overallScore).toBe(85);
-    expect(result?.feedback?.strengths).toEqual(["Good communication", "Technical knowledge"]);
+    expect(result?.feedback?.strengths).toEqual([
+      "Good communication",
+      "Technical knowledge",
+    ]);
 
     // Verify database call included feedback relation
     expect(db.interview.findUnique).toHaveBeenCalledWith({
@@ -336,7 +357,9 @@ describe("interview.getById", () => {
     };
 
     // Mock findUnique to return interview without feedback
-    vi.mocked(db.interview.findUnique).mockResolvedValue(mockInterviewWithoutFeedback);
+    vi.mocked(db.interview.findUnique).mockResolvedValue(
+      mockInterviewWithoutFeedback,
+    );
 
     const caller = createCaller({
       db,
@@ -391,7 +414,11 @@ describe("interview.getCurrent", () => {
     // Mock the database call for findFirst
     vi.mocked(db.interview.findFirst).mockResolvedValue(mockCurrentInterview);
 
-    const caller = createCaller({ db, session: mockSession, headers: new Headers() });
+    const caller = createCaller({
+      db,
+      session: mockSession,
+      headers: new Headers(),
+    });
 
     // ACT: This will fail because getCurrent doesn't exist yet
     const result = await caller.interview.getCurrent();
@@ -422,7 +449,11 @@ describe("interview.getCurrent", () => {
     // Mock the database call to return null
     vi.mocked(db.interview.findFirst).mockResolvedValue(null);
 
-    const caller = createCaller({ db, session: mockSession, headers: new Headers() });
+    const caller = createCaller({
+      db,
+      session: mockSession,
+      headers: new Headers(),
+    });
 
     // ACT
     const result = await caller.interview.getCurrent();
@@ -465,7 +496,9 @@ describe("interview.getFeedback", () => {
       },
     };
 
-    vi.mocked(db.interview.findUnique).mockResolvedValue(mockInterviewWithFeedback);
+    vi.mocked(db.interview.findUnique).mockResolvedValue(
+      mockInterviewWithFeedback,
+    );
 
     const caller = createCaller({
       db,
@@ -499,7 +532,9 @@ describe("interview.getFeedback", () => {
       feedback: null,
     };
 
-    vi.mocked(db.interview.findUnique).mockResolvedValue(mockInterviewWithoutFeedback);
+    vi.mocked(db.interview.findUnique).mockResolvedValue(
+      mockInterviewWithoutFeedback,
+    );
 
     const caller = createCaller({
       db,
@@ -529,7 +564,7 @@ describe("interview.getFeedback", () => {
     await expect(
       caller.interview.getFeedback({
         interviewId: "not-found-id",
-      })
+      }),
     ).rejects.toThrow("Interview not found");
   });
 
@@ -537,7 +572,9 @@ describe("interview.getFeedback", () => {
     const { db } = await import("~/server/db");
     const { createCaller } = await import("~/server/api/root");
 
-    vi.mocked(db.interview.findUnique).mockRejectedValue(new Error("DB connection failed"));
+    vi.mocked(db.interview.findUnique).mockRejectedValue(
+      new Error("DB connection failed"),
+    );
 
     const caller = createCaller({
       db,
@@ -636,7 +673,7 @@ describe("interview.generateWsToken", () => {
     await expect(
       caller.interview.generateWsToken({
         interviewId: "unauthorized-interview-id",
-      })
+      }),
     ).rejects.toThrow();
 
     // Verify the interview lookup was attempted
@@ -671,13 +708,17 @@ describe("interview.generateWorkerToken", () => {
     // Mock findUnique to return null, simulating not found or not owned
     vi.mocked(db.interview.findUnique).mockResolvedValue(null);
 
-    const caller = createCaller({ db, session: mockSession, headers: new Headers() });
+    const caller = createCaller({
+      db,
+      session: mockSession,
+      headers: new Headers(),
+    });
 
     // Expect the call to be rejected
     await expect(
       caller.interview.generateWorkerToken({
         interviewId: "some-other-users-interview",
-      })
+      }),
     ).rejects.toThrow("Interview not found");
 
     // Verify it was called correctly
@@ -700,15 +741,21 @@ describe("interview.generateWorkerToken", () => {
     };
 
     // Mock findUnique to return an interview that's already in progress
-    vi.mocked(db.interview.findUnique).mockResolvedValue(mockInProgressInterview as any);
+    vi.mocked(db.interview.findUnique).mockResolvedValue(
+      mockInProgressInterview as any,
+    );
 
-    const caller = createCaller({ db, session: mockSession, headers: new Headers() });
+    const caller = createCaller({
+      db,
+      session: mockSession,
+      headers: new Headers(),
+    });
 
     // Expect the call to be rejected with BAD_REQUEST
     await expect(
       caller.interview.generateWorkerToken({
         interviewId: "in-progress-interview-id",
-      })
+      }),
     ).rejects.toThrow("Interview is not in PENDING state");
   });
 
@@ -730,7 +777,11 @@ describe("interview.generateWorkerToken", () => {
     // Set JWT_SECRET for the test environment
     process.env.JWT_SECRET = "test-secret-123";
 
-    const caller = createCaller({ db, session: mockSession, headers: new Headers() });
+    const caller = createCaller({
+      db,
+      session: mockSession,
+      headers: new Headers(),
+    });
 
     const { token } = await caller.interview.generateWorkerToken({
       interviewId: "owned-interview-id",
@@ -764,7 +815,11 @@ describe("interview.generateWorkerToken", () => {
     process.env.JWT_SECRET = "test-secret-123";
 
     const beforeTime = Math.floor(Date.now() / 1000);
-    const caller = createCaller({ db, session: mockSession, headers: new Headers() });
+    const caller = createCaller({
+      db,
+      session: mockSession,
+      headers: new Headers(),
+    });
     const { token } = await caller.interview.generateWorkerToken({
       interviewId: "owned-interview-id",
     });
@@ -817,7 +872,7 @@ describe("interview.updateStatus", () => {
       caller.interview.updateStatus({
         interviewId: "any-interview-id",
         status: "IN_PROGRESS",
-      })
+      }),
     ).rejects.toThrow("UNAUTHORIZED");
   });
 
@@ -846,7 +901,11 @@ describe("interview.updateStatus", () => {
     // Mock update to return updated interview
     vi.mocked(db.interview.update).mockResolvedValue(mockInterview);
 
-    const caller = createCaller({ db, session: mockSession, headers: new Headers() });
+    const caller = createCaller({
+      db,
+      session: mockSession,
+      headers: new Headers(),
+    });
 
     const result = await caller.interview.updateStatus({
       interviewId: "user-interview-id",
@@ -869,13 +928,17 @@ describe("interview.updateStatus", () => {
     // Mock findUnique to return null (not owned by user)
     vi.mocked(db.interview.findUnique).mockResolvedValue(null);
 
-    const caller = createCaller({ db, session: mockSession, headers: new Headers() });
+    const caller = createCaller({
+      db,
+      session: mockSession,
+      headers: new Headers(),
+    });
 
     await expect(
       caller.interview.updateStatus({
         interviewId: "other-users-interview-id",
         status: "IN_PROGRESS",
-      })
+      }),
     ).rejects.toThrow("Interview not found");
   });
 
@@ -986,8 +1049,16 @@ describe("interview.updateStatus", () => {
 
 describe("interview.submitTranscript", () => {
   const mockTranscript = [
-    { speaker: "USER" as const, content: "Hello", timestamp: "2024-01-01T10:00:00Z" },
-    { speaker: "AI" as const, content: "Hi, how can I help?", timestamp: "2024-01-01T10:00:05Z" },
+    {
+      speaker: "USER" as const,
+      content: "Hello",
+      timestamp: "2024-01-01T10:00:00Z",
+    },
+    {
+      speaker: "AI" as const,
+      content: "Hi, how can I help?",
+      timestamp: "2024-01-01T10:00:05Z",
+    },
   ];
 
   beforeEach(() => {
@@ -1007,7 +1078,7 @@ describe("interview.submitTranscript", () => {
         interviewId: "any-interview-id",
         transcript: mockTranscript,
         endedAt: "2024-01-01T10:05:00Z",
-      })
+      }),
     ).rejects.toThrow("UNAUTHORIZED");
   });
 
@@ -1025,7 +1096,7 @@ describe("interview.submitTranscript", () => {
         interviewId: "any-interview-id",
         transcript: mockTranscript,
         endedAt: "2024-01-01T10:05:00Z",
-      })
+      }),
     ).rejects.toThrow("UNAUTHORIZED");
   });
 
@@ -1079,7 +1150,7 @@ describe("interview.submitTranscript", () => {
         interviewId: "target-interview-id",
         transcript: mockTranscript,
         endedAt: "2024-01-01T10:05:00Z",
-      })
+      }),
     ).resolves.toBeDefined();
   });
 });

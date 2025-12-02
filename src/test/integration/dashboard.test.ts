@@ -62,7 +62,9 @@ describe("Backend Integration Tests", () => {
 
   it("should list a newly created interview on the dashboard", async () => {
     // ARRANGE: Create a new interview
-    const createInput: inferProcedureInput<typeof appRouter.interview.createSession> = {
+    const createInput: inferProcedureInput<
+      typeof appRouter.interview.createSession
+    > = {
       jobDescription: { type: "text", content: "Integration Test JD" },
       resume: { type: "text", content: "Integration Test Resume" },
       idempotencyKey: `integration-test-dashboard-${Date.now()}`,
@@ -94,7 +96,7 @@ describe("Backend Integration Tests", () => {
     });
 
     // Small delay to ensure different timestamps
-    await new Promise(resolve => setTimeout(resolve, 10));
+    await new Promise((resolve) => setTimeout(resolve, 10));
 
     const secondInterview = await caller.interview.createSession({
       jobDescription: { type: "text", content: "Second Interview JD" },
@@ -106,15 +108,16 @@ describe("Backend Integration Tests", () => {
     const history = await caller.interview.getHistory();
 
     // ASSERT: Second interview (newer) should come before first interview
-    const firstIndex = history.findIndex(i => i.id === firstInterview.id);
-    const secondIndex = history.findIndex(i => i.id === secondInterview.id);
+    const firstIndex = history.findIndex((i) => i.id === firstInterview.id);
+    const secondIndex = history.findIndex((i) => i.id === secondInterview.id);
 
     expect(secondIndex).toBeLessThan(firstIndex);
   });
 
   it("should generate jobTitleSnapshot from first 30 characters of jobDescriptionSnapshot", async () => {
     // ARRANGE: Create interview with long job description
-    const longJobDescription = "This is a very long job description that exceeds thirty characters and should be truncated";
+    const longJobDescription =
+      "This is a very long job description that exceeds thirty characters and should be truncated";
 
     const interview = await caller.interview.createSession({
       jobDescription: { type: "text", content: longJobDescription },
@@ -126,10 +129,12 @@ describe("Backend Integration Tests", () => {
     const history = await caller.interview.getHistory();
 
     // ASSERT: Find the created interview in history
-    const foundInterview = history.find(i => i.id === interview.id);
+    const foundInterview = history.find((i) => i.id === interview.id);
 
     expect(foundInterview).toBeDefined();
-    expect(foundInterview!.jobTitleSnapshot).toBe(longJobDescription.substring(0, 30));
+    expect(foundInterview!.jobTitleSnapshot).toBe(
+      longJobDescription.substring(0, 30),
+    );
     expect(foundInterview!.jobTitleSnapshot?.length).toBeLessThanOrEqual(30);
   });
 
@@ -172,7 +177,11 @@ describe("Backend Integration Tests", () => {
     const otherUserCaller = appRouter.createCaller({
       db,
       session: {
-        user: { id: otherUser.id, name: otherUser.name, email: otherUser.email },
+        user: {
+          id: otherUser.id,
+          name: otherUser.name,
+          email: otherUser.email,
+        },
         expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
       },
       headers: new Headers(),
@@ -188,13 +197,19 @@ describe("Backend Integration Tests", () => {
     const testUserHistory = await caller.interview.getHistory();
 
     // ASSERT: Should only contain test user's interview, not other user's
-    expect(testUserHistory.some(i => i.id === testUserInterview.id)).toBe(true);
-    expect(testUserHistory.some(i => i.id === otherUserInterview.id)).toBe(false);
+    expect(testUserHistory.some((i) => i.id === testUserInterview.id)).toBe(
+      true,
+    );
+    expect(testUserHistory.some((i) => i.id === otherUserInterview.id)).toBe(
+      false,
+    );
   });
 
   it("should fetch a specific interview by ID, but deny access to other users", async () => {
     // ARRANGE: Create a new interview
-    const createInput: inferProcedureInput<typeof appRouter.interview.createSession> = {
+    const createInput: inferProcedureInput<
+      typeof appRouter.interview.createSession
+    > = {
       jobDescription: { type: "text", content: "getById Test JD" },
       resume: { type: "text", content: "getById Test Resume" },
       idempotencyKey: `integration-test-getbyid-${Date.now()}`,
@@ -210,7 +225,11 @@ describe("Backend Integration Tests", () => {
     const otherUserCaller = appRouter.createCaller({
       db,
       session: {
-        user: { id: otherUser.id, name: otherUser.name, email: otherUser.email },
+        user: {
+          id: otherUser.id,
+          name: otherUser.name,
+          email: otherUser.email,
+        },
         expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
       },
       headers: new Headers(),

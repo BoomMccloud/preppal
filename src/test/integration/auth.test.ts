@@ -62,7 +62,7 @@ describe("Auth + Protected Procedures Integration Tests", () => {
           jobDescription: { type: "text", content: "Test JD" },
           resume: { type: "text", content: "Test Resume" },
           idempotencyKey: `unauth-test-${Date.now()}`,
-        })
+        }),
       ).rejects.toThrow(TRPCError);
 
       await expect(
@@ -70,7 +70,7 @@ describe("Auth + Protected Procedures Integration Tests", () => {
           jobDescription: { type: "text", content: "Test JD" },
           resume: { type: "text", content: "Test Resume" },
           idempotencyKey: `unauth-test-${Date.now()}`,
-        })
+        }),
       ).rejects.toMatchObject({
         code: "UNAUTHORIZED",
       });
@@ -88,13 +88,13 @@ describe("Auth + Protected Procedures Integration Tests", () => {
       await expect(
         unauthenticatedCaller.interview.getFeedback({
           interviewId: "any-id",
-        })
+        }),
       ).rejects.toThrow(TRPCError);
 
       await expect(
         unauthenticatedCaller.interview.getFeedback({
           interviewId: "any-id",
-        })
+        }),
       ).rejects.toMatchObject({
         code: "UNAUTHORIZED",
       });
@@ -109,12 +109,12 @@ describe("Auth + Protected Procedures Integration Tests", () => {
       });
 
       // ACT & ASSERT: Attempt to get user profile
-      await expect(
-        unauthenticatedCaller.user.getProfile()
-      ).rejects.toThrow(TRPCError);
+      await expect(unauthenticatedCaller.user.getProfile()).rejects.toThrow(
+        TRPCError,
+      );
 
       await expect(
-        unauthenticatedCaller.user.getProfile()
+        unauthenticatedCaller.user.getProfile(),
       ).rejects.toMatchObject({
         code: "UNAUTHORIZED",
       });
@@ -195,7 +195,11 @@ describe("Auth + Protected Procedures Integration Tests", () => {
       const otherUserCaller = appRouter.createCaller({
         db,
         session: {
-          user: { id: otherUser.id, name: otherUser.name, email: otherUser.email },
+          user: {
+            id: otherUser.id,
+            name: otherUser.name,
+            email: otherUser.email,
+          },
           expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         },
         headers: new Headers(),
@@ -223,7 +227,11 @@ describe("Auth + Protected Procedures Integration Tests", () => {
       const otherUserCaller = appRouter.createCaller({
         db,
         session: {
-          user: { id: otherUser.id, name: otherUser.name, email: otherUser.email },
+          user: {
+            id: otherUser.id,
+            name: otherUser.name,
+            email: otherUser.email,
+          },
           expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         },
         headers: new Headers(),
@@ -252,17 +260,17 @@ describe("Auth + Protected Procedures Integration Tests", () => {
 
       // ASSERT: Each user should only have their own interviews
       expect(
-        testUserInterviews.some((i) => i.id === testUserInterview.id)
+        testUserInterviews.some((i) => i.id === testUserInterview.id),
       ).toBe(true);
       expect(
-        testUserInterviews.some((i) => i.id === otherUserInterview.id)
+        testUserInterviews.some((i) => i.id === otherUserInterview.id),
       ).toBe(false);
 
       expect(
-        otherUserInterviews.some((i) => i.id === otherUserInterview.id)
+        otherUserInterviews.some((i) => i.id === otherUserInterview.id),
       ).toBe(true);
       expect(
-        otherUserInterviews.some((i) => i.id === testUserInterview.id)
+        otherUserInterviews.some((i) => i.id === testUserInterview.id),
       ).toBe(false);
     });
 

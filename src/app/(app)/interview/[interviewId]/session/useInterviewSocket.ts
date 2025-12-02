@@ -23,6 +23,7 @@ interface UseInterviewSocketReturn {
   elapsedTime: number;
   error: string | null;
   endInterview: () => void;
+  isAiSpeaking: boolean;
 }
 
 export function useInterviewSocket({
@@ -33,30 +34,34 @@ export function useInterviewSocket({
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [isAiSpeaking, setIsAiSpeaking] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const speakingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const audioRecorderRef = useRef<AudioRecorder | null>(null);
   const audioPlayerRef = useRef<AudioPlayer | null>(null);
 
   // Get WebSocket token for Cloudflare Worker
-  const { mutate: generateToken } = api.interview.generateWorkerToken.useMutation({
-    onSuccess: (data) => {
-      connectWebSocket(data.token);
-    },
-    onError: (err) => {
-      setError(err.message);
-      setState("error");
-    },
-  });
+  const { mutate: generateToken } =
+    api.interview.generateWorkerToken.useMutation({
+      onSuccess: (data) => {
+        connectWebSocket(data.token);
+      },
+      onError: (err) => {
+        setError(err.message);
+        setState("error");
+      },
+    });
 
   const connectWebSocket = (token: string) => {
     setState("connecting");
 
     // Construct WebSocket URL with interview ID and token as query parameters
-    const workerUrl = process.env.NEXT_PUBLIC_WORKER_URL || "http://localhost:8787";
+    const workerUrl =
+      process.env.NEXT_PUBLIC_WORKER_URL || "http://localhost:8787";
     const wsUrl = `${workerUrl}/${interviewId}?token=${encodeURIComponent(token)}`;
-    
+
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
@@ -72,29 +77,53 @@ export function useInterviewSocket({
         console.log("WebSocket message received:", {
           type: typeof event.data,
           isBuffer: event.data instanceof ArrayBuffer,
-          data: event.data
+          data: event.data,
         });
-        
+
         // Handle binary Protobuf messages
         if (event.data instanceof ArrayBuffer) {
-          const message = interview_pb.preppal.ServerToClientMessage.decode(new Uint8Array(event.data));
+          const message = interview_pb.preppal.ServerToClientMessage.decode(
+            new Uint8Array(event.data),
+          );
 
-          if (message.transcript_update) {
+          if (message.transcriptUpdate) {
             // Add transcript entry
             setTranscript((prev) => [
               ...prev,
               {
-                text: message.transcript_update!.text,
-                speaker: message.transcript_update!.speaker === "USER" ? "USER" : "AI",
-                is_final: message.transcript_update!.is_final,
+                text: message.transcriptUpdate.text,
+                speaker:
+                  message.transcriptUpdate.speaker === "USER" ? "USER" : "AI",
+                is_final: message.transcriptUpdate.isFinal,
               },
             ]);
-          } else if (message.audio_response) {
+          } else if (message.audioResponse) {
             // Play audio response
             if (audioPlayerRef.current) {
-              audioPlayerRef.current.enqueue(message.audio_response!.audio_content.buffer);
+              const audioData = message.audioResponse.audioContent;
+              // Create a copy of the buffer to ensure we handle views correctly
+              audioPlayerRef.current.enqueue(audioData.slice().buffer);
+
+              // Calculate duration to update speaking state
+              // Assuming 24kHz sample rate (Gemini default) and 16-bit depth (2 bytes per sample)
+              const sampleRate = 24000;
+              const numSamples = audioData.byteLength / 2;
+              const durationMs = (numSamples / sampleRate) * 1000;
+
+              setIsAiSpeaking(true);
+
+              // Clear existing timer if any
+              if (speakingTimerRef.current) {
+                clearTimeout(speakingTimerRef.current);
+              }
+
+              // Set new timer to turn off speaking state
+              speakingTimerRef.current = setTimeout(() => {
+                setIsAiSpeaking(false);
+                speakingTimerRef.current = null;
+              }, durationMs);
             }
-          } else if (message.session_ended) {
+          } else if (message.sessionEnded) {
             // Session ended
             setState("ending");
             stopTimer();
@@ -103,7 +132,7 @@ export function useInterviewSocket({
             onSessionEnded();
           } else if (message.error) {
             // Error from server
-            setError(message.error!.message);
+            setError(message.error.message);
             setState("error");
             stopTimer();
             cleanupAudioServices();
@@ -146,14 +175,17 @@ export function useInterviewSocket({
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
           try {
             const audioChunkMessage = interview_pb.preppal.AudioChunk.create({
-              audio_content: new Uint8Array(audioChunk),
+              audioContent: new Uint8Array(audioChunk),
             });
 
             const message = interview_pb.preppal.ClientToServerMessage.create({
-              audio_chunk: audioChunkMessage,
+              audioChunk: audioChunkMessage,
             });
 
-            const buffer = interview_pb.preppal.ClientToServerMessage.encode(message).finish();
+            const buffer =
+              interview_pb.preppal.ClientToServerMessage.encode(
+                message,
+              ).finish();
             wsRef.current.send(buffer);
           } catch (err) {
             console.error("Error sending audio chunk:", err);
@@ -206,10 +238,11 @@ export function useInterviewSocket({
       try {
         const endRequest = interview_pb.preppal.EndRequest.create();
         const message = interview_pb.preppal.ClientToServerMessage.create({
-          end_request: endRequest,
+          endRequest: endRequest,
         });
 
-        const buffer = interview_pb.preppal.ClientToServerMessage.encode(message).finish();
+        const buffer =
+          interview_pb.preppal.ClientToServerMessage.encode(message).finish();
         wsRef.current.send(buffer);
       } catch (err) {
         console.error("Error sending end request:", err);
@@ -232,10 +265,13 @@ export function useInterviewSocket({
           try {
             const endRequest = interview_pb.preppal.EndRequest.create();
             const message = interview_pb.preppal.ClientToServerMessage.create({
-              end_request: endRequest,
+              endRequest: endRequest,
             });
 
-            const buffer = interview_pb.preppal.ClientToServerMessage.encode(message).finish();
+            const buffer =
+              interview_pb.preppal.ClientToServerMessage.encode(
+                message,
+              ).finish();
             wsRef.current.send(buffer);
           } catch (err) {
             console.error("Error sending end request on cleanup:", err);
@@ -269,5 +305,6 @@ export function useInterviewSocket({
     elapsedTime,
     error,
     endInterview,
+    isAiSpeaking,
   };
 }

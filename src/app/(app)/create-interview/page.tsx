@@ -53,9 +53,9 @@ export default function CreateInterviewPage() {
   const isFormValid = jobDescription.trim() !== "" && resume.trim() !== "";
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
       <div className="mb-8">
-        <h1 className="text-4xl font-bold text-primary-text mb-4">
+        <h1 className="text-primary-text mb-4 text-4xl font-bold">
           Create Interview
         </h1>
         <p className="text-secondary-text text-lg">
@@ -63,55 +63,57 @@ export default function CreateInterviewPage() {
         </p>
       </div>
 
-      <div className="bg-secondary backdrop-blur-sm rounded-lg p-8 border border-secondary-text">
+      <div className="bg-secondary border-secondary-text rounded-lg border p-8 backdrop-blur-sm">
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-primary-text text-lg font-medium mb-2">
+            <label className="text-primary-text mb-2 block text-lg font-medium">
               Job Description
             </label>
             <textarea
               rows={8}
               value={jobDescription}
               onChange={(e) => setJobDescription(e.target.value)}
-              className="w-full bg-secondary border border-secondary-text rounded-md px-4 py-3 text-primary-text placeholder-secondary-text"
+              className="bg-secondary border-secondary-text text-primary-text placeholder-secondary-text w-full rounded-md border px-4 py-3"
               placeholder="Paste the job description here..."
               required
             />
           </div>
 
           <div>
-            <label className="block text-primary-text text-lg font-medium mb-2">
+            <label className="text-primary-text mb-2 block text-lg font-medium">
               Your Resume
             </label>
             <textarea
               rows={12}
               value={resume}
               onChange={(e) => setResume(e.target.value)}
-              className="w-full bg-secondary border border-secondary-text rounded-md px-4 py-3 text-primary-text placeholder-secondary-text"
+              className="bg-secondary border-secondary-text text-primary-text placeholder-secondary-text w-full rounded-md border px-4 py-3"
               placeholder="Paste your resume content here..."
               required
             />
           </div>
 
           {error && (
-            <div className="bg-red-500/10 border border-red-500/50 rounded-md p-4">
-              <p className="text-red-500 text-sm">{error}</p>
+            <div className="rounded-md border border-red-500/50 bg-red-500/10 p-4">
+              <p className="text-sm text-red-500">{error}</p>
             </div>
           )}
 
           <div className="flex justify-end space-x-4">
             <Link
               href="/dashboard"
-              className="px-6 py-3 text-secondary-text hover:text-primary-text transition-colors"
+              className="text-secondary-text hover:text-primary-text px-6 py-3 transition-colors"
             >
               Cancel
             </Link>
             <button
               type="submit"
               disabled={!isFormValid || createInterviewMutation.isPending}
-              className="bg-accent hover:bg-accent/80 text-primary px-8 py-3 rounded-md transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-accent hover:bg-accent/80 text-primary rounded-md px-8 py-3 font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {createInterviewMutation.isPending ? "Creating..." : "Create Interview"}
+              {createInterviewMutation.isPending
+                ? "Creating..."
+                : "Create Interview"}
             </button>
           </div>
         </form>

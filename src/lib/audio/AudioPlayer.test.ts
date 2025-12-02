@@ -1,38 +1,38 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { AudioPlayer } from './AudioPlayer';
+import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
+import { AudioPlayer } from "./AudioPlayer";
 
 // Mock browser APIs
 const mockAudioContext = {
   close: vi.fn(),
   audioWorklet: {
-    addModule: vi.fn()
+    addModule: vi.fn(),
   },
   destination: {},
-  sampleRate: 16000
+  sampleRate: 16000,
 };
 
-describe('AudioPlayer', () => {
+describe("AudioPlayer", () => {
   let audioPlayer: AudioPlayer;
 
   beforeEach(() => {
     audioPlayer = new AudioPlayer();
-    
+
     // Mock AudioContext
-    Object.defineProperty(window, 'AudioContext', {
+    Object.defineProperty(window, "AudioContext", {
       writable: true,
-      value: vi.fn(() => mockAudioContext)
+      value: vi.fn(() => mockAudioContext),
     });
 
     // Mock AudioWorkletNode
-    Object.defineProperty(window, 'AudioWorkletNode', {
+    Object.defineProperty(window, "AudioWorkletNode", {
       writable: true,
       value: vi.fn(() => ({
         port: {
           onmessage: null,
-          postMessage: vi.fn()
+          postMessage: vi.fn(),
         },
-        connect: vi.fn()
-      }))
+        connect: vi.fn(),
+      })),
     });
   });
 
@@ -40,32 +40,34 @@ describe('AudioPlayer', () => {
     vi.clearAllMocks();
   });
 
-  describe('start', () => {
-    it('should initialize AudioContext with correct sample rate', async () => {
+  describe("start", () => {
+    it("should initialize AudioContext with correct sample rate", async () => {
       await audioPlayer.start();
 
       expect(window.AudioContext).toHaveBeenCalledWith({ sampleRate: 16000 });
     });
 
-    it('should add audio player worklet module', async () => {
+    it("should add audio player worklet module", async () => {
       mockAudioContext.audioWorklet.addModule.mockResolvedValue(undefined);
 
       await audioPlayer.start();
 
-      expect(mockAudioContext.audioWorklet.addModule).toHaveBeenCalledWith('/audio-player-processor.js');
+      expect(mockAudioContext.audioWorklet.addModule).toHaveBeenCalledWith(
+        "/audio-player-processor.js",
+      );
     });
 
-    it('should connect worklet node to audio destination', async () => {
+    it("should connect worklet node to audio destination", async () => {
       const mockConnect = vi.fn();
-      Object.defineProperty(window, 'AudioWorkletNode', {
+      Object.defineProperty(window, "AudioWorkletNode", {
         writable: true,
         value: vi.fn(() => ({
           port: {
             onmessage: null,
-            postMessage: vi.fn()
+            postMessage: vi.fn(),
           },
-          connect: mockConnect
-        }))
+          connect: mockConnect,
+        })),
       });
 
       await audioPlayer.start();
@@ -74,8 +76,8 @@ describe('AudioPlayer', () => {
     });
   });
 
-  describe('stop', () => {
-    it('should close audio context', async () => {
+  describe("stop", () => {
+    it("should close audio context", async () => {
       await audioPlayer.start();
       audioPlayer.stop();
 
@@ -83,18 +85,18 @@ describe('AudioPlayer', () => {
     });
   });
 
-  describe('enqueue', () => {
-    it('should convert PCM16 to PCM32 and post to worklet', async () => {
+  describe("enqueue", () => {
+    it("should convert PCM16 to PCM32 and post to worklet", async () => {
       const mockPostMessage = vi.fn();
-      Object.defineProperty(window, 'AudioWorkletNode', {
+      Object.defineProperty(window, "AudioWorkletNode", {
         writable: true,
         value: vi.fn(() => ({
           port: {
             onmessage: null,
-            postMessage: mockPostMessage
+            postMessage: mockPostMessage,
           },
-          connect: vi.fn()
-        }))
+          connect: vi.fn(),
+        })),
       });
 
       await audioPlayer.start();
@@ -113,17 +115,17 @@ describe('AudioPlayer', () => {
       expect(callArgs[1]).toEqual([callArgs[0].buffer]);
     });
 
-    it('should not process if worklet node is not initialized', () => {
+    it("should not process if worklet node is not initialized", () => {
       const mockPostMessage = vi.fn();
-      Object.defineProperty(window, 'AudioWorkletNode', {
+      Object.defineProperty(window, "AudioWorkletNode", {
         writable: true,
         value: vi.fn(() => ({
           port: {
             onmessage: null,
-            postMessage: mockPostMessage
+            postMessage: mockPostMessage,
           },
-          connect: vi.fn()
-        }))
+          connect: vi.fn(),
+        })),
       });
 
       // Don't start the player, so workletNode remains null

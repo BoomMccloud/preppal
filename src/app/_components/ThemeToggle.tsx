@@ -10,8 +10,11 @@ export default function ThemeToggle() {
     setMounted(true);
     // Check for saved theme or system preference
     const savedTheme = localStorage.getItem("theme");
-    const systemPrefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const shouldBeDark = savedTheme === "dark" || (!savedTheme && systemPrefersDark);
+    const systemPrefersDark = window.matchMedia(
+      "(prefers-color-scheme: dark)",
+    ).matches;
+    const shouldBeDark =
+      savedTheme === "dark" || (!savedTheme && systemPrefersDark);
 
     setIsDark(shouldBeDark);
     document.documentElement.classList.toggle("dark", shouldBeDark);
@@ -26,18 +29,18 @@ export default function ThemeToggle() {
 
   // Don't render until mounted to avoid hydration mismatch
   if (!mounted) {
-    return <div className="p-2 w-9 h-9" />;
+    return <div className="h-9 w-9 p-2" />;
   }
 
   return (
     <button
       onClick={toggleTheme}
-      className="p-2 rounded-md bg-secondary text-secondary-text hover:bg-accent hover:text-primary transition-colors"
+      className="bg-secondary text-secondary-text hover:bg-accent hover:text-primary rounded-md p-2 transition-colors"
       aria-label={`Switch to ${isDark ? "light" : "dark"} mode`}
     >
       {isDark ? (
         <svg
-          className="w-5 h-5"
+          className="h-5 w-5"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -51,7 +54,7 @@ export default function ThemeToggle() {
         </svg>
       ) : (
         <svg
-          className="w-5 h-5"
+          className="h-5 w-5"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"

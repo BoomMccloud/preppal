@@ -22,7 +22,6 @@ declare module "next-auth" {
   }
 }
 
-
 // Development test users
 const DEV_USERS = [
   {
@@ -56,76 +55,91 @@ const DEV_USERS = [
 export const authConfig = {
   providers: [
     // Add credentials provider only in development
-    ...(env.NODE_ENV === "development" ? [
-      CredentialsProvider({
-        name: "Development Login",
-        credentials: {
-          email: { label: "Email", type: "email", placeholder: "dev1@preppal.com" },
-          password: { label: "Password", type: "password", placeholder: "dev123" }
-        },
-        async authorize(credentials) {
-          console.log("🔐 Authorize called with:", {
-            email: credentials?.email,
-            passwordProvided: !!credentials?.password
-          });
+    ...(env.NODE_ENV === "development"
+      ? [
+          CredentialsProvider({
+            name: "Development Login",
+            credentials: {
+              email: {
+                label: "Email",
+                type: "email",
+                placeholder: "dev1@preppal.com",
+              },
+              password: {
+                label: "Password",
+                type: "password",
+                placeholder: "dev123",
+              },
+            },
+            async authorize(credentials) {
+              console.log("🔐 Authorize called with:", {
+                email: credentials?.email,
+                passwordProvided: !!credentials?.password,
+              });
 
-          if (!credentials?.email || !credentials?.password) {
-            console.log("❌ Missing email or password");
-            return null;
-          }
-
-          const user = DEV_USERS.find(
-            u => u.email === credentials.email && u.password === credentials.password
-          );
-
-          if (!user) {
-            console.log("❌ User not found in DEV_USERS");
-            return null;
-          }
-
-          console.log("✅ Found user in DEV_USERS:", user.email);
-
-          try {
-            // Ensure user exists in database
-            const existingUser = await db.user.findUnique({
-              where: { email: user.email }
-            });
-
-            if (existingUser) {
-              console.log("✅ Found existing user in database:", existingUser.email);
-              return {
-                id: existingUser.id,
-                email: existingUser.email,
-                name: existingUser.name,
-                image: existingUser.image,
-              };
-            }
-
-            // Create user if doesn't exist
-            console.log("🆕 Creating new user in database:", user.email);
-            const newUser = await db.user.create({
-              data: {
-                email: user.email,
-                name: user.name,
-                image: user.image,
-                emailVerified: new Date(),
+              if (!credentials?.email || !credentials?.password) {
+                console.log("❌ Missing email or password");
+                return null;
               }
-            });
 
-            console.log("✅ Created new user:", newUser.email);
-            return {
-              id: newUser.id,
-              email: newUser.email,
-              name: newUser.name,
-              image: newUser.image,
-            };
-          } catch (error) {
-            console.error("❌ Database error:", error);
-            return null;
-          }
-        }
-      })
-    ] : []),
+              const user = DEV_USERS.find(
+                (u) =>
+                  u.email === credentials.email &&
+                  u.password === credentials.password,
+              );
+
+              if (!user) {
+                console.log("❌ User not found in DEV_USERS");
+                return null;
+              }
+
+              console.log("✅ Found user in DEV_USERS:", user.email);
+
+              try {
+                // Ensure user exists in database
+                const existingUser = await db.user.findUnique({
+                  where: { email: user.email },
+                });
+
+                if (existingUser) {
+                  console.log(
+                    "✅ Found existing user in database:",
+                    existingUser.email,
+                  );
+                  return {
+                    id: existingUser.id,
+                    email: existingUser.email,
+                    name: existingUser.name,
+                    image: existingUser.image,
+                  };
+                }
+
+                // Create user if doesn't exist
+                console.log("🆕 Creating new user in database:", user.email);
+                const newUser = await db.user.create({
+                  data: {
+                    email: user.email,
+                    name: user.name,
+                    image: user.image,
+                    emailVerified: new Date(),
+                  },
+                });
+
+                console.log("✅ Created new user:", newUser.email);
+                return {
+                  id: newUser.id,
+                  email: newUser.email,
+                  name: newUser.name,
+                  image: newUser.image,
+                };
+              } catch (error) {
+                console.error("❌ Database error:", error);
+                return null;
+              }
+            },
+          }),
+        ]
+      : []),
     // Add Google provider only if credentials are available
     ...(env.AUTH_GOOGLE_ID && env.AUTH_GOOGLE_SECRET ? [GoogleProvider] : []),
   ],

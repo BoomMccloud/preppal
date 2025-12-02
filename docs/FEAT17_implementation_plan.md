@@ -78,10 +78,20 @@ We use the `ServerToClientMessage` and `ClientToServerMessage` definitions.
   - Connect `AudioRecorder` events to WebSocket `send`.
   - Connect WebSocket `audio_response` to `AudioPlayer`.
 
-### Phase 4: UI Integration
-- [ ] Update `SessionContent.tsx` to display real-time transcripts.
-- [ ] Add visual feedback for "Listening" vs "Speaking" states.
-- [ ] Ensure "End Interview" button functions correctly.
+### Phase 4: JWT Refactoring
+- [x] **Replace Dependencies**: Replace `jsonwebtoken` with `jose` throughout the project.
+- [x] **Update Implementation**: Update `generateWorkerToken` to use `jose` for consistent crypto implementation.
+- [x] **Verify Compatibility**: Ensure all token generation and verification still works correctly.
+
+### Phase 5: Targeted Test Implementation
+- [x] **Implement Maintainable Tests**: Create focused tests covering critical user journeys.
+- [x] **Avoid Brittle Mocking**: Use simpler, more reliable testing approaches.
+- [x] **Focus on Outcomes**: Test user-facing behavior rather than implementation details.
+
+### Phase 6: UI Integration
+- [x] Add visual feedback for "Listening" vs "Speaking" states.
+- [x] Ensure "End Interview" button functions correctly.
+- [ ] Update `SessionContent.tsx` to display real-time transcripts (Deferred).
 
 ---
 
@@ -94,6 +104,9 @@ We use the `ServerToClientMessage` and `ClientToServerMessage` definitions.
 | **AudioPlayer** | ✅ Passing | 100% Coverage. Playback queuing is solid. |
 | **Protobuf Utils** | ✅ Passing | Basic encoding/decoding verified. |
 | **WebSocket Hook** | ✅ Complete | **Rewritten for FEAT17.** |
+| **JWT Refactoring** | ✅ Complete | **Replaced `jsonwebtoken` with `jose`.** |
+| **Targeted Tests** | ✅ Complete | **Implemented maintainable functional tests.** |
+| **UI Integration** | ✅ Complete | **Visual Feedback & End Interview verified.** |
 
 ### Verification Plan
 1.  **Unit Tests**: Run `pnpm test` to verify the hook logic in isolation.
@@ -152,16 +165,16 @@ The implementation now aligns with the updated architecture:
 - ✅ Hook refactoring
 - ✅ Documentation updates
 - ✅ Architecture alignment
+- ✅ JWT dependency refactoring
+- ✅ Targeted functional test implementation
+- ✅ UI Integration (Visual Feedback & End Interview)
 
 ### In Progress
-- ⚠️ Test verification (debugging test environment timing issues)
-- ⏳ UI integration for live transcripts and connection states
 - ⏳ End-to-end testing with Cloudflare Worker
 
 ## 9. Next Steps
 
-1. **Debug Test Issues**: Resolve timing issues in the test environment
-2. **UI Integration**: Update SessionContent.tsx to display real-time transcripts
-3. **E2E Testing**: Perform full flow verification against the Cloudflare Worker
-4. **Performance Optimization**: Optimize audio streaming performance
-5. **Error Handling**: Enhance error handling and user feedback
+1. **E2E Testing**: Perform full flow verification against the Cloudflare Worker
+2. **UI Integration**: Update SessionContent.tsx to display real-time transcripts (Deferred)
+3. **Performance Optimization**: Optimize audio streaming performance
+4. **Error Handling**: Enhance error handling and user feedback

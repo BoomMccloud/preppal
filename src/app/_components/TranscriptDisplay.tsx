@@ -1,8 +1,7 @@
-
-import React from 'react';
+import React from "react";
 
 export interface TranscriptEntry {
-  speaker: 'USER' | 'AI';
+  speaker: "USER" | "AI";
   content: string;
 }
 
@@ -10,7 +9,9 @@ interface TranscriptDisplayProps {
   entries: TranscriptEntry[];
 }
 
-export const TranscriptDisplay: React.FC<TranscriptDisplayProps> = ({ entries }) => {
+export const TranscriptDisplay: React.FC<TranscriptDisplayProps> = ({
+  entries,
+}) => {
   if (!entries || entries.length === 0) {
     return null;
   }

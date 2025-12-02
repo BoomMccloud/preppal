@@ -35,7 +35,7 @@ describe("LobbyPage (Server Component)", () => {
     );
 
     // Act
-    const Page = await LobbyPage({ params: { interviewId: mockInterviewId } });
+    const Page = await LobbyPage({ params: Promise.resolve({ interviewId: mockInterviewId }) });
     render(Page);
 
     // Assert
@@ -54,7 +54,7 @@ describe("LobbyPage (Server Component)", () => {
     });
 
     // Act
-    await LobbyPage({ params: { interviewId: mockInterviewId } });
+    await LobbyPage({ params: Promise.resolve({ interviewId: mockInterviewId }) });
 
     // Assert
     expect(redirect).toHaveBeenCalledWith(
@@ -71,7 +71,7 @@ describe("LobbyPage (Server Component)", () => {
     });
 
     // Act
-    const Page = await LobbyPage({ params: { interviewId: mockInterviewId } });
+    const Page = await LobbyPage({ params: Promise.resolve({ interviewId: mockInterviewId }) });
     render(Page);
 
     // Assert
@@ -91,7 +91,7 @@ describe("LobbyPage (Server Component)", () => {
     });
 
     // Act
-    const Page = await LobbyPage({ params: { interviewId: mockInterviewId } });
+    const Page = await LobbyPage({ params: Promise.resolve({ interviewId: mockInterviewId }) });
     render(Page);
 
     // Assert
@@ -116,7 +116,9 @@ describe("LobbyPage (Server Component)", () => {
       });
 
       // Act
-      const Page = await LobbyPage({ params: { interviewId: mockInterviewId } });
+      const Page = await LobbyPage({
+        params: { interviewId: mockInterviewId },
+      });
       render(Page);
 
       // Assert
@@ -135,7 +137,9 @@ describe("LobbyPage (Server Component)", () => {
       });
 
       // Act
-      const Page = await LobbyPage({ params: { interviewId: mockInterviewId } });
+      const Page = await LobbyPage({
+        params: { interviewId: mockInterviewId },
+      });
       render(Page);
 
       // Assert
@@ -156,7 +160,9 @@ describe("LobbyPage (Server Component)", () => {
       });
 
       // Act
-      const Page = await LobbyPage({ params: { interviewId: mockInterviewId } });
+      const Page = await LobbyPage({
+        params: { interviewId: mockInterviewId },
+      });
       render(Page);
 
       // Assert
@@ -166,20 +172,24 @@ describe("LobbyPage (Server Component)", () => {
     });
 
     it("should not truncate a short job description", async () => {
-        // Arrange
-        mockGetById.mockResolvedValue({
-          id: mockInterviewId,
-          status: "PENDING",
-          jobDescriptionSnapshot: shortDescription,
-        });
-  
-        // Act
-        const Page = await LobbyPage({ params: { interviewId: mockInterviewId } });
-        render(Page);
-  
-        // Assert
-        expect(screen.getByText(shortDescription)).toBeInTheDocument();
-        expect(screen.queryByText(shortDescription + "...")).not.toBeInTheDocument();
+      // Arrange
+      mockGetById.mockResolvedValue({
+        id: mockInterviewId,
+        status: "PENDING",
+        jobDescriptionSnapshot: shortDescription,
       });
+
+      // Act
+      const Page = await LobbyPage({
+        params: { interviewId: mockInterviewId },
+      });
+      render(Page);
+
+      // Assert
+      expect(screen.getByText(shortDescription)).toBeInTheDocument();
+      expect(
+        screen.queryByText(shortDescription + "..."),
+      ).not.toBeInTheDocument();
+    });
   });
 });

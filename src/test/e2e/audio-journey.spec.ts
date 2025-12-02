@@ -25,9 +25,7 @@ test.describe("Real-Time Audio Interview Journey", () => {
   // Store the interview ID to use across different steps
   let interviewId: string;
 
-  test("should handle a full real-time audio interview", async ({
-    page,
-  }) => {
+  test("should handle a full real-time audio interview", async ({ page }) => {
     // --- 1. Login ---
     await test.step("Login", async () => {
       await page.goto("/signin");
@@ -43,8 +41,14 @@ test.describe("Real-Time Audio Interview Journey", () => {
       await expect(page).toHaveURL(/.*create-interview/);
 
       // Fill in job description and resume
-      await page.getByLabel("Job Description").fill("Senior Frontend Developer position at a tech company");
-      await page.getByLabel("Resume").fill("Experienced frontend developer with 5 years of React experience");
+      await page
+        .getByLabel("Job Description")
+        .fill("Senior Frontend Developer position at a tech company");
+      await page
+        .getByLabel("Resume")
+        .fill(
+          "Experienced frontend developer with 5 years of React experience",
+        );
 
       // Submit the form
       await page.getByRole("button", { name: "Create Interview" }).click();
@@ -79,10 +83,10 @@ test.describe("Real-Time Audio Interview Journey", () => {
       // This would test that binary ClientToServerMessage frames containing AudioChunk are being sent
       // This would test that binary ServerToClientMessage frames containing AudioChunk are being received (the echo)
       // This would test that the UI displays a "Live" status
-      
+
       // Wait for the live state
       await expect(page.getByText("Interview Session")).toBeVisible();
-      
+
       // Check that we're in the live state (not connecting or error)
       await expect(page.getByText("Connecting...")).not.toBeVisible();
       await expect(page.getByText("Connection Error")).not.toBeVisible();
@@ -92,7 +96,9 @@ test.describe("Real-Time Audio Interview Journey", () => {
     await test.step("End Interview", async () => {
       await page.getByRole("button", { name: "End Interview" }).click();
       // Wait for the ending state
-      await expect(page.getByRole("button", { name: "Ending..." })).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "Ending..." }),
+      ).toBeVisible();
     });
 
     // --- 7. Verify Redirect to Feedback ---

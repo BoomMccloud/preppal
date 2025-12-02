@@ -10,7 +10,8 @@ const mockGetById = vi.fn();
 vi.mock("~/trpc/server", () => ({
   api: {
     interview: {
-      getById: (params: { id: string; includeFeedback?: boolean }) => mockGetById(params),
+      getById: (params: { id: string; includeFeedback?: boolean }) =>
+        mockGetById(params),
     },
   },
 }));
@@ -23,7 +24,9 @@ vi.mock("next/navigation", () => ({
 // Mock the FeedbackPolling component
 vi.mock("./_components/FeedbackPolling", () => ({
   default: ({ interviewId }: { interviewId: string }) => (
-    <div data-testid="feedback-polling">Polling for interview {interviewId}</div>
+    <div data-testid="feedback-polling">
+      Polling for interview {interviewId}
+    </div>
   ),
 }));
 

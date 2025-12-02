@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { createTRPCRouter, protectedProcedure, flexibleProcedure, workerProcedure } from "~/server/api/trpc";
+import {
+  createTRPCRouter,
+  protectedProcedure,
+  flexibleProcedure,
+  workerProcedure,
+} from "~/server/api/trpc";
 import { TRPCError } from "@trpc/server";
 import { Prisma } from "@prisma/client";
 import { SignJWT } from "jose";
@@ -36,7 +41,7 @@ export const interviewRouter = createTRPCRouter({
         jobDescription: JobDescriptionInput,
         resume: ResumeInput,
         idempotencyKey: z.string().min(1),
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       try {
@@ -126,40 +131,39 @@ export const interviewRouter = createTRPCRouter({
       }
     }),
 
-  getHistory: protectedProcedure
-    .input(z.void())
-    .query(async ({ ctx }) => {
-      // Fetch all interviews for the authenticated user
-      const interviews = await ctx.db.interview.findMany({
-        where: {
-          userId: ctx.session.user.id,
-        },
-        select: {
-          id: true,
-          status: true,
-          createdAt: true,
-          jobDescriptionSnapshot: true,
-        },
-        orderBy: {
-          createdAt: "desc", // Newest first
-        },
-      });
+  getHistory: protectedProcedure.input(z.void()).query(async ({ ctx }) => {
+    // Fetch all interviews for the authenticated user
+    const interviews = await ctx.db.interview.findMany({
+      where: {
+        userId: ctx.session.user.id,
+      },
+      select: {
+        id: true,
+        status: true,
+        createdAt: true,
+        jobDescriptionSnapshot: true,
+      },
+      orderBy: {
+        createdAt: "desc", // Newest first
+      },
+    });
 
-      // Transform to include jobTitleSnapshot (first 30 chars)
-      return interviews.map((interview) => ({
-        id: interview.id,
-        status: interview.status,
-        createdAt: interview.createdAt,
-        jobTitleSnapshot: interview.jobDescriptionSnapshot?.substring(0, 30) ?? null,
-      }));
-    }),
+    // Transform to include jobTitleSnapshot (first 30 chars)
+    return interviews.map((interview) => ({
+      id: interview.id,
+      status: interview.status,
+      createdAt: interview.createdAt,
+      jobTitleSnapshot:
+        interview.jobDescriptionSnapshot?.substring(0, 30) ?? null,
+    }));
+  }),
 
   getById: protectedProcedure
     .input(
       z.object({
         id: z.string(),
         includeFeedback: z.boolean().optional().default(false),
-      })
+      }),
     )
     .query(async ({ ctx, input }) => {
       // Query with BOTH id AND userId for security (prevents enumeration)
@@ -176,7 +180,7 @@ export const interviewRouter = createTRPCRouter({
       // If not found, log for security monitoring and throw error
       if (!interview) {
         console.warn(
-          `[Security] Unauthorized access attempt - User ${ctx.session.user.id} attempted to access interview ${input.id}`
+          `[Security] Unauthorized access attempt - User ${ctx.session.user.id} attempted to access interview ${input.id}`,
         );
         throw new TRPCError({
           code: "NOT_FOUND",
@@ -220,7 +224,10 @@ export const interviewRouter = createTRPCRouter({
       }
 
       // Fallback to mock data for development
-      if (input.interviewId === "demo-123" || input.interviewId.startsWith("demo-")) {
+      if (
+        input.interviewId === "demo-123" ||
+        input.interviewId.startsWith("demo-")
+      ) {
         return {
           id: input.interviewId,
           createdAt: new Date(Date.now() - 7200000), // 2 hours ago
@@ -229,14 +236,16 @@ export const interviewRouter = createTRPCRouter({
           endedAt: new Date(Date.now() - 1800000), // 30 minutes ago
           status: "COMPLETED" as const,
           jobTitleSnapshot: "Senior Frontend Developer",
-          jobDescriptionSnapshot: "We are looking for a senior frontend developer with React experience...",
+          jobDescriptionSnapshot:
+            "We are looking for a senior frontend developer with React experience...",
           jobDescriptionId: null,
           resumeId: null,
           userId: ctx.session.user.id,
           feedback: {
             id: "feedback-" + input.interviewId,
             createdAt: new Date(Date.now() - 1800000),
-            summary: "The candidate demonstrated strong technical skills and problem-solving abilities. They showed good understanding of React concepts and were able to implement clean, readable code. Communication was clear and they explained their thought process well throughout the interview.",
+            summary:
+              "The candidate demonstrated strong technical skills and problem-solving abilities. They showed good understanding of React concepts and were able to implement clean, readable code. Communication was clear and they explained their thought process well throughout the interview.",
             strengths: `• **Strong React Knowledge**: Demonstrated deep understanding of React hooks, state management, and component lifecycle
 • **Clean Code**: Wrote well-structured, readable code with proper naming conventions
 • **Problem-Solving**: Approached problems methodically and considered edge cases
@@ -279,7 +288,7 @@ export const interviewRouter = createTRPCRouter({
 - Screen sharing setup could be improved for better visibility
 - Could have prepared a more organized workspace for coding demonstrations`,
             interviewId: input.interviewId,
-          }
+          },
         };
       }
 
@@ -306,7 +315,7 @@ export const interviewRouter = createTRPCRouter({
 
       // Generate JWT token valid for 1 hour
       const secret = new TextEncoder().encode(
-        env.AUTH_SECRET ?? "fallback-secret-for-development"
+        env.AUTH_SECRET ?? "fallback-secret-for-development",
       );
 
       const token = await new SignJWT({
@@ -376,13 +385,14 @@ export const interviewRouter = createTRPCRouter({
         interviewId: z.string(),
         status: z.enum(["IN_PROGRESS", "COMPLETED", "ERROR"]),
         endedAt: z.string().optional(),
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       // Verify interview exists (and ownership if user auth)
-      const whereClause = ctx.authType === "user"
-        ? { id: input.interviewId, userId: ctx.session.user.id }
-        : { id: input.interviewId };
+      const whereClause =
+        ctx.authType === "user"
+          ? { id: input.interviewId, userId: ctx.session.user.id }
+          : { id: input.interviewId };
 
       const interview = await ctx.db.interview.findUnique({
         where: whereClause,
@@ -403,7 +413,9 @@ export const interviewRouter = createTRPCRouter({
       if (input.status === "IN_PROGRESS") {
         updateData.startedAt = new Date();
       } else if (input.status === "COMPLETED" || input.status === "ERROR") {
-        updateData.endedAt = input.endedAt ? new Date(input.endedAt) : new Date();
+        updateData.endedAt = input.endedAt
+          ? new Date(input.endedAt)
+          : new Date();
       }
 
       // Update the interview
@@ -424,10 +436,10 @@ export const interviewRouter = createTRPCRouter({
             speaker: z.enum(["USER", "AI"]),
             content: z.string(),
             timestamp: z.string(),
-          })
+          }),
         ),
         endedAt: z.string(),
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       // Perform atomic transaction: save transcript + update status

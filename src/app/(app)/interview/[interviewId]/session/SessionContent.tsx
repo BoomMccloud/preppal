@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "~/trpc/react";
 import { useInterviewSocket } from "./useInterviewSocket";
+import { StatusIndicator } from "~/app/_components/StatusIndicator";
 
 interface SessionContentProps {
   interviewId: string;
@@ -20,19 +21,23 @@ export function SessionContent({ interviewId }: SessionContentProps) {
 
   useEffect(() => {
     if (!isLoading && interview) {
-      if (interview.status === "IN_PROGRESS" || interview.status === "COMPLETED") {
+      if (
+        interview.status === "IN_PROGRESS" ||
+        interview.status === "COMPLETED"
+      ) {
         router.push("/dashboard");
       }
     }
   }, [interview, isLoading, router]);
 
   // WebSocket connection and state management
-  const { state, transcript, elapsedTime, error, endInterview } = useInterviewSocket({
-    interviewId,
-    onSessionEnded: () => {
-      router.push(`/interview/${interviewId}/feedback`);
-    },
-  });
+  const { state, transcript, elapsedTime, error, endInterview, isAiSpeaking } =
+    useInterviewSocket({
+      interviewId,
+      onSessionEnded: () => {
+        router.push(`/interview/${interviewId}/feedback`);
+      },
+    });
 
   // Auto-scroll to latest transcript
   useEffect(() => {
@@ -70,7 +75,9 @@ export function SessionContent({ interviewId }: SessionContentProps) {
       <div className="flex h-screen items-center justify-center">
         <div className="max-w-md space-y-4 text-center">
           <h1 className="text-2xl font-bold text-red-600">Connection Error</h1>
-          <p className="text-gray-700">{error || "Connection lost. Please return to the dashboard."}</p>
+          <p className="text-gray-700">
+            {error || "Connection lost. Please return to the dashboard."}
+          </p>
           <button
             onClick={() => router.push("/dashboard")}
             className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
@@ -89,7 +96,10 @@ export function SessionContent({ interviewId }: SessionContentProps) {
       <div className="border-b bg-white px-6 py-4 shadow-sm">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold">Interview Session</h1>
-          <div className="text-lg font-mono">{formatTime(elapsedTime)}</div>
+          <div className="flex items-center gap-4">
+            <StatusIndicator status={isAiSpeaking ? "speaking" : "listening"} />
+            <div className="font-mono text-lg">{formatTime(elapsedTime)}</div>
+          </div>
         </div>
       </div>
 
@@ -127,7 +137,7 @@ export function SessionContent({ interviewId }: SessionContentProps) {
 
       {/* Controls */}
       <div className="border-t bg-white px-6 py-4 shadow-sm">
-        <div className="mx-auto max-w-3xl flex justify-center">
+        <div className="mx-auto flex max-w-3xl justify-center">
           <button
             onClick={endInterview}
             disabled={state === "ending"}

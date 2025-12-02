@@ -1,12 +1,12 @@
 # Current Task: FEAT17 - Real-Time Client Audio Integration
 
 **Date:** December 2, 2025
-**Status:** In Progress (TDD / Hook Refactoring)
+**Status:** Completed (TDD / Hook Refactoring)
 
 ## Overview
 We are integrating the frontend with the new real-time audio backend (Cloudflare Worker). The backend and core frontend audio services (`AudioRecorder`, `AudioPlayer`) are complete. The remaining work is strictly in the **WebSocket integration layer** (`useInterviewSocket`) and **UI connection**.
 
-We are following a **TDD approach**: Writing failing tests for the new hook logic before implementing it.
+We have followed a **TDD approach**: Writing failing tests for the new hook logic before implementing it.
 
 ---
 
@@ -22,13 +22,18 @@ We are following a **TDD approach**: Writing failing tests for the new hook logi
 - **Hook Tests**: `session/page.test.tsx` rewritten to match new specs.
 - **Hook Implementation**: Verified refactored hook implementation
 - **Documentation**: Updated all relevant documentation
+- **JWT Refactoring**: Replaced `jsonwebtoken` with `jose` for consistent crypto implementation
+- **Targeted Functional Tests**: Implemented maintainable tests covering critical user journeys
+- **UI Integration**: Visual feedback for Listening/Speaking.
+- **UI Integration**: End Interview functionality.
 
 ### In Progress ⚠️
-- **Test Verification**: Debugging test environment issues
+- **E2E Testing**: Full flow verification against the local worker.
 
 ### Pending ⏳
-- **UI Integration**: displaying live transcripts and connection states.
-- **E2E Testing**: Full flow verification against the local worker.
+- **UI Integration**: Display real-time transcripts (Deferred).
+- **Performance Optimization**: Optimize audio streaming performance.
+- **Error Handling**: Enhance error handling and user feedback.
 
 ---
 
@@ -40,6 +45,11 @@ We are following a **TDD approach**: Writing failing tests for the new hook logi
     - ~~Use `generateWorkerToken`.~~
     - ~~Implement Protobuf encoding/decoding.~~
     - ~~Wire up Audio services.~~
+4.  ~~**Refactor JWT Dependencies**: Replace `jsonwebtoken` with `jose` throughout the project.~~
+5.  ~~**Implement Targeted Tests**: Create maintainable functional tests covering critical user journeys.~~
+6.  ~~**UI Integration**: Add visual feedback for "Listening" vs "Speaking" states.~~
+7.  ~~**UI Integration**: Ensure "End Interview" button functions correctly.~~
+8.  **E2E Testing**: Perform full flow verification against the Cloudflare Worker.
 
 ---
 
@@ -74,13 +84,15 @@ The implementation now aligns with the updated architecture:
 - ✅ AudioRecorder: 100% coverage
 - ✅ AudioPlayer: 100% coverage
 - ✅ Protobuf Utilities: Basic encoding/decoding verified
-- ⚠️ useInterviewSocket: Core functionality implemented, some test environment issues
+- ✅ useInterviewSocket: Core functionality implemented with maintainable tests
+- ✅ SessionContent: UI states including visual feedback and end interview
 
 ### Integration Tests
 - ✅ WebSocket Connection: Implemented with proper URL construction
 - ✅ Message Handling: Protobuf encoding/decoding for all message types
 - ✅ Audio Services Integration: Properly connected
 - ✅ Authentication Flow: Uses correct API endpoint
+- ✅ JWT Refactoring: Consistent crypto implementation with `jose`
 
 ## Current Status
 
@@ -90,19 +102,19 @@ The implementation now aligns with the updated architecture:
 - ✅ Hook refactoring
 - ✅ Documentation updates
 - ✅ Architecture alignment
+- ✅ JWT dependency refactoring
+- ✅ Targeted functional test implementation
+- ✅ UI Integration (Visual Feedback & End Interview)
 
 ### In Progress
-- ⚠️ Test verification (debugging test environment timing issues)
-- ⏳ UI integration for live transcripts and connection states
 - ⏳ End-to-end testing with Cloudflare Worker
 
 ## Next Steps
 
-1. **Debug Test Issues**: Resolve timing issues in the test environment
-2. **UI Integration**: Update SessionContent.tsx to display real-time transcripts
-3. **E2E Testing**: Perform full flow verification against the Cloudflare Worker
-4. **Performance Optimization**: Optimize audio streaming performance
-5. **Error Handling**: Enhance error handling and user feedback
+1. **E2E Testing**: Perform full flow verification against the Cloudflare Worker
+2. **UI Integration**: Update SessionContent.tsx to display real-time transcripts (Future Todo)
+3. **Performance Optimization**: Optimize audio streaming performance
+4. **Error Handling**: Enhance error handling and user feedback
 
 ---
 

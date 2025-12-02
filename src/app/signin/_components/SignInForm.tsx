@@ -10,7 +10,9 @@ type Provider = {
 };
 
 export default function SignInForm() {
-  const [providers, setProviders] = useState<Record<string, Provider> | null>(null);
+  const [providers, setProviders] = useState<Record<string, Provider> | null>(
+    null,
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [showCredentialsForm, setShowCredentialsForm] = useState(false);
   const [email, setEmail] = useState("dev1@preppal.com");
@@ -68,7 +70,7 @@ export default function SignInForm() {
 
   if (isLoading) {
     return (
-      <div className="text-center text-secondary-text">
+      <div className="text-secondary-text text-center">
         <p>Loading sign-in options...</p>
       </div>
     );
@@ -79,7 +81,10 @@ export default function SignInForm() {
       <div className="space-y-4">
         <form onSubmit={handleCredentialsSignIn} className="space-y-4">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-secondary-text mb-2">
+            <label
+              htmlFor="email"
+              className="text-secondary-text mb-2 block text-sm font-medium"
+            >
               Email
             </label>
             <input
@@ -87,13 +92,16 @@ export default function SignInForm() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 border border-secondary-text/20 rounded-md bg-secondary/50 text-primary-text focus:outline-none focus:ring-2 focus:ring-accent"
+              className="border-secondary-text/20 bg-secondary/50 text-primary-text focus:ring-accent w-full rounded-md border px-3 py-2 focus:ring-2 focus:outline-none"
               placeholder="dev1@preppal.com"
               required
             />
           </div>
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-secondary-text mb-2">
+            <label
+              htmlFor="password"
+              className="text-secondary-text mb-2 block text-sm font-medium"
+            >
               Password
             </label>
             <input
@@ -101,7 +109,7 @@ export default function SignInForm() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-secondary-text/20 rounded-md bg-secondary/50 text-primary-text focus:outline-none focus:ring-2 focus:ring-accent"
+              className="border-secondary-text/20 bg-secondary/50 text-primary-text focus:ring-accent w-full rounded-md border px-3 py-2 focus:ring-2 focus:outline-none"
               placeholder="dev123"
               required
             />
@@ -110,20 +118,20 @@ export default function SignInForm() {
             <button
               type="submit"
               disabled={isSigningIn}
-              className="flex-1 bg-accent hover:bg-accent/80 disabled:bg-accent/50 text-primary font-medium py-3 px-4 rounded-md transition-colors"
+              className="bg-accent hover:bg-accent/80 disabled:bg-accent/50 text-primary flex-1 rounded-md px-4 py-3 font-medium transition-colors"
             >
               {isSigningIn ? "Signing in..." : "Sign In"}
             </button>
             <button
               type="button"
               onClick={() => setShowCredentialsForm(false)}
-              className="px-4 py-3 border border-secondary-text/20 text-secondary-text hover:bg-secondary/50 rounded-md transition-colors"
+              className="border-secondary-text/20 text-secondary-text hover:bg-secondary/50 rounded-md border px-4 py-3 transition-colors"
             >
               Back
             </button>
           </div>
         </form>
-        <div className="text-center text-sm text-secondary-text">
+        <div className="text-secondary-text text-center text-sm">
           <p>Development credentials:</p>
           <p>dev1@preppal.com / dev123</p>
           <p>dev2@preppal.com / dev123</p>
@@ -135,24 +143,25 @@ export default function SignInForm() {
 
   return (
     <div className="space-y-4">
-      {providers && Object.values(providers).map((provider) => (
-        <button
-          key={provider.id}
-          onClick={() => {
-            if (provider.type === "credentials") {
-              setShowCredentialsForm(true);
-            } else {
-              void handleSignIn(provider.id);
-            }
-          }}
-          className="w-full bg-accent hover:bg-accent/80 text-primary font-medium py-3 px-4 rounded-md transition-colors"
-        >
-          Sign in with {provider.name}
-        </button>
-      ))}
+      {providers &&
+        Object.values(providers).map((provider) => (
+          <button
+            key={provider.id}
+            onClick={() => {
+              if (provider.type === "credentials") {
+                setShowCredentialsForm(true);
+              } else {
+                void handleSignIn(provider.id);
+              }
+            }}
+            className="bg-accent hover:bg-accent/80 text-primary w-full rounded-md px-4 py-3 font-medium transition-colors"
+          >
+            Sign in with {provider.name}
+          </button>
+        ))}
 
       {(!providers || Object.keys(providers).length === 0) && (
-        <div className="text-center text-secondary-text">
+        <div className="text-secondary-text text-center">
           <p className="mb-4">No authentication providers available</p>
           <p className="text-sm">Please check your configuration</p>
         </div>

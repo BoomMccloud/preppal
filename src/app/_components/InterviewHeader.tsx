@@ -4,12 +4,18 @@ type InterviewHeaderProps = {
   timer: string;
 };
 
-export function InterviewHeader({ title, interviewId, timer }: InterviewHeaderProps) {
+export function InterviewHeader({
+  title,
+  interviewId,
+  timer,
+}: InterviewHeaderProps) {
   return (
     <div className="px-8 py-6">
-      <div className="flex justify-between items-start">
+      <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-medium text-primary-text mb-1">{title}</h1>
+          <h1 className="text-primary-text mb-1 text-2xl font-medium">
+            {title}
+          </h1>
           <span className="text-secondary-text text-sm">ID: {interviewId}</span>
         </div>
         <div className="bg-secondary/30 rounded-lg px-4 py-2">
