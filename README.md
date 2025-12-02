@@ -5,7 +5,8 @@ This is a full-stack web application built with the [T3 Stack](https://create.t3
 ## Core Technologies
 
 - **Frontend**: Next.js (React)
-- **Backend**: Next.js (API Routes with a custom WebSocket server)
+- **Backend (Business Logic)**: Next.js (API Routes with tRPC)
+- **Backend (Real-time)**: Cloudflare Workers with Durable Objects
 - **Database**: SQLite (for MVP) with Prisma ORM
 - **Real-time Communication**: WebSockets for the bi-directional audio stream
 - **API (Non-real-time)**: tRPC for standard data fetching (user profiles, etc.)
@@ -19,10 +20,15 @@ This is a full-stack web application built with the [T3 Stack](https://create.t3
 - **Framework**: Built with Next.js and React.
 - **Responsibilities**: User Interface, Authentication (NextAuth.js), Standard Data Fetching (tRPC), Real-time Communication (WebSocket for audio streaming, Protobuf encoding/decoding).
 
-### Backend (Server-Side)
+### Backend - Next.js (Business Logic Server)
 
-- **Framework**: Hosted within the Next.js application.
-- **Responsibilities**: tRPC API (CRUD for user data), WebSocket Server (manages interview sessions), Gemini Live API Client (proxies audio data), Data Handling (Protobuf encoding/decoding).
+- **Framework**: Hosted on Vercel as a standard Next.js application.
+- **Responsibilities**: tRPC API (CRUD for user data), Database Management (via Prisma), Authentication (NextAuth.js).
+
+### Backend - Cloudflare Worker (Real-time Server)
+
+- **Framework**: Deployed on the Cloudflare Edge network.
+- **Responsibilities**: WebSocket Server (manages interview sessions), Gemini Live API Client (proxies audio data), Data Handling (Protobuf encoding/decoding).
 
 ### Database
 

@@ -188,9 +188,9 @@ Note: We've simplified the state flow by removing the `requestingPermissions` st
 
 ### Backend (tRPC & Worker)
 
-- Tests for `generateWorkerToken` must validate ownership and `PENDING` status.
-- Tests for `updateStatus` and `submitTranscript` must validate authentication (session and shared secret) and correct database transactions.
-- Worker integration tests (`miniflare`) must validate:
+✅ **Tests for `generateWorkerToken`** must validate ownership and `PENDING` status.
+✅ **Tests for `updateStatus` and `submitTranscript`** must validate authentication (session and shared secret) and correct database transactions.
+✅ **Worker integration tests (`miniflare`)** must validate:
   - Rejection of invalid JWTs (close code 4001).
   - Successful call to `updateStatus` after Gemini connection.
   - Correct forwarding of `TranscriptUpdate` and `AudioResponse` messages from a mocked Gemini API.
@@ -198,12 +198,12 @@ Note: We've simplified the state flow by removing the `requestingPermissions` st
 
 ### Frontend (React Testing Library & Mocks)
 
-- Unit test the `AudioRecorder` and `AudioPlayer` services.
-- Mock the WebSocket and `useInterviewSocket` hook to test the UI's reaction to all `ServerToClientMessage` types.
-- Verify the UI correctly displays user and AI transcripts.
-- Verify the UI correctly handles all states from `requestingPermissions` to `ending`.
+✅ **Unit test the `AudioRecorder` and `AudioPlayer` services.**
+✅ **Mock the WebSocket and `useInterviewSocket` hook** to test the UI's reaction to all `ServerToClientMessage` types.
+✅ **Verify the UI correctly displays user and AI transcripts.**
+✅ **Verify the UI correctly handles all states from `initializing` to `ending`.**
 
 ### E2E (Playwright)
 
-- The final E2E test should run against the **live integrated system**.
+⚠️ **IN PROGRESS** - The final E2E test should run against the **live integrated system**.
 - The test will log in, start an interview, grant microphone permissions, and assert (by inspecting WebSocket traffic) that binary `AudioChunk` messages are sent and that `TranscriptUpdate` and `AudioResponse` messages are received. It will then end the interview and verify redirection.
