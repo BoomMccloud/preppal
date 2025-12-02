@@ -17,10 +17,13 @@ We are following a **TDD approach**: Writing failing tests for the new hook logi
 - **Audio Services**: `AudioRecorder` and `AudioPlayer` implemented & tested (100% coverage).
 - **Protobuf**: Definitions and generated types ready.
 - **Session UI**: Basic layout and navigation (FEAT15).
+- **Configuration**: Added `NEXT_PUBLIC_WORKER_URL` to `.env` and `env.js`.
+- **WebSocket Hook (`useInterviewSocket`)**: Refactored to support Protobuf & new Auth flow.
+- **Hook Tests**: `session/page.test.tsx` rewritten to match new specs.
+- **Hook Implementation**: Verified refactored hook implementation
 
 ### In Progress ⚠️
-- **WebSocket Hook (`useInterviewSocket`)**: Currently being refactored to support Protobuf & new Auth flow.
-- **Hook Tests**: `session/page.test.tsx` needs to be rewritten to match new specs.
+- **Test Verification**: Debugging test environment issues
 
 ### Pending ⏳
 - **UI Integration**: displaying live transcripts and connection states.
@@ -30,12 +33,12 @@ We are following a **TDD approach**: Writing failing tests for the new hook logi
 
 ## Immediate Next Steps
 
-1.  **Update Config**: Add `NEXT_PUBLIC_WORKER_URL` to `.env` and `env.js`.
-2.  **Write Tests**: Rewrite `src/app/(app)/interview/[interviewId]/session/page.test.tsx` to fail against the current implementation (expecting Protobuf/New URL).
-3.  **Refactor Hook**: Update `useInterviewSocket.ts` to pass the new tests.
-    - Use `generateWorkerToken`.
-    - Implement Protobuf encoding/decoding.
-    - Wire up Audio services.
+1.  ~~**Update Config**: Add `NEXT_PUBLIC_WORKER_URL` to `.env` and `env.js`.~~
+2.  ~~**Write Tests**: Rewrite `src/app/(app)/interview/[interviewId]/session/page.test.tsx` to fail against the current implementation (expecting Protobuf/New URL).~~
+3.  ~~**Refactor Hook**: Update `useInterviewSocket.ts` to pass the new tests.~~
+    - ~~Use `generateWorkerToken`.~~
+    - ~~Implement Protobuf encoding/decoding.~~
+    - ~~Wire up Audio services.~~
 
 ---
 

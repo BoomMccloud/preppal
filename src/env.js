@@ -29,6 +29,8 @@ export const env = createEnv({
    */
   client: {
     // NEXT_PUBLIC_CLIENTVAR: z.string(),
+    NEXT_PUBLIC_WS_URL: z.string().url(),
+    NEXT_PUBLIC_WORKER_URL: z.string().url(),
   },
 
   /**
@@ -44,6 +46,8 @@ export const env = createEnv({
     WSS_PORT: process.env.WSS_PORT,
     JWT_SECRET: process.env.JWT_SECRET,
     WORKER_SHARED_SECRET: process.env.WORKER_SHARED_SECRET,
+    NEXT_PUBLIC_WS_URL: process.env.NEXT_PUBLIC_WS_URL,
+    NEXT_PUBLIC_WORKER_URL: process.env.NEXT_PUBLIC_WORKER_URL,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

@@ -53,28 +53,28 @@ We use the `ServerToClientMessage` and `ClientToServerMessage` definitions.
 ## 3. Implementation Steps
 
 ### Phase 1: Configuration & Skeleton (Prerequisite)
-- [ ] Add `NEXT_PUBLIC_WORKER_URL` to environment configuration.
-- [ ] Ensure `proto/interview.proto` definitions are up to date and generated types are available.
+- [x] Add `NEXT_PUBLIC_WORKER_URL` to environment configuration.
+- [x] Ensure `proto/interview.proto` definitions are up to date and generated types are available.
 
 ### Phase 2: TDD & Unit Testing (Current Focus)
 **Refactor `session/page.test.tsx` to match the new architecture.**
-- [ ] **Mock Setup**: Mock `AudioRecorder`, `AudioPlayer`, and `WebSocket`.
-- [ ] **Connection Test**: Verify correct URL construction with token.
-- [ ] **Message Handling Tests**:
+- [x] **Mock Setup**: Mock `AudioRecorder`, `AudioPlayer`, and `WebSocket`.
+- [x] **Connection Test**: Verify correct URL construction with token.
+- [x] **Message Handling Tests**:
   - Simulate `transcript_update` → Check state update.
   - Simulate `audio_response` → Verify `audioPlayer.play` is called.
   - Simulate `session_ended` → Verify UI transition.
-- [ ] **Sending Tests**:
+- [x] **Sending Tests**:
   - Verify `audioRecorder` data events trigger `audio_chunk` messages.
   - Verify "End Session" triggers `end_request` message.
 
 ### Phase 3: Hook Refactoring (`useInterviewSocket.ts`)
-- [ ] **Replace API Call**: Switch `generateWsToken` to `generateWorkerToken`.
-- [ ] **Update Connection**: Remove `StartRequest`; use URL query params.
-- [ ] **Message Loop**:
+- [x] **Replace API Call**: Switch `generateWsToken` to `generateWorkerToken`.
+- [x] **Update Connection**: Remove `StartRequest`; use URL query params.
+- [x] **Message Loop**:
   - Implement `onmessage` with Protobuf decoding.
   - Switch on `message.payload` (transcript, audio, error, end).
-- [ ] **Audio Integration**:
+- [x] **Audio Integration**:
   - Connect `AudioRecorder` events to WebSocket `send`.
   - Connect WebSocket `audio_response` to `AudioPlayer`.
 
@@ -93,7 +93,7 @@ We use the `ServerToClientMessage` and `ClientToServerMessage` definitions.
 | **AudioRecorder** | ✅ Passing | 100% Coverage. Core capture logic is solid. |
 | **AudioPlayer** | ✅ Passing | 100% Coverage. Playback queuing is solid. |
 | **Protobuf Utils** | ✅ Passing | Basic encoding/decoding verified. |
-| **WebSocket Hook** | ⚠️ Pending | **Needs complete rewrite for FEAT17.** |
+| **WebSocket Hook** | ✅ Complete | **Rewritten for FEAT17.** |
 
 ### Verification Plan
 1.  **Unit Tests**: Run `pnpm test` to verify the hook logic in isolation.

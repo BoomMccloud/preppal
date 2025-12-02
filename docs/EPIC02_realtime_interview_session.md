@@ -140,23 +140,25 @@ message SessionEnded {
 
 ### Frontend State (`useInterviewSocket` hook)
 
-`initializing` → `requestingPermissions` → `connecting` → `live` → `ending`
+✅ **IMPLEMENTED** - `initializing` → `connecting` → `live` → `ending`
 
-- **`requestingPermissions`**: UI should show a message asking the user to grant microphone access.
-- **`connecting`**: Corresponds to the WebSocket connection being established and the worker connecting to Gemini.
+- **`initializing`**: Initial state when the hook is first loaded.
+- **`connecting`**: Corresponds to the WebSocket connection being established and initializing audio services.
 - **`live`**: The session is active. The client is sending user audio and receiving `TranscriptUpdate` and `AudioResponse` messages.
 - **`ending`**: The session is over. The client receives a `SessionEnded` message.
+
+Note: We've simplified the state flow by removing the `requestingPermissions` state since audio permissions are handled by the AudioRecorder service.
 
 ---
 
 ## 5. Parallel Development Plan
 
-1.  **Contract Implementation**: The backend team immediately updates `proto/interview.proto` with the schema from section 3.3 and generates the corresponding TypeScript code.
-2.  **Mock Server Development**: The backend team's **first priority** is to build and deploy a simple mock WebSocket server that perfectly implements the new contract. It will listen for `AudioChunk` messages and respond with a pre-scripted sequence of `TranscriptUpdate` and `AudioResponse` messages.
-3.  **Parallel Workstreams**:
-    - **Frontend Team**: Develops the full client experience against the **mock server**. They will implement the audio capture/playback logic and the UI for displaying transcripts and handling session states.
-    - **Backend Team**: Works in parallel on the full-featured Cloudflare Worker with Gemini integration.
-4.  **Integration**: Once the production worker is complete, the frontend application will be pointed to the new worker URL. Since both teams built against the same contract, integration should be seamless.
+✅ **COMPLETED** - 1.  **Contract Implementation**: The backend team immediately updated `proto/interview.proto` with the schema from section 3.3 and generated the corresponding TypeScript code.
+✅ **COMPLETED** - 2.  **Mock Server Development**: The backend team's **first priority** was to build and deploy a simple mock WebSocket server that perfectly implements the new contract. It listens for `AudioChunk` messages and responds with a pre-scripted sequence of `TranscriptUpdate` and `AudioResponse` messages.
+✅ **COMPLETED** - 3.  **Parallel Workstreams**:
+    - **Frontend Team**: Developed the full client experience against the **mock server**. Implemented the audio capture/playback logic and the UI for displaying transcripts and handling session states.
+    - **Backend Team**: Worked in parallel on the full-featured Cloudflare Worker with Gemini integration.
+⚠️ **IN PROGRESS** - 4.  **Integration**: The production worker is complete, and the frontend application has been updated to work with the new worker URL. Integration testing is in progress.
 
 ---
 
@@ -164,13 +166,15 @@ message SessionEnded {
 
 ### Frontend
 
-- **Audio Capture**: Use the `AudioWorklet` approach detailed in `FEAT17` to capture 16kHz, 16-bit PCM audio from the microphone.
-- **Audio Playback**: Use the `AudioWorklet` approach for playback to ensure smooth, non-blocking audio, as detailed in `FEAT17`.
-- **Message Handling**: The WebSocket `onmessage` handler must now decode `ServerToClientMessage` and switch on the `payload` type:
+✅ **Audio Capture**: Use the `AudioWorklet` approach detailed in `FEAT17` to capture 16kHz, 16-bit PCM audio from the microphone.
+✅ **Audio Playback**: Use the `AudioWorklet` approach for playback to ensure smooth, non-blocking audio, as detailed in `FEAT17`.
+✅ **Message Handling**: The WebSocket `onmessage` handler must now decode `ServerToClientMessage` and switch on the `payload` type:
   - On `transcript_update`: Update the UI state with the new text.
   - On `audio_response`: Pass the `audio_content` buffer to the `AudioPlayer` service for playback.
   - On `error`: Display an appropriate error message to the user.
   - On `session_ended`: Transition the UI to the final feedback page.
+✅ **Authentication**: Use `interview.generateWorkerToken` to obtain a JWT for authenticating with the Cloudflare Worker.
+✅ **Connection**: Connect to `wss://<WORKER_URL>/<interviewId>?token=<jwt>` instead of sending a `StartRequest` message.
 
 ### Backend
 
