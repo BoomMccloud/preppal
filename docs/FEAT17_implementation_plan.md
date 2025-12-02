@@ -1,141 +1,104 @@
-# FEAT17: Updated Implementation Plan for Client-Side Audio
+# FEAT17: Implementation Plan - Real-Time Client-Side Audio
 
-**Purpose**: This document provides an updated, actionable development plan for the frontend portion of the real-time interview feature. It supersedes the implementation details in `FEAT17_client_audio_spec.md` and aligns with the completed backend implementation in `FEAT16`.
-
----
-
-## 0. Context & Prerequisites
-
-**Backend Status**: The Cloudflare Worker and Gemini integration (FEAT16) are **COMPLETE**.
--   **Worker Command**: `pnpm dev:worker` (runs on `ws://localhost:8787`)
--   **API Endpoint**: `interview.generateWorkerToken` (Implemented in `src/server/api/routers/interview.ts`)
-
-**Code Verification (October 30, 2025)**:
-The current frontend code (`src/app/(app)/interview/[interviewId]/session/useInterviewSocket.ts`) is based on the **old specification** and must be refactored.
+**Purpose**: This document outlines the technical specification and step-by-step plan for implementing the frontend portion of the real-time interview feature. It consolidates requirements from previous specifications and aligns with the backend architecture (FEAT16).
 
 ---
 
-## 1. Core Changes
+## 1. Context & Architecture
 
-The new specification (`EPIC02`) and the completed backend (FEAT16) enforce the following:
+**Goal**: Migrate the frontend from a JSON-based local WebSocket architecture to a Protobuf-based architecture connecting to a Cloudflare Worker.
 
-1.  **New Authentication Flow**: The client uses `interview.generateWorkerToken` to get a short-lived JWT.
-2.  **Simplified WebSocket Handshake**: Connect directly via URL with the token. No initial `StartRequest`.
-3.  **Rich Server-to-Client Communication**: The worker sends `transcript_update`, `audio_response`, `error`, and `session_ended` messages.
-4.  **New Client-to-Server Message**: The client must send an `EndRequest` message to terminate the session.
+**Architecture**:
+- **Authentication**: JWT via `interview.generateWorkerToken` (tRPC).
+- **Connection**: `wss://<WORKER_URL>/<interviewId>?token=<jwt>`.
+- **Protocol**: Protocol Buffers (`proto/interview.proto`).
+- **Audio**: Bidirectional streaming (Raw PCM audio chunks).
 
----
-
-## 2. Revised API and Connection Logic
-
-The `useInterviewSocket` hook must be updated to match the FEAT16 implementation.
-
-### Configuration (New Requirement)
-
-You must add the Worker URL to the environment variables.
-
-1.  Update `.env` (and `.env.example`):
-    ```env
-    NEXT_PUBLIC_WORKER_URL="ws://localhost:8787"
-    ```
-2.  Update `src/env.js`:
-    ```typescript
-    client: {
-      NEXT_PUBLIC_WORKER_URL: z.string().url(),
-      // ...
-    },
-    runtimeEnv: {
-      NEXT_PUBLIC_WORKER_URL: process.env.NEXT_PUBLIC_WORKER_URL,
-      // ...
-    }
-    ```
-
-### tRPC API Call
-
--   **OLD**: `interview.generateWsToken`
--   **NEW**: `interview.generateWorkerToken`
--   **Action**: Update the tRPC call in `useInterviewSocket.ts` to use the new mutation.
-
-### WebSocket Connection
-
--   **OLD**: `ws://localhost:3001` with `StartRequest`.
--   **NEW**: `wss://<NEXT_PUBLIC_WORKER_URL>/<interviewId>?token=<jwt>`
--   **Action**:
-    1.  Import `env` from `~/env`.
-    2.  Construct the URL: `${env.NEXT_PUBLIC_WORKER_URL}/${interviewId}?token=${token}`.
-    3.  Remove `StartRequest` logic.
+**Responsibilities**:
+- **Frontend (Us)**: Audio capture, playback, socket management, UI state.
+- **Backend (Done)**: Cloudflare Worker, AI orchestration, token generation.
 
 ---
 
-## 3. Updated WebSocket Message Handling
+## 2. Technical Specifications
 
-The `onmessage` handler in `useInterviewSocket.ts` must be refactored to handle the Protobuf messages defined in `proto/interview.proto`.
+### 2.1 Configuration
+- **Env Var**: `NEXT_PUBLIC_WORKER_URL` (e.g., `ws://localhost:8787` for local dev).
+- **Update**: Add to `.env`, `.env.example`, and `src/env.js`.
 
-### Sending Messages (`ClientToServerMessage`)
+### 2.2 WebSocket Connection Logic
+- **Old**: `ws://localhost:3001` + `StartRequest` message.
+- **New**: `wss://...` with token in query param.
+- **Handshake**: Connection open = Session started. No explicit start message needed.
 
-1.  **`AudioChunk`**: Wrap raw audio buffers in `ClientToServerMessage` -> `audio_chunk`.
-2.  **`EndRequest`**: Create an `endSession` function that sends `ClientToServerMessage` -> `end_request`.
+### 2.3 Message Protocol (Protobuf)
+We use the `ServerToClientMessage` and `ClientToServerMessage` definitions.
 
-### Receiving Messages (`ServerToClientMessage`)
+**Incoming (`ServerToClientMessage`):**
+| Payload Type | Action |
+|--------------|--------|
+| `transcript_update` | Update transcript UI. Handle `USER` vs `AI` roles. |
+| `audio_response` | Enqueue/Play audio via `AudioPlayer` service. |
+| `session_ended` | Transition UI to completion state/feedback. |
+| `error` | Display error toast or alert. |
 
-Decode incoming `ArrayBuffer` to `ServerToClientMessage`.
-
-```typescript
-// inside onmessage
-const message = ServerToClientMessage.decode(new Uint8Array(event.data));
-
-switch (message.payload) {
-  case 'transcript_update':
-    // Handle speaker='USER' vs 'AI'
-    // Update transcript state
-    break;
-
-  case 'audio_response':
-    // Pass audioContent to AudioPlayer
-    break;
-
-  case 'error':
-    // Handle error state
-    break;
-
-  case 'session_ended':
-    // Handle session end (redirect or show summary)
-    break;
-}
-```
+**Outgoing (`ClientToServerMessage`):**
+| Payload Type | Trigger |
+|--------------|---------|
+| `audio_chunk` | Streamed continuously from `AudioRecorder`. |
+| `end_request` | Triggered by user clicking "End Interview". |
 
 ---
 
-## 4. Revised Implementation Plan
+## 3. Implementation Steps
 
--   [ ] **STEP 0: Config**: Add `NEXT_PUBLIC_WORKER_URL` to `.env` and `src/env.js`.
+### Phase 1: Configuration & Skeleton (Prerequisite)
+- [ ] Add `NEXT_PUBLIC_WORKER_URL` to environment configuration.
+- [ ] Ensure `proto/interview.proto` definitions are up to date and generated types are available.
 
--   [ ] **RED**: Update tests in `session/page.test.tsx`.
-    -   Mock `env.NEXT_PUBLIC_WORKER_URL`.
-    -   Verify `generateWorkerToken` is called.
-    -   Verify connection URL format.
-    -   Mock `ServerToClientMessage` (Protobuf) responses.
+### Phase 2: TDD & Unit Testing (Current Focus)
+**Refactor `session/page.test.tsx` to match the new architecture.**
+- [ ] **Mock Setup**: Mock `AudioRecorder`, `AudioPlayer`, and `WebSocket`.
+- [ ] **Connection Test**: Verify correct URL construction with token.
+- [ ] **Message Handling Tests**:
+  - Simulate `transcript_update` → Check state update.
+  - Simulate `audio_response` → Verify `audioPlayer.play` is called.
+  - Simulate `session_ended` → Verify UI transition.
+- [ ] **Sending Tests**:
+  - Verify `audioRecorder` data events trigger `audio_chunk` messages.
+  - Verify "End Session" triggers `end_request` message.
 
--   [ ] **GREEN**: Modify `useInterviewSocket.ts`.
-    -   Implement `generateWorkerToken`.
-    -   Implement new connection URL logic.
-    -   Implement `switch` case for message handling.
-    -   Implement `endSession` function.
+### Phase 3: Hook Refactoring (`useInterviewSocket.ts`)
+- [ ] **Replace API Call**: Switch `generateWsToken` to `generateWorkerToken`.
+- [ ] **Update Connection**: Remove `StartRequest`; use URL query params.
+- [ ] **Message Loop**:
+  - Implement `onmessage` with Protobuf decoding.
+  - Switch on `message.payload` (transcript, audio, error, end).
+- [ ] **Audio Integration**:
+  - Connect `AudioRecorder` events to WebSocket `send`.
+  - Connect WebSocket `audio_response` to `AudioPlayer`.
 
--   [ ] **REFACTOR**: Ensure clean state management and error handling.
+### Phase 4: UI Integration
+- [ ] Update `SessionContent.tsx` to display real-time transcripts.
+- [ ] Add visual feedback for "Listening" vs "Speaking" states.
+- [ ] Ensure "End Interview" button functions correctly.
 
 ---
 
-## 5. Updated Test Requirements
+## 4. Test Status & Strategy
 
--   **Unit Tests**: `session/page.test.tsx` (Mocked WebSocket).
--   **Manual/E2E Verification**:
-    -   Start the worker: `pnpm dev:worker`
-    -   Start the app: `pnpm dev`
-    -   Go to `/interview/[id]/session`
-    -   Verify:
-        -   Permission prompt appears.
-        -   Connection establishes (Worker logs "Session started").
-        -   Speaking sends audio (Worker logs "Received Audio Chunk").
-        -   AI responds (Audio plays back).
-        -   "End Interview" works (Worker logs "Session ended").
+### Current Status
+| Component | Status | Notes |
+|-----------|--------|-------|
+| **AudioRecorder** | ✅ Passing | 100% Coverage. Core capture logic is solid. |
+| **AudioPlayer** | ✅ Passing | 100% Coverage. Playback queuing is solid. |
+| **Protobuf Utils** | ✅ Passing | Basic encoding/decoding verified. |
+| **WebSocket Hook** | ⚠️ Pending | **Needs complete rewrite for FEAT17.** |
+
+### Verification Plan
+1.  **Unit Tests**: Run `pnpm test` to verify the hook logic in isolation.
+2.  **Manual E2E**:
+    - Start Worker: `pnpm dev:worker`
+    - Start App: `pnpm dev`
+    - Flow: Login -> Create Interview -> Enter Session.
+    - Verify: Mic permission -> Connection -> Speak -> AI Responds -> End.
