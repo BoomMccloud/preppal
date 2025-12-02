@@ -1,14 +1,43 @@
 #!/usr/bin/env node
-// ABOUTME: Automated test script for Phase 3.1 & 3.2 verification
-// ABOUTME: Tests interview lifecycle status updates and transcript submission
+// ABOUTME: Automated test script for Cloudflare Worker verification
+// ABOUTME: Tests worker protobuf handling and API call behavior (mocked backend)
 
 import http from 'http';
-import https from 'https';
 import WebSocket from 'ws';
+import jwt from 'jsonwebtoken';
+import dotenv from 'dotenv';
+import protobuf from 'protobufjs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+// Get directory name in ES modules (needed for path resolution)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Load environment variables from worker's .dev.vars file
+dotenv.config({ path: join(__dirname, '../worker/.dev.vars') });
+
+// Load protobuf definitions from .proto file
+const root = await protobuf.load(join(__dirname, '../proto/interview.proto'));
+const preppal = {
+  ClientToServerMessage: root.lookupType('preppal.ClientToServerMessage'),
+  ServerToClientMessage: root.lookupType('preppal.ServerToClientMessage'),
+};
 
 // Configuration
-const NEXT_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 const WORKER_URL = process.env.WORKER_URL || 'ws://localhost:8787';
+const JWT_SECRET = process.env.JWT_SECRET;
+const MOCK_API_PORT = 3999;
+
+// Test data
+const TEST_USER_ID = 'test-user-123';
+const TEST_INTERVIEW_ID = 'test-interview-456';
+
+// Track API calls made by worker
+const apiCalls = {
+  updateStatus: [],
+  submitTranscript: [],
+};
 
 // ANSI color codes
 const colors = {
@@ -25,102 +54,70 @@ function log(message, color = 'reset') {
 }
 
 function success(step, message) {
-  log(`[${step}] ${message}... ✅`, 'green');
+  console.log(`${colors.green}[${step}] ${message}... ✅${colors.reset}`);
 }
 
 function error(step, message) {
-  log(`[${step}] ${message}... ❌`, 'red');
+  console.log(`${colors.red}[${step}] ${message}... ❌${colors.reset}`);
 }
 
 function info(message) {
-  log(`       ${message}`, 'cyan');
+  console.log(`${colors.cyan}       ${message}${colors.reset}`);
 }
 
-// Helper to make HTTP requests
-function makeRequest(url, options = {}) {
-  return new Promise((resolve, reject) => {
-    const urlObj = new URL(url);
-    const lib = urlObj.protocol === 'https:' ? https : http;
+async function checkWorkerHealth(step) {
+  try {
+    const url = new URL(WORKER_URL);
+    const options = {
+      hostname: url.hostname,
+      port: url.port || 8787,
+      path: '/health',
+      method: 'GET',
+    };
 
-    const req = lib.request(url, options, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => {
-        try {
-          resolve({ status: res.statusCode, data: JSON.parse(data) });
-        } catch {
-          resolve({ status: res.statusCode, data });
+    await new Promise((resolve, reject) => {
+      const req = http.request(options, (res) => {
+        if (res.statusCode === 200 || res.statusCode === 404) {
+          resolve();
+        } else {
+          reject(new Error(`Worker returned status ${res.statusCode}`));
         }
       });
+      req.on('error', reject);
+      req.setTimeout(2000, () => reject(new Error('Timeout')));
+      req.end();
     });
 
-    req.on('error', reject);
-
-    if (options.body) {
-      req.write(JSON.stringify(options.body));
-    }
-
-    req.end();
-  });
-}
-
-// Test functions
-async function checkServer(url, name, step) {
-  try {
-    const response = await makeRequest(`${url}/health`);
-    if (response.status === 200) {
-      success(step, `Checking if ${name} is running`);
-      return true;
-    }
-    error(step, `${name} returned status ${response.status}`);
-    return false;
+    success(step, 'Checking if Cloudflare Worker is running');
+    return true;
   } catch (err) {
-    error(step, `${name} is not running`);
+    error(step, `Cloudflare Worker returned status ${err.message}`);
     info(`Error: ${err.message}`);
-    info(`Make sure you started ${name}`);
+    info(`Make sure you started the worker with: pnpm dev:worker`);
     return false;
   }
 }
 
-async function createTestUser(step) {
-  // For now, we'll assume a test user exists
-  // In a real scenario, you'd create one via the auth API
-  success(step, 'Using test user');
-  return {
-    id: 'test-user-123',
-    email: 'test@example.com',
-  };
-}
-
-async function createInterview(step) {
+function generateWorkerToken(step) {
   try {
-    // This would normally use the tRPC API
-    // For testing, we'll create a mock interview
-    const interviewId = `test-${Date.now()}`;
+    if (!JWT_SECRET) {
+      throw new Error('JWT_SECRET not configured in environment');
+    }
 
-    success(step, 'Creating test interview');
-    info(`Interview ID: ${interviewId}`);
-    info('Status: PENDING');
+    const token = jwt.sign(
+      {
+        userId: TEST_USER_ID,
+        interviewId: TEST_INTERVIEW_ID,
+      },
+      JWT_SECRET,
+      {
+        algorithm: 'HS256',
+        expiresIn: '5m',
+      }
+    );
 
-    return {
-      id: interviewId,
-      status: 'PENDING',
-    };
-  } catch (err) {
-    error(step, 'Failed to create interview');
-    info(`Error: ${err.message}`);
-    throw err;
-  }
-}
-
-async function generateWorkerToken(interviewId, step) {
-  try {
-    // This would normally call the interview.generateWorkerToken tRPC endpoint
-    // For testing, we'll create a mock JWT
     success(step, 'Generating worker token');
-
-    // In production, this would be a real JWT from the backend
-    return 'mock-jwt-token';
+    return token;
   } catch (err) {
     error(step, 'Failed to generate token');
     info(`Error: ${err.message}`);
@@ -128,24 +125,67 @@ async function generateWorkerToken(interviewId, step) {
   }
 }
 
+function startMockApiServer(step) {
+  return new Promise((resolve, reject) => {
+    const server = http.createServer((req, res) => {
+      let body = '';
+
+      req.on('data', chunk => {
+        body += chunk.toString();
+      });
+
+      req.on('end', () => {
+        try {
+          const data = JSON.parse(body);
+
+          // Check URL path to determine which endpoint was called
+          if (req.url && req.url.includes('updateStatus')) {
+            apiCalls.updateStatus.push(data);
+            info(`Worker called updateStatus: ${JSON.stringify(data)}`);
+          } else if (req.url && req.url.includes('submitTranscript')) {
+            apiCalls.submitTranscript.push(data);
+            info(`Worker called submitTranscript with ${data?.transcript?.length || 0} entries`);
+          } else {
+            info(`Unknown endpoint called: ${req.url}`);
+          }
+
+          // Send mock success response
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true }));
+        } catch (err) {
+          info(`Error parsing request: ${err}`);
+          res.writeHead(500);
+          res.end();
+        }
+      });
+    });
+
+    server.listen(MOCK_API_PORT, '0.0.0.0', (err) => {
+      if (err) {
+        error(step, 'Failed to start mock API server');
+        reject(err);
+      } else {
+        success(step, 'Starting mock API server');
+        info(`Mock API listening on 0.0.0.0:${MOCK_API_PORT}`);
+        resolve(server);
+      }
+    });
+  });
+}
+
 async function connectToWorker(interviewId, token, step) {
   return new Promise((resolve, reject) => {
     try {
       const ws = new WebSocket(`${WORKER_URL}/${interviewId}?token=${token}`);
 
-      const timeout = setTimeout(() => {
-        ws.close();
-        reject(new Error('Connection timeout'));
-      }, 10000);
-
       ws.on('open', () => {
-        clearTimeout(timeout);
         success(step, 'Connecting to worker WebSocket');
         resolve(ws);
       });
 
       ws.on('error', (err) => {
-        clearTimeout(timeout);
+        error(step, 'Failed to connect to worker');
+        info(`Error: ${err.message}`);
         reject(err);
       });
     } catch (err) {
@@ -156,36 +196,42 @@ async function connectToWorker(interviewId, token, step) {
   });
 }
 
-async function verifyStatusChange(interviewId, expectedStatus, step) {
-  try {
-    // This would query the database via tRPC
-    // For testing, we'll simulate the check
-    success(step, `Verifying status changed to ${expectedStatus}`);
-
-    if (expectedStatus === 'IN_PROGRESS') {
-      info(`startedAt: ${new Date().toISOString()}`);
-    } else if (expectedStatus === 'COMPLETED') {
-      info(`endedAt: ${new Date().toISOString()}`);
-    }
-
-    return true;
-  } catch (err) {
-    error(step, `Failed to verify status ${expectedStatus}`);
-    info(`Error: ${err.message}`);
-    throw err;
-  }
-}
-
 async function sendAudioChunks(ws, step) {
   return new Promise((resolve, reject) => {
     try {
-      // Create a simple protobuf AudioChunk message
-      // In production, this would use the actual protobuf library
-      const mockAudioChunk = Buffer.from([0x00, 0x01, 0x02, 0x03]);
+      const fakeAudioData = Buffer.alloc(1600);
+      for (let i = 0; i < fakeAudioData.length; i++) {
+        fakeAudioData[i] = Math.floor(Math.random() * 256);
+      }
 
-      ws.send(mockAudioChunk);
+      const message = preppal.ClientToServerMessage.create({
+        audioChunk: { audioContent: fakeAudioData },
+      });
+
+      const encoded = preppal.ClientToServerMessage.encode(message).finish();
+      ws.send(encoded);
 
       success(step, 'Sending test audio chunks');
+
+      // Listen for any responses from worker after sending audio
+      let responseCount = 0;
+      const responseHandler = (data) => {
+        try {
+          const serverMessage = preppal.ServerToClientMessage.decode(new Uint8Array(data));
+          responseCount++;
+          info(`Received response #${responseCount}: ${JSON.stringify(serverMessage.toJSON())}`);
+
+          // Optional: Check for specific fields in responses
+          if (serverMessage.transcriptUpdate) {
+            info(`Transcript update: ${serverMessage.transcriptUpdate.text}`);
+          }
+        } catch (decodeErr) {
+          info(`Failed to decode response: ${decodeErr.message}`);
+        }
+      };
+
+      ws.once('message', responseHandler);
+
       resolve();
     } catch (err) {
       error(step, 'Failed to send audio');
@@ -198,19 +244,35 @@ async function sendAudioChunks(ws, step) {
 async function sendEndRequest(ws, step) {
   return new Promise((resolve, reject) => {
     try {
-      // Create a simple protobuf EndRequest message
-      const mockEndRequest = Buffer.from([0x10, 0x01]);
+      const message = preppal.ClientToServerMessage.create({
+        endRequest: {},
+      });
 
-      ws.send(mockEndRequest);
+      const encoded = preppal.ClientToServerMessage.encode(message).finish();
+      ws.send(encoded);
 
-      // Wait for session ended response
+      success(step, 'Sending end request');
+
+      let responded = false;
       ws.on('message', (data) => {
-        success(step, 'Sending end request');
-        resolve();
+        if (!responded) {
+          responded = true;
+          try {
+            const serverMessage = preppal.ServerToClientMessage.decode(new Uint8Array(data));
+            if (serverMessage.sessionEnded) {
+              info(`Session ended: ${serverMessage.sessionEnded.reason}`);
+            }
+          } catch (decodeErr) {
+            // Ignore decode errors
+          }
+          resolve();
+        }
       });
 
       setTimeout(() => {
-        resolve(); // Resolve anyway after timeout
+        if (!responded) {
+          resolve();
+        }
       }, 2000);
     } catch (err) {
       error(step, 'Failed to send end request');
@@ -220,88 +282,105 @@ async function sendEndRequest(ws, step) {
   });
 }
 
-async function verifyFinalResults(interviewId, step) {
+function verifyApiCalls(step) {
   try {
-    // This would query the database for final state
-    success(step, 'Verifying final results');
-    info('Status: COMPLETED');
-    info(`endedAt: ${new Date().toISOString()}`);
-    info('Transcript entries: 2');
+    info(`Checking API calls: updateStatus=${apiCalls.updateStatus.length}, submitTranscript=${apiCalls.submitTranscript.length}`);
 
+    // Verify updateStatus was called at least twice (IN_PROGRESS and COMPLETED)
+    if (apiCalls.updateStatus.length < 2) {
+      throw new Error(`Worker called updateStatus only ${apiCalls.updateStatus.length} time(s), expected at least 2`);
+    }
+
+    const inProgressCall = apiCalls.updateStatus.find(
+      call => call.status === 'IN_PROGRESS'
+    );
+
+    if (!inProgressCall) {
+      throw new Error('Worker did not call updateStatus with IN_PROGRESS');
+    }
+
+    info(`✓ Worker called updateStatus(IN_PROGRESS)`);
+
+    const completedCall = apiCalls.updateStatus.find(
+      call => call.status === 'COMPLETED'
+    );
+
+    if (!completedCall) {
+      throw new Error('Worker did not call updateStatus with COMPLETED');
+    }
+
+    info(`✓ Worker called updateStatus(COMPLETED)`);
+
+    // Verify submitTranscript was called
+    if (apiCalls.submitTranscript.length === 0) {
+      throw new Error('Worker did not call submitTranscript');
+    }
+
+    info(`✓ Worker called submitTranscript`);
+
+    success(step, 'Verifying worker API calls');
     return true;
   } catch (err) {
-    error(step, 'Failed to verify final results');
+    error(step, 'API call verification failed');
     info(`Error: ${err.message}`);
     throw err;
   }
 }
 
-// Main test suite
 async function runTests() {
-  log('\n🧪 FEAT16 Phase 3.1 & 3.2 Test Suite', 'blue');
-  log('====================================\n', 'blue');
+  log('\n🧪 Cloudflare Worker Test Suite', 'cyan');
+  log('====================================\n', 'cyan');
+
+  let mockServer;
+  let ws;
 
   try {
-    // Step 1: Check Next.js server
-    const nextRunning = await checkServer(NEXT_URL, 'Next.js server', '1/10');
-    if (!nextRunning) {
-      log('\n💡 Tip: Start the Next.js server with: pnpm dev\n', 'yellow');
-      process.exit(1);
-    }
-
-    // Step 2: Check Worker server
-    const workerRunning = await checkServer(
-      WORKER_URL.replace('ws:', 'http:'),
-      'Cloudflare Worker',
-      '2/10'
-    );
+    // Step 1: Check worker is running
+    const workerRunning = await checkWorkerHealth('1/7');
     if (!workerRunning) {
-      log('\n💡 Tip: Start the worker with: cd worker && pnpm dev\n', 'yellow');
+      log('\n💡 Tip: Start the worker with: pnpm dev:worker\n', 'yellow');
       process.exit(1);
     }
 
-    // Step 3: Create test user
-    const user = await createTestUser('3/10');
+    // Step 2: Start mock API server
+    mockServer = await startMockApiServer('2/7');
 
-    // Step 4: Create test interview
-    const interview = await createInterview('4/10');
+    // Step 3: Generate worker token
+    const token = generateWorkerToken('3/7');
 
-    // Step 5: Generate worker token
-    const token = await generateWorkerToken(interview.id, '5/10');
+    // Step 4: Connect to worker
+    ws = await connectToWorker(TEST_INTERVIEW_ID, token, '4/7');
 
-    // Step 6: Connect to worker
-    const ws = await connectToWorker(interview.id, token, '6/10');
-
-    // Wait a bit for status update to process
+    // Wait for status update
     await new Promise(resolve => setTimeout(resolve, 1000));
 
-    // Step 7: Verify status changed to IN_PROGRESS
-    await verifyStatusChange(interview.id, 'IN_PROGRESS', '7/10');
+    // Step 5: Send audio chunks
+    await sendAudioChunks(ws, '5/7');
 
-    // Step 8: Send audio
-    await sendAudioChunks(ws, '8/10');
+    // Step 6: Send end request
+    await sendEndRequest(ws, '6/7');
 
-    // Step 9: Send end request
-    await sendEndRequest(ws, '9/10');
+    // Wait for transcript submission and status update
+    await new Promise(resolve => setTimeout(resolve, 5000));
 
-    // Wait for backend processing
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Step 7: Verify API calls
+    verifyApiCalls('7/7');
 
-    // Step 10: Verify final results
-    await verifyFinalResults(interview.id, '10/10');
-
-    // Close WebSocket
-    ws.close();
-
-    // Success!
     log('\n✅ ALL TESTS PASSED!\n', 'green');
-    log('Phase 3.1 & 3.2 are working correctly! 🎉\n', 'green');
+    log('Cloudflare Worker is working correctly! 🎉\n', 'green');
 
   } catch (err) {
     log('\n❌ TESTS FAILED\n', 'red');
     log(`Error: ${err.message}\n`, 'red');
-    log('📋 Please check the troubleshooting section in FEAT16_Testing_Manual.md\n', 'yellow');
     process.exit(1);
+  } finally {
+    // Cleanup
+    if (ws) {
+      ws.close();
+    }
+    if (mockServer) {
+      mockServer.close();
+    }
   }
 }
 

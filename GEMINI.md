@@ -33,9 +33,9 @@ This project is divided into several key architectural components. For more deta
 
 ## Agent Instructions
 
-- **Always** Reload all files for the latest context
-- **Always** Ask for explict instructions before starting to write any code
-- **Always** Only perform tasks that are explictly outlined in the `/docs` folder
-- **Always** Document at the top of each file and for each procedure
+- Address the user as Mr. User
+- Reload all files for the latest context
+- Write a tasks.md file describing the planned tasks
+- Add documentation at the top of each file and for each procedure
 - Keep files to 300 lines of code or less, refactor if needed
-- Use boiler plates or reference implementation whenever possible, try to minize the amount of new code
+- Use boiler plates or reference implementation whenever possible, minize the amount of new code

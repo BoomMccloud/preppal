@@ -109,8 +109,7 @@ Wait for message: `✓ Ready on http://localhost:3000`
 
 **Terminal 2 - Start Cloudflare Worker:**
 ```bash
-cd worker
-pnpm dev
+pnpm dev:worker
 ```
 
 Wait for message showing the worker is running (usually on port 8787)
@@ -384,7 +383,7 @@ pnpm db:push
 pnpm dev
 
 # Start worker (Terminal 2)
-cd worker && pnpm dev
+pnpm dev:worker
 
 # View database
 pnpm db:studio

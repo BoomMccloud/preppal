@@ -1,0 +1,123 @@
+{
+  "nested": {
+    "preppal": {
+      "nested": {
+        "ClientToServerMessage": {
+          "oneofs": {
+            "payload": {
+              "oneof": [
+                "audioChunk",
+                "endRequest"
+              ]
+            }
+          },
+          "fields": {
+            "audioChunk": {
+              "type": "AudioChunk",
+              "id": 1
+            },
+            "endRequest": {
+              "type": "EndRequest",
+              "id": 2
+            }
+          }
+        },
+        "AudioChunk": {
+          "fields": {
+            "audioContent": {
+              "type": "bytes",
+              "id": 1
+            }
+          }
+        },
+        "EndRequest": {
+          "fields": {}
+        },
+        "ServerToClientMessage": {
+          "oneofs": {
+            "payload": {
+              "oneof": [
+                "transcriptUpdate",
+                "audioResponse",
+                "error",
+                "sessionEnded"
+              ]
+            }
+          },
+          "fields": {
+            "transcriptUpdate": {
+              "type": "TranscriptUpdate",
+              "id": 1
+            },
+            "audioResponse": {
+              "type": "AudioResponse",
+              "id": 2
+            },
+            "error": {
+              "type": "ErrorResponse",
+              "id": 3
+            },
+            "sessionEnded": {
+              "type": "SessionEnded",
+              "id": 4
+            }
+          }
+        },
+        "TranscriptUpdate": {
+          "fields": {
+            "speaker": {
+              "type": "string",
+              "id": 1
+            },
+            "text": {
+              "type": "string",
+              "id": 2
+            },
+            "isFinal": {
+              "type": "bool",
+              "id": 3
+            }
+          }
+        },
+        "AudioResponse": {
+          "fields": {
+            "audioContent": {
+              "type": "bytes",
+              "id": 1
+            }
+          }
+        },
+        "ErrorResponse": {
+          "fields": {
+            "code": {
+              "type": "int32",
+              "id": 1
+            },
+            "message": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "SessionEnded": {
+          "fields": {
+            "reason": {
+              "type": "Reason",
+              "id": 1
+            }
+          },
+          "nested": {
+            "Reason": {
+              "values": {
+                "REASON_UNSPECIFIED": 0,
+                "USER_INITIATED": 1,
+                "GEMINI_ENDED": 2,
+                "TIMEOUT": 3
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

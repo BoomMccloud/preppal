@@ -22,6 +22,7 @@ export class GeminiSession implements DurableObject {
 	private transcriptManager: TranscriptManager;
 	private geminiSession: any;
 	private apiClient: ApiClient;
+	private userInitiatedClose = false;
 
 	constructor(
 		private state: DurableObjectState,
@@ -66,6 +67,7 @@ export class GeminiSession implements DurableObject {
 
 			// Update interview status to IN_PROGRESS
 			await this.apiClient.updateStatus(this.interviewId, 'IN_PROGRESS');
+			console.log(`[GeminiSession] Called updateStatus for ${this.interviewId} to IN_PROGRESS`);
 			console.log(`Interview ${this.interviewId} status updated to IN_PROGRESS`);
 		} catch (error) {
 			console.error('Failed to initialize Gemini:', error);
@@ -170,6 +172,9 @@ export class GeminiSession implements DurableObject {
 	private async handleEndRequest(ws: WebSocket): Promise<void> {
 		console.log(`Received end request for interview ${this.interviewId}`);
 
+		// Mark as user-initiated close
+		this.userInitiatedClose = true;
+
 		// Close Gemini connection if exists
 		if (this.geminiSession) {
 			this.geminiSession.close();
@@ -190,6 +195,14 @@ export class GeminiSession implements DurableObject {
 			);
 		} catch (error) {
 			console.error('Failed to submit transcript:', error);
+		}
+
+		// Update status to COMPLETED
+		try {
+			await this.apiClient.updateStatus(this.interviewId!, 'COMPLETED');
+			console.log(`Interview ${this.interviewId} status updated to COMPLETED`);
+		} catch (error) {
+			console.error('Failed to update status to COMPLETED:', error);
 		}
 
 		// Send session ended message
@@ -237,21 +250,24 @@ export class GeminiSession implements DurableObject {
 					const errorMsg = createErrorResponse(4002, 'AI service error');
 					clientWs.send(encodeServerMessage(errorMsg));
 				},
-				onclose: async (event: any) => {
-					console.log('Gemini connection closed:', event);
+				onclose: async () => {
+					console.log('Gemini connection closed');
 
-					// Update status to ERROR (unexpected close)
-					try {
-						await this.apiClient.updateStatus(this.interviewId!, 'ERROR');
-					} catch (apiError) {
-						console.error('Failed to update status to ERROR:', apiError);
+					// Only update status to ERROR if this was an unexpected close
+					if (!this.userInitiatedClose) {
+						try {
+							await this.apiClient.updateStatus(this.interviewId!, 'ERROR');
+							console.log(`Interview ${this.interviewId} status updated to ERROR (unexpected close)`);
+						} catch (apiError) {
+							console.error('Failed to update status to ERROR:', apiError);
+						}
+
+						const endMsg = createSessionEnded(
+							preppal.SessionEnded.Reason.GEMINI_ENDED,
+						);
+						clientWs.send(encodeServerMessage(endMsg));
+						clientWs.close(1000, 'AI ended session');
 					}
-
-					const endMsg = createSessionEnded(
-						preppal.SessionEnded.Reason.GEMINI_ENDED,
-					);
-					clientWs.send(encodeServerMessage(endMsg));
-					clientWs.close(1000, 'AI ended session');
 				},
 			},
 		});

@@ -16,6 +16,7 @@ export class ApiClient {
   async updateStatus(interviewId: string, status: string): Promise<void> {
     const url = `${this.apiUrl}/api/trpc/interview.updateStatus`;
 
+    console.log(`[API] Calling updateStatus: ${url}`);
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -28,6 +29,7 @@ export class ApiClient {
       }),
     });
 
+    console.log(`[API] updateStatus response: ${response.status} ${response.statusText}`);
     if (!response.ok) {
       throw new Error(`Failed to update status: ${response.status} ${response.statusText}`);
     }
@@ -40,6 +42,7 @@ export class ApiClient {
   ): Promise<void> {
     const url = `${this.apiUrl}/api/trpc/interview.submitTranscript`;
 
+    console.log(`[API] Calling submitTranscript: ${url}`);
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -53,6 +56,7 @@ export class ApiClient {
       }),
     });
 
+    console.log(`[API] submitTranscript response: ${response.status} ${response.statusText}`);
     if (!response.ok) {
       throw new Error(`Failed to submit transcript: ${response.status} ${response.statusText}`);
     }
