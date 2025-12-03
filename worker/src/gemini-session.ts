@@ -26,6 +26,7 @@ export class GeminiSession implements DurableObject {
   private audioChunksReceivedCount = 0;
   private audioResponsesReceivedCount = 0;
   private sessionEnded = false;
+  private isDebug = false;
 
   constructor(
     private state: DurableObjectState,
@@ -43,9 +44,9 @@ export class GeminiSession implements DurableObject {
       if (ws.readyState === WebSocket.READY_STATE_OPEN) {
         ws.send(data);
       } else {
-        console.warn(
-          `[GeminiSession] Attempted to send message to closed WebSocket for interview ${this.interviewId}`,
-        );
+        // console.warn(
+        //   `[GeminiSession] Attempted to send message to closed WebSocket for interview ${this.interviewId}`,
+        // );
       }
     } catch (error) {
       console.error(
@@ -56,6 +57,11 @@ export class GeminiSession implements DurableObject {
   }
 
   async fetch(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    if (this.env.DEV_MODE === "true" && url.pathname === "/debug/live-audio") {
+      this.isDebug = true;
+      console.log("[GeminiSession] Debug mode activated.");
+    }
     // Handle WebSocket upgrade
     const upgradeHeader = request.headers.get("Upgrade");
     if (upgradeHeader !== "websocket") {
@@ -66,8 +72,13 @@ export class GeminiSession implements DurableObject {
     this.userId = request.headers.get("X-User-Id") ?? undefined;
     this.interviewId = request.headers.get("X-Interview-Id") ?? undefined;
 
-    if (!this.userId || !this.interviewId) {
+    if (!this.isDebug && (!this.userId || !this.interviewId)) {
       return new Response("Missing authentication context", { status: 401 });
+    }
+
+    if (this.isDebug) {
+      this.userId = "debug-user";
+      this.interviewId = `debug-interview-${new Date().getTime()}`;
     }
 
     console.log(
@@ -93,20 +104,24 @@ export class GeminiSession implements DurableObject {
       );
 
       // Update interview status to IN_PROGRESS
-      console.log(`[GeminiSession] Step 5: Updating status to IN_PROGRESS`);
-      await this.apiClient.updateStatus(this.interviewId!, "IN_PROGRESS");
-      console.log(`[GeminiSession] Step 6: Status updated to IN_PROGRESS`);
+      if (!this.isDebug) {
+        console.log(`[GeminiSession] Step 5: Updating status to IN_PROGRESS`);
+        await this.apiClient.updateStatus(this.interviewId!, "IN_PROGRESS");
+        console.log(`[GeminiSession] Step 6: Status updated to IN_PROGRESS`);
+      }
     } catch (error) {
       console.error("[GeminiSession] Failed to initialize Gemini:", error);
 
       // Update status to ERROR
-      try {
-        await this.apiClient.updateStatus(this.interviewId!, "ERROR");
-      } catch (apiError) {
-        console.error(
-          "[GeminiSession] Failed to update status to ERROR:",
-          apiError,
-        );
+      if (!this.isDebug) {
+        try {
+          await this.apiClient.updateStatus(this.interviewId!, "ERROR");
+        } catch (apiError) {
+          console.error(
+            "[GeminiSession] Failed to update status to ERROR:",
+            apiError,
+          );
+        }
       }
 
       // In case of initialization error, we still need to handle messages
@@ -254,44 +269,45 @@ export class GeminiSession implements DurableObject {
       );
       this.geminiSession.close();
     }
+    if (!this.isDebug) {
+      // Submit transcript to Next.js API
+      try {
+        const transcript = this.transcriptManager.getTranscript();
+        const endedAt = new Date().toISOString();
 
-    // Submit transcript to Next.js API
-    try {
-      const transcript = this.transcriptManager.getTranscript();
-      const endedAt = new Date().toISOString();
+        console.log(
+          `[GeminiSession] Submitting transcript for interview ${this.interviewId} (${transcript.length} entries)`,
+        );
+        await this.apiClient.submitTranscript(
+          this.interviewId!,
+          transcript,
+          endedAt,
+        );
+        console.log(
+          `[GeminiSession] Transcript submitted for interview ${this.interviewId} (${transcript.length} entries)`,
+        );
+      } catch (error) {
+        console.error(
+          `[GeminiSession] Failed to submit transcript for interview ${this.interviewId}:`,
+          error,
+        );
+      }
 
-      console.log(
-        `[GeminiSession] Submitting transcript for interview ${this.interviewId} (${transcript.length} entries)`,
-      );
-      await this.apiClient.submitTranscript(
-        this.interviewId!,
-        transcript,
-        endedAt,
-      );
-      console.log(
-        `[GeminiSession] Transcript submitted for interview ${this.interviewId} (${transcript.length} entries)`,
-      );
-    } catch (error) {
-      console.error(
-        `[GeminiSession] Failed to submit transcript for interview ${this.interviewId}:`,
-        error,
-      );
-    }
-
-    // Update status to COMPLETED
-    try {
-      console.log(
-        `[GeminiSession] Updating status to COMPLETED for interview ${this.interviewId}`,
-      );
-      await this.apiClient.updateStatus(this.interviewId!, "COMPLETED");
-      console.log(
-        `[GeminiSession] Interview ${this.interviewId} status updated to COMPLETED`,
-      );
-    } catch (error) {
-      console.error(
-        `[GeminiSession] Failed to update status to COMPLETED for interview ${this.interviewId}:`,
-        error,
-      );
+      // Update status to COMPLETED
+      try {
+        console.log(
+          `[GeminiSession] Updating status to COMPLETED for interview ${this.interviewId}`,
+        );
+        await this.apiClient.updateStatus(this.interviewId!, "COMPLETED");
+        console.log(
+          `[GeminiSession] Interview ${this.interviewId} status updated to COMPLETED`,
+        );
+      } catch (error) {
+        console.error(
+          `[GeminiSession] Failed to update status to COMPLETED for interview ${this.interviewId}:`,
+          error,
+        );
+      }
     }
 
     // Send session ended message
@@ -357,16 +373,16 @@ export class GeminiSession implements DurableObject {
             `[GeminiSession] Gemini Live API error for interview ${this.interviewId}:`,
             error,
           );
-          // Update status to ERROR
-
-          // Update status to ERROR
-          try {
-            await this.apiClient.updateStatus(this.interviewId!, "ERROR");
-          } catch (apiError) {
-            console.error(
-              `[GeminiSession] Failed to update status to ERROR for interview ${this.interviewId}:`,
-              apiError,
-            );
+          if (!this.isDebug) {
+            // Update status to ERROR
+            try {
+              await this.apiClient.updateStatus(this.interviewId!, "ERROR");
+            } catch (apiError) {
+              console.error(
+                `[GeminiSession] Failed to update status to ERROR for interview ${this.interviewId}:`,
+                apiError,
+              );
+            }
           }
 
           const errorMsg = createErrorResponse(4002, "AI service error");
@@ -381,7 +397,7 @@ export class GeminiSession implements DurableObject {
           this.sessionEnded = true;
 
           // Only update status to ERROR if this was an unexpected close
-          if (!this.userInitiatedClose) {
+          if (!this.userInitiatedClose && !this.isDebug) {
             try {
               await this.apiClient.updateStatus(this.interviewId!, "ERROR");
               console.log(
@@ -393,7 +409,9 @@ export class GeminiSession implements DurableObject {
                 apiError,
               );
             }
+          }
 
+          if (!this.userInitiatedClose) {
             const endMsg = createSessionEnded(
               preppal.SessionEnded.Reason.GEMINI_ENDED,
             );
@@ -424,9 +442,9 @@ export class GeminiSession implements DurableObject {
   private handleGeminiMessage(serverSideWs: WebSocket, message: any): void {
     // Don't process messages if the session has ended
     if (this.sessionEnded) {
-      console.warn(
-        `[GeminiSession] Received Gemini message after session ended for interview ${this.interviewId}`,
-      );
+      // console.warn(
+      //   `[GeminiSession] Received Gemini message after session ended for interview ${this.interviewId}`,
+      // );
       return;
     }
 

@@ -3,6 +3,7 @@ export class AudioPlayer {
   private queue: AudioBuffer[] = [];
   private isPlaying = false;
   private sampleRate: number;
+  private currentSource: AudioBufferSourceNode | null = null;
 
   constructor(sampleRate = 24000) {
     this.sampleRate = sampleRate;
@@ -16,10 +17,18 @@ export class AudioPlayer {
     );
   }
 
+  public async resume(): Promise<void> {
+    if (this.audioContext && this.audioContext.state === "suspended") {
+      await this.audioContext.resume();
+      console.log(
+        `[AudioPlayer] AudioContext resumed. State: ${this.audioContext.state}`,
+      );
+    }
+  }
+
   public stop() {
     console.log("Stopping audio player...");
-    this.isPlaying = false;
-    this.queue = [];
+    this.clear();
     if (this.audioContext) {
       void this.audioContext.close().then(() => {
         this.audioContext = null;
@@ -27,12 +36,27 @@ export class AudioPlayer {
     }
   }
 
-  // Receives a raw 16-bit PCM ArrayBuffer and adds it to the queue.
-  public async enqueue(pcm16ArrayBuffer: ArrayBuffer) {
+  public clear() {
+    if (this.currentSource) {
+      this.currentSource.onended = null; // Prevent the loop from continuing
+      this.currentSource.stop();
+      this.currentSource = null;
+    }
+    this.queue = [];
+    this.isPlaying = false;
+  }
+
+  // Receives raw 16-bit PCM data as a Uint8Array and adds it to the queue.
+  public async enqueue(pcm16Data: Uint8Array) {
     if (!this.audioContext) return;
 
     // 1. Convert the 16-bit PCM data into the Float32 format the Web Audio API needs.
-    const pcm16 = new Int16Array(pcm16ArrayBuffer);
+    // The data is coming in as a byte stream (Uint8Array), and needs to be interpreted as 16-bit PCM.
+    const pcm16 = new Int16Array(
+      pcm16Data.buffer,
+      pcm16Data.byteOffset,
+      pcm16Data.byteLength / 2,
+    );
     const pcm32 = new Float32Array(pcm16.length);
     for (let i = 0; i < pcm16.length; i++) {
       pcm32[i] = pcm16[i]! / 32768.0; // Convert to -1.0 to 1.0 range
@@ -56,6 +80,7 @@ export class AudioPlayer {
   private async playNextInQueue() {
     if (this.queue.length === 0 || !this.audioContext) {
       this.isPlaying = false;
+      this.currentSource = null;
       return;
     }
 
@@ -76,6 +101,7 @@ export class AudioPlayer {
     source.buffer = buffer;
     source.connect(this.audioContext.destination);
     source.start();
+    this.currentSource = source;
 
     source.onended = () => {
       // When this buffer finishes, play the next one.

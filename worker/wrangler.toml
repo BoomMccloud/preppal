@@ -1,21 +1,11 @@
 name = "preppal-worker"
 main = "src/index.ts"
-compatibility_date = "2024-10-01"
+compatibility_date = "2023-11-21"
+durable_objects.bindings = [{ name = "GEMINI_SESSION", class_name = "GeminiSession" }]
 
-# Environment variables
 [vars]
-NEXT_PUBLIC_API_URL = "http://192.168.50.19:3000"
+DEV_MODE = "true"
 
-# Note: Secrets (JWT_SECRET, WORKER_SHARED_SECRET, GEMINI_API_KEY)
-# are loaded from .dev.vars locally and must be set via
-# `wrangler secret put <NAME>` for production
-
-# Durable Objects configuration
-[[durable_objects.bindings]]
-name = "GEMINI_SESSION"
-class_name = "GeminiSession"
-
-# Migrations for Durable Objects
 [[migrations]]
 tag = "v1"
-new_sqlite_classes = ["GeminiSession"]
+new_classes = ["GeminiSession"]

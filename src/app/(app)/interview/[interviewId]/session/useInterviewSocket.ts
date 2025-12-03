@@ -48,8 +48,19 @@ export function useInterviewSocket({
 
   const wsRef = useRef<WebSocket | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const speakingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const audioPlayerRef = useRef<AudioPlayer | null>(null);
+
+  // Effect to handle user interruption (barge-in)
+  useEffect(() => {
+    const lastEntry = transcript[transcript.length - 1];
+    if (lastEntry?.speaker === "USER" && isAiSpeaking) {
+      if (audioPlayerRef.current) {
+        console.log("[Barge-in] User started speaking, clearing AI audio queue.");
+        audioPlayerRef.current.clear();
+        setIsAiSpeaking(false);
+      }
+    }
+  }, [transcript, isAiSpeaking]);
 
   const { mutate: generateToken } =
     api.interview.generateWorkerToken.useMutation({
@@ -97,7 +108,6 @@ export function useInterviewSocket({
             }
           }
         });
-
         startTimer();
       }
     };
@@ -146,25 +156,16 @@ export function useInterviewSocket({
           is_final: message.transcriptUpdate.isFinal!,
         }]);
       } else if (message.audioResponse) {
+        if (!isAiSpeaking) {
+          setIsAiSpeaking(true);
+        }
         if (audioPlayerRef.current) {
           const audioData = message.audioResponse.audioContent;
-          audioPlayerRef.current.enqueue(audioData.slice().buffer);
-
-          const sampleRate = 24000;
-          const numSamples = audioData!.byteLength / 2;
-          const durationMs = (numSamples / sampleRate) * 1000;
-
-          setIsAiSpeaking(true);
-
-          if (speakingTimerRef.current) {
-            clearTimeout(speakingTimerRef.current);
-          }
-
-          speakingTimerRef.current = setTimeout(() => {
-            setIsAiSpeaking(false);
-            speakingTimerRef.current = null;
-          }, durationMs);
+          void audioPlayerRef.current.enqueue(audioData.slice().buffer);
         }
+      } else if (message.turnComplete) {
+        console.log("[WebSocket] Turn complete.");
+        setIsAiSpeaking(false);
       } else if (message.sessionEnded) {
         console.log(`[WebSocket] Session ended`);
         setState("ending");
@@ -198,7 +199,7 @@ export function useInterviewSocket({
         const message = preppal.ClientToServerMessage.create({ endRequest: {} });
         const buffer = preppal.ClientToServerMessage.encode(message).finish();
         wsRef.current.send(buffer);
-        wsRef.current.close();
+        wsRef.current.close(1000, "User ended interview");
       } catch (err) {
         console.error("Error sending end request:", err);
       }

@@ -10,6 +10,8 @@ export interface Env {
   WORKER_SHARED_SECRET: string;
   GEMINI_API_KEY: string;
   NEXT_PUBLIC_API_URL: string;
+  // Add a dev flag for debug routes
+  DEV_MODE?: string;
 }
 
 export default {
@@ -23,8 +25,20 @@ export default {
       });
     }
 
-    // WebSocket endpoint: /<interviewId>?token=<jwt>
+    // WebSocket endpoint handling
     if (request.headers.get("Upgrade") === "websocket") {
+      // --- DEBUG ROUTE ---
+      // In dev mode, allow a raw, unauthenticated connection for testing.
+      if (env.DEV_MODE === "true" && url.pathname === "/debug/live-audio") {
+        console.log("Activating debug route: /debug/live-audio");
+        // Use a new, temporary (non-named) Durable Object for this session
+        const id = env.GEMINI_SESSION.newUniqueId();
+        const stub = env.GEMINI_SESSION.get(id);
+        // Forward the request without any user context
+        return stub.fetch(request);
+      }
+      // --- END DEBUG ROUTE ---
+
       // Extract interviewId from path (remove leading slash)
       const pathParts = url.pathname.split("/").filter((p) => p);
       if (pathParts.length !== 1) {

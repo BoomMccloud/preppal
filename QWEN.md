@@ -5,7 +5,7 @@
 Preppal is a full-stack web application built with the [T3 Stack](https://create.t3.gg/). It's designed to facilitate live interview practice with AI. The application leverages:
 
 - **Frontend**: Next.js (React)
-- **Backend**: Next.js (API Routes with a custom WebSocket server)
+- **Backend**: Cloudflare Workers with WebSocket server
 - **Database**: SQLite with Prisma ORM
 - **Real-time Communication**: WebSockets for bi-directional audio streaming
 - **API**: tRPC for standard data fetching
@@ -14,15 +14,16 @@ Preppal is a full-stack web application built with the [T3 Stack](https://create
 
 ## Core Technologies
 
-1. **Next.js**: Framework for both frontend and backend
-2. **TypeScript**: Primary language with strict type checking
-3. **tRPC**: Typesafe API routes
-4. **Prisma**: ORM for database interactions
-5. **NextAuth.js**: Authentication
-6. **WebSockets**: Real-time communication for interviews
-7. **Tailwind CSS**: Styling
-8. **Vitest**: Testing framework
-9. **ESLint/Prettier**: Code quality tools
+1. **Next.js**: Framework for frontend
+2. **Cloudflare Workers**: Backend WebSocket server for real-time communication
+3. **TypeScript**: Primary language with strict type checking
+4. **tRPC**: Typesafe API routes
+5. **Prisma**: ORM for database interactions
+6. **NextAuth.js**: Authentication
+7. **WebSockets**: Real-time communication for interviews
+8. **Tailwind CSS**: Styling
+9. **Vitest**: Testing framework
+10. **ESLint/Prettier**: Code quality tools
 
 ## Project Structure
 
@@ -33,7 +34,9 @@ src/
 │   │   ├── create-interview/
 │   │   ├── dashboard/
 │   │   ├── interview/
-│   │   └── profile/
+│   │   ├── mic-test/
+│   │   ├── profile/
+│   │   └── raw-worker-test/
 │   ├── api/             # Next.js API routes
 │   ├── signin/          # Authentication pages
 │   └── (legal)/         # Legal pages
@@ -41,10 +44,24 @@ src/
 │   ├── api/             # tRPC routers
 │   │   └── routers/     # Individual API routers
 │   ├── auth/            # Authentication setup
-│   ├── db/              # Database setup
-│   └── ws/              # WebSocket server
+│   └── db.ts            # Database setup
 ├── trpc/                # tRPC configuration
+├── lib/                 # Shared libraries
+├── types/               # TypeScript type definitions
+├── styles/              # Global styles
 └── test/                # Test utilities
+worker/
+├── src/                 # Cloudflare Worker implementation
+│   ├── lib/             # Worker shared libraries
+│   ├── __tests__/       # Worker tests
+│   ├── index.ts         # Worker entry point
+│   ├── gemini-session.ts # AI session management
+│   ├── messages.ts      # Message handling
+│   ├── transcript-manager.ts # Transcript management
+│   ├── audio-converter.ts # Audio conversion utilities
+│   ├── auth.ts          # Authentication helpers
+│   └── api-client.ts    # API client for main backend
+└── wrangler.toml        # Worker configuration
 ```
 
 ## Key Components
@@ -54,13 +71,13 @@ src/
 - Built with Next.js App Router
 - Uses React Server Components where appropriate
 - Implements tRPC for data fetching
-- Connects to WebSocket server for real-time audio streaming
+- Connects to Cloudflare Worker via WebSocket for real-time audio streaming
 - Uses Tailwind CSS for styling
 
 ### Backend (Server-Side)
 
 - **tRPC API**: Standard data fetching (user profiles, interview history, etc.)
-- **WebSocket Server**: Manages real-time interview sessions
+- **Cloudflare Worker**: Manages real-time interview sessions via WebSocket
 - **Database**: Prisma ORM for SQLite interactions
 
 ### Database (Prisma)
@@ -81,11 +98,13 @@ Models include:
 1. Copy `.env.example` to `.env` and populate values
 2. Run `pnpm install` to install dependencies
 3. Run `pnpm db:push` to set up the database
+4. Set up Cloudflare Wrangler for Worker development
 
 ### Running the Application
 
 - `pnpm dev`: Start Next.js development server
-- `pnpm dev:ws`: Start WebSocket server separately
+- `pnpm dev:ws`: Start Cloudflare Worker locally
+- `pnpm dev:worker`: Start Cloudflare Worker with Wrangler
 - `pnpm build`: Build the application for production
 
 ### Database Management
@@ -116,17 +135,17 @@ Models include:
 3. User creates a new interview session by providing job description and resume
 4. System creates interview with PENDING status
 5. User enters the interview lobby
-6. User connects to WebSocket server for real-time communication
+6. User connects to Cloudflare Worker via WebSocket for real-time communication
 7. Interview progresses with AI interaction
 8. System generates feedback after interview completion
 9. User can view feedback and performance metrics
 
 ## WebSocket Communication
 
-The WebSocket server handles real-time interview sessions:
+The Cloudflare Worker handles real-time interview sessions:
 
 - Authentication via JWT tokens
-- Audio streaming (currently mocked in MVP)
+- Audio streaming (bi-directional)
 - Transcript generation
 - Session management
 - Feedback generation
@@ -151,8 +170,8 @@ The WebSocket server handles real-time interview sessions:
 
 The application can be deployed to:
 
-- Vercel
-- Netlify
+- Vercel (Frontend)
+- Cloudflare Workers (WebSocket backend)
 - Docker containers
 
 Environment variables must be configured according to `.env.example`.
