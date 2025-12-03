@@ -190,9 +190,9 @@ export class GeminiSession implements DurableObject {
   ): Promise<void> {
     // Don't process audio chunks if the session has ended
     if (this.sessionEnded) {
-      console.warn(
-        `[GeminiSession] Received audio chunk after session ended for interview ${this.interviewId}`,
-      );
+      // console.warn(
+      //   `[GeminiSession] Received audio chunk after session ended for interview ${this.interviewId}`,
+      // );
       return;
     }
 
@@ -461,13 +461,15 @@ export class GeminiSession implements DurableObject {
     }
 
     // Handle AI text response
-    if (message.text) {
-      console.log(
-        `[GeminiSession] Received text response for interview ${this.interviewId}: ${message.text}`,
-      );
-      const transcriptMsg = createTranscriptUpdate("AI", message.text, true);
-      this.safeSend(serverSideWs, encodeServerMessage(transcriptMsg));
-    }
+    // NOTE: Commented out to avoid SDK warning about non-text parts (inlineData)
+    // We're using AUDIO modality, so text transcription is handled via outputTranscription
+    // if (message.text) {
+    //   console.log(
+    //     `[GeminiSession] Received text response for interview ${this.interviewId}: ${message.text}`,
+    //   );
+    //   const transcriptMsg = createTranscriptUpdate("AI", message.text, true);
+    //   this.safeSend(serverSideWs, encodeServerMessage(transcriptMsg));
+    // }
 
     // Handle AI audio response
     if (message.data) {
