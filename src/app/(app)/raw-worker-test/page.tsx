@@ -1,3 +1,10 @@
+/**
+ * @file src/app/(app)/raw-worker-test/page.tsx
+ * @description A client-side component for testing raw audio websocket connections to the Cloudflare worker.
+ * This page provides a simple interface to connect to the worker's debug endpoint,
+ * stream microphone audio, and visualize the connection status, AI speaking state, and recording state.
+ * It's designed to bypass all other application logic for direct pipeline testing.
+ */
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
@@ -53,14 +60,8 @@ const useRawSocket = () => {
 };
 
 export default function RawWorkerTestPage() {
-  const {
-    isConnected,
-    isRecording,
-    isAiSpeaking,
-    error,
-    connect,
-    disconnect,
-  } = useRawSocket();
+  const { isConnected, isRecording, isAiSpeaking, error, connect, disconnect } =
+    useRawSocket();
 
   return (
     <main className="prose dark:prose-invert container mx-auto p-4">

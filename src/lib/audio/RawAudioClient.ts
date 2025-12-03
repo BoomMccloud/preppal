@@ -20,6 +20,7 @@ export class RawAudioClient {
   private player: AudioPlayer;
   private recorder: AudioRecorder;
   private callbacks: RawClientCallbacks;
+  private transcriptBuffer = "";
 
   constructor(callbacks: RawClientCallbacks = {}) {
     this.callbacks = callbacks;
@@ -61,24 +62,26 @@ export class RawAudioClient {
     };
 
     this.ws.onmessage = (event: MessageEvent) => {
-      this.handleServerMessage(event.data);
+      if (event.data instanceof ArrayBuffer) {
+        this.handleServerMessage(event.data);
+      }
     };
 
     this.ws.onerror = (err) => {
       console.error("Raw WebSocket error:", err);
       this.callbacks.onError?.("WebSocket connection error.");
-      this.cleanup();
+      void this.cleanup();
     };
 
     this.ws.onclose = () => {
       console.log("Raw WebSocket disconnected.");
-      this.cleanup();
+      void this.cleanup();
     };
   }
 
   disconnect() {
     this.ws?.close(1000, "User disconnected");
-    this.cleanup();
+    void this.cleanup();
   }
 
   private cleanup = async () => {
@@ -102,15 +105,26 @@ export class RawAudioClient {
 
   private handleServerMessage = (data: ArrayBuffer) => {
     if (data instanceof ArrayBuffer) {
-      const message = preppal.ServerToClientMessage.decode(new Uint8Array(data));
+      const message = preppal.ServerToClientMessage.decode(
+        new Uint8Array(data),
+      );
 
       if (message.audioResponse?.audioContent) {
         void this.player.enqueue(message.audioResponse.audioContent);
       } else if (message.transcriptUpdate) {
         const transcript = message.transcriptUpdate;
-        console.log(
-          `Received transcript: [${transcript?.speaker}] ${transcript?.text}`,
-        );
+        if (transcript?.text) {
+          this.transcriptBuffer += transcript.text;
+          const sentences = this.transcriptBuffer.split(
+            /(?<=[.?!])\s+(?=[A-Z])/,
+          );
+          if (sentences.length > 1) {
+            for (let i = 0; i < sentences.length - 1; i++) {
+              console.log(`[${transcript.speaker}] ${sentences[i].trim()}`);
+            }
+            this.transcriptBuffer = sentences[sentences.length - 1];
+          }
+        }
       }
     } else {
       console.log("Received text message:", data);

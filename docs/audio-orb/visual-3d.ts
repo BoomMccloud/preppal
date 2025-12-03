@@ -7,24 +7,24 @@
 // tslint:disable:ban-malformed-import-paths
 // tslint:disable:no-new-decorators
 
-import {LitElement, css, html} from 'lit';
-import {customElement, property} from 'lit/decorators.js';
-import {Analyser} from './analyser';
+import { LitElement, css, html } from "lit";
+import { customElement, property } from "lit/decorators.js";
+import { Analyser } from "./analyser";
 
-import * as THREE from 'three';
-import {EXRLoader} from 'three/addons/loaders/EXRLoader.js';
-import {EffectComposer} from 'three/addons/postprocessing/EffectComposer.js';
-import {RenderPass} from 'three/addons/postprocessing/RenderPass.js';
-import {ShaderPass} from 'three/addons/postprocessing/ShaderPass.js';
-import {UnrealBloomPass} from 'three/addons/postprocessing/UnrealBloomPass.js';
-import {FXAAShader} from 'three/addons/shaders/FXAAShader.js';
-import {fs as backdropFS, vs as backdropVS} from './backdrop-shader';
-import {vs as sphereVS} from './sphere-shader';
+import * as THREE from "three";
+import { EXRLoader } from "three/addons/loaders/EXRLoader.js";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { FXAAShader } from "three/addons/shaders/FXAAShader.js";
+import { fs as backdropFS, vs as backdropVS } from "./backdrop-shader";
+import { vs as sphereVS } from "./sphere-shader";
 
 /**
  * 3D live audio visual.
  */
-@customElement('gdm-live-audio-visuals-3d')
+@customElement("gdm-live-audio-visuals-3d")
 export class GdmLiveAudioVisuals3D extends LitElement {
   private inputAnalyser!: Analyser;
   private outputAnalyser!: Analyser;
@@ -83,8 +83,8 @@ export class GdmLiveAudioVisuals3D extends LitElement {
       new THREE.IcosahedronGeometry(10, 5),
       new THREE.RawShaderMaterial({
         uniforms: {
-          resolution: {value: new THREE.Vector2(1, 1)},
-          rand: {value: 0},
+          resolution: { value: new THREE.Vector2(1, 1) },
+          rand: { value: 0 },
         },
         vertexShader: backdropVS,
         fragmentShader: backdropFS,
@@ -113,7 +113,7 @@ export class GdmLiveAudioVisuals3D extends LitElement {
 
     const geometry = new THREE.IcosahedronGeometry(1, 10);
 
-    new EXRLoader().load('piz_compressed.exr', (texture: THREE.Texture) => {
+    new EXRLoader().load("piz_compressed.exr", (texture: THREE.Texture) => {
       texture.mapping = THREE.EquirectangularReflectionMapping;
       const exrCubeRenderTarget = pmremGenerator.fromEquirectangular(texture);
       sphereMaterial.envMap = exrCubeRenderTarget.texture;
@@ -132,9 +132,9 @@ export class GdmLiveAudioVisuals3D extends LitElement {
     });
 
     sphereMaterial.onBeforeCompile = (shader) => {
-      shader.uniforms.time = {value: 0};
-      shader.uniforms.inputData = {value: new THREE.Vector4()};
-      shader.uniforms.outputData = {value: new THREE.Vector4()};
+      shader.uniforms.time = { value: 0 };
+      shader.uniforms.inputData = { value: new THREE.Vector4() };
+      shader.uniforms.outputData = { value: new THREE.Vector4() };
 
       sphereMaterial.userData.shader = shader;
 
@@ -174,13 +174,13 @@ export class GdmLiveAudioVisuals3D extends LitElement {
       backdrop.material.uniforms.resolution.value.set(w * dPR, h * dPR);
       renderer.setSize(w, h);
       composer.setSize(w, h);
-      fxaaPass.material.uniforms['resolution'].value.set(
+      fxaaPass.material.uniforms["resolution"].value.set(
         1 / (w * dPR),
         1 / (h * dPR),
       );
     }
 
-    window.addEventListener('resize', onWindowResize);
+    window.addEventListener("resize", onWindowResize);
     onWindowResize();
 
     this.animation();
@@ -242,7 +242,7 @@ export class GdmLiveAudioVisuals3D extends LitElement {
   }
 
   protected firstUpdated() {
-    this.canvas = this.shadowRoot!.querySelector('canvas') as HTMLCanvasElement;
+    this.canvas = this.shadowRoot!.querySelector("canvas") as HTMLCanvasElement;
     this.init();
   }
 
@@ -253,6 +253,6 @@ export class GdmLiveAudioVisuals3D extends LitElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'gdm-live-audio-visuals-3d': GdmLiveAudioVisuals3D;
+    "gdm-live-audio-visuals-3d": GdmLiveAudioVisuals3D;
   }
 }

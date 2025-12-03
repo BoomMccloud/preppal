@@ -182,8 +182,11 @@ export class GeminiSession implements DurableObject {
     if (message.audioChunk) {
       // Increment counter before handling the chunk
       this.audioChunksReceivedCount++;
-      // Log every 1000th audio chunk to track progress without spam (about once per second at 1000+ chunks/second)
-      if (this.audioChunksReceivedCount === 1 || this.audioChunksReceivedCount % 1000 === 0) {
+      // Log every 5000th audio chunk to track progress without spam (about 5 times per second at 1000+ chunks/second)
+      if (
+        this.audioChunksReceivedCount === 1 ||
+        this.audioChunksReceivedCount % 5000 === 0
+      ) {
         console.log(
           `[GeminiSession] Audio chunk #${this.audioChunksReceivedCount} received from client for interview ${this.interviewId}`,
         );
@@ -225,7 +228,10 @@ export class GeminiSession implements DurableObject {
     }
 
     // Log first non-empty chunk and every 100th non-empty chunk
-    if (this.audioChunksReceivedCount === 1 || this.audioChunksReceivedCount % 100 === 0) {
+    if (
+      this.audioChunksReceivedCount === 1 ||
+      this.audioChunksReceivedCount % 100 === 0
+    ) {
       console.log(
         `[GeminiSession] Sending audio chunk #${this.audioChunksReceivedCount} to Gemini for interview ${this.interviewId} (size: ${audioContent.length} bytes)`,
       );
@@ -348,6 +354,7 @@ export class GeminiSession implements DurableObject {
       systemInstruction:
         "You are a professional interviewer. Your goal is to conduct a behavioral interview. Start by introducing yourself and asking the candidate to introduce themselves.",
       outputAudioTranscription: {},
+      inputAudioTranscription: {},
     };
 
     console.log(

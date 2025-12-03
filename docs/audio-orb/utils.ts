@@ -1,11 +1,11 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
-*/
-import {Blob} from '@google/genai';
+ */
+import { Blob } from "@google/genai";
 
 function encode(bytes) {
-  let binary = '';
+  let binary = "";
   const len = bytes.byteLength;
   for (let i = 0; i < len; i++) {
     binary += String.fromCharCode(bytes[i]);
@@ -33,7 +33,7 @@ function createBlob(data: Float32Array): Blob {
 
   return {
     data: encode(new Uint8Array(int16.buffer)),
-    mimeType: 'audio/pcm;rate=16000',
+    mimeType: "audio/pcm;rate=16000",
   };
 }
 
@@ -70,4 +70,4 @@ async function decodeAudioData(
   return buffer;
 }
 
-export {createBlob, decode, decodeAudioData, encode};
+export { createBlob, decode, decodeAudioData, encode };
