@@ -85,7 +85,10 @@ export class ApiClient {
       );
     }
 
-    console.log(`[API] Parsed JSON response:`, JSON.stringify(jsonResponse, null, 2));
+    console.log(
+      `[API] Parsed JSON response:`,
+      JSON.stringify(jsonResponse, null, 2),
+    );
 
     if (jsonResponse.error) {
       const error = jsonResponse.error;

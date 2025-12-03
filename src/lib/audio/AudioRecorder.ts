@@ -38,6 +38,7 @@ export class AudioRecorder {
   }
 
   stop() {
+    console.log("Stopping audio recorder...");
     if (this.stream) {
       this.stream.getTracks().forEach((track) => track.stop());
     }

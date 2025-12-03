@@ -10,6 +10,19 @@ export default function DashboardPage() {
     error,
   } = api.interview.getHistory.useQuery();
 
+  const utils = api.useUtils();
+  const deleteInterview = api.interview.delete.useMutation({
+    onSuccess: () => {
+      void utils.interview.getHistory.invalidate();
+    },
+  });
+
+  const handleDelete = (id: string) => {
+    if (confirm("Are you sure you want to delete this session?")) {
+      deleteInterview.mutate({ id });
+    }
+  };
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <div className="mb-8">
@@ -57,7 +70,7 @@ export default function DashboardPage() {
           )}
 
           {!isLoading && !error && interviews && interviews.length > 0 && (
-            <div className="space-y-2">
+            <div className="space-y-4">
               {interviews.map((interview) => {
                 const targetPath =
                   interview.status === "COMPLETED"
@@ -76,19 +89,31 @@ export default function DashboardPage() {
                 }).format(new Date(interview.createdAt));
 
                 return (
-                  <div key={interview.id} className="text-sm">
-                    <div className="text-primary-text font-medium">
-                      {interview.jobTitleSnapshot}
+                  <div
+                    key={interview.id}
+                    className="flex items-center justify-between text-sm"
+                  >
+                    <div>
+                      <div className="text-primary-text font-medium">
+                        {interview.jobTitleSnapshot}
+                      </div>
+                      <div className="text-secondary-text text-xs">
+                        {formattedDate}
+                      </div>
+                      <Link
+                        href={targetPath}
+                        className="text-accent hover:text-accent/80 transition-colors"
+                      >
+                        {linkText}
+                      </Link>
                     </div>
-                    <div className="text-secondary-text text-xs">
-                      {formattedDate}
-                    </div>
-                    <Link
-                      href={targetPath}
-                      className="text-accent hover:text-accent/80 transition-colors"
+                    <button
+                      onClick={() => handleDelete(interview.id)}
+                      className="text-red-500 hover:text-red-700"
+                      disabled={deleteInterview.isPending}
                     >
-                      {linkText}
-                    </Link>
+                      Delete
+                    </button>
                   </div>
                 );
               })}

@@ -199,9 +199,7 @@ export function useInterviewSocket({
             });
 
             const buffer =
-              preppal.ClientToServerMessage.encode(
-                message,
-              ).finish();
+              preppal.ClientToServerMessage.encode(message).finish();
             wsRef.current.send(buffer);
           } catch (err) {
             console.error("Error sending audio chunk:", err);
@@ -250,6 +248,7 @@ export function useInterviewSocket({
     if (wsRef.current && state === "live") {
       setState("ending");
       stopTimer();
+      cleanupAudioServices();
 
       try {
         const endRequest = preppal.EndRequest.create();
@@ -257,8 +256,7 @@ export function useInterviewSocket({
           endRequest: endRequest,
         });
 
-        const buffer =
-          preppal.ClientToServerMessage.encode(message).finish();
+        const buffer = preppal.ClientToServerMessage.encode(message).finish();
         wsRef.current.send(buffer);
       } catch (err) {
         console.error("Error sending end request:", err);
@@ -273,7 +271,9 @@ export function useInterviewSocket({
     // Periodically check interview status
     const statusCheckInterval = setInterval(() => {
       if (state === "connecting" || state === "live") {
-        console.log(`[StatusCheck] Checking interview status for ${interviewId}`);
+        console.log(
+          `[StatusCheck] Checking interview status for ${interviewId}`,
+        );
         // Note: In a real implementation, you would call an API to check the status
         // For now, we're just logging that we're checking
       }
@@ -298,9 +298,7 @@ export function useInterviewSocket({
             });
 
             const buffer =
-              preppal.ClientToServerMessage.encode(
-                message,
-              ).finish();
+              preppal.ClientToServerMessage.encode(message).finish();
             wsRef.current.send(buffer);
           } catch (err) {
             console.error("Error sending end request on cleanup:", err);
@@ -316,6 +314,7 @@ export function useInterviewSocket({
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (stateRef.current === "live" && wsRef.current) {
+        cleanupAudioServices();
         // Use sendBeacon for reliable cleanup
         navigator.sendBeacon(`/api/cleanup?interview=${interviewId}`);
       }

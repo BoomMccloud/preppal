@@ -11,7 +11,9 @@ export class AudioPlayer {
     if (this.audioContext) return;
 
     this.audioContext = new AudioContext({ sampleRate: this.sampleRate });
-    console.log(`[AudioPlayer] Started AudioContext. State: ${this.audioContext.state}, SampleRate: ${this.sampleRate}`);
+    console.log(
+      `[AudioPlayer] Started AudioContext. State: ${this.audioContext.state}, SampleRate: ${this.sampleRate}`,
+    );
 
     // The worklet file must be served publicly.
     await this.audioContext.audioWorklet.addModule(
@@ -26,6 +28,7 @@ export class AudioPlayer {
   }
 
   public stop() {
+    console.log("Stopping audio player...");
     if (this.audioContext) {
       void this.audioContext.close();
       this.audioContext = null;
@@ -38,7 +41,9 @@ export class AudioPlayer {
     if (!this.workletNode || !this.audioContext) return;
 
     if (this.audioContext.state === "suspended") {
-      console.warn("[AudioPlayer] AudioContext is suspended. Attempting to resume...");
+      console.warn(
+        "[AudioPlayer] AudioContext is suspended. Attempting to resume...",
+      );
       try {
         await this.audioContext.resume();
         console.log("[AudioPlayer] AudioContext resumed successfully");

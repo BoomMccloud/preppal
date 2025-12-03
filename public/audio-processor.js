@@ -29,10 +29,10 @@ class ResamplingProcessor extends AudioWorkletProcessor {
     // Downsample by taking every Nth sample.
     const ratio = this.nativeSampleRate / this.targetSampleRate;
     const outputLength = Math.floor(audioData.length / ratio);
-    
+
     // Safety check
     if (outputLength === 0) return true;
-    
+
     const downsampled = new Float32Array(outputLength);
     for (let i = 0, j = 0; j < downsampled.length; i += ratio, j++) {
       // Use linear interpolation for better quality? Or simple nearest neighbor?

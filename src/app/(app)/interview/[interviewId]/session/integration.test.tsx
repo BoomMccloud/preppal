@@ -107,7 +107,9 @@ describe("Integration Test: Cloudflare Worker Connection", () => {
     // Setup token generation to return a mock token
     const mockMutate = vi.fn((params) => {
       // Simulate successful token generation by calling the onSuccess callback directly
-      const callbacks = Array.from(mockGenerateWorkerTokenMutation.mock.calls).pop()?.[1];
+      const callbacks = Array.from(
+        mockGenerateWorkerTokenMutation.mock.calls,
+      ).pop()?.[1];
       if (callbacks && callbacks.onSuccess) {
         callbacks.onSuccess({ token: mockToken });
       }

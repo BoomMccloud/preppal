@@ -44,13 +44,13 @@ export class GeminiSession implements DurableObject {
         ws.send(data);
       } else {
         console.warn(
-          `[GeminiSession] Attempted to send message to closed WebSocket for interview ${this.interviewId}`
+          `[GeminiSession] Attempted to send message to closed WebSocket for interview ${this.interviewId}`,
         );
       }
     } catch (error) {
       console.error(
         `[GeminiSession] Failed to send message to WebSocket for interview ${this.interviewId}:`,
-        error
+        error,
       );
     }
   }
@@ -95,9 +95,7 @@ export class GeminiSession implements DurableObject {
       // Update interview status to IN_PROGRESS
       console.log(`[GeminiSession] Step 5: Updating status to IN_PROGRESS`);
       await this.apiClient.updateStatus(this.interviewId!, "IN_PROGRESS");
-      console.log(
-        `[GeminiSession] Step 6: Status updated to IN_PROGRESS`,
-      );
+      console.log(`[GeminiSession] Step 6: Status updated to IN_PROGRESS`);
     } catch (error) {
       console.error("[GeminiSession] Failed to initialize Gemini:", error);
 
@@ -169,7 +167,7 @@ export class GeminiSession implements DurableObject {
     if (message.audioChunk) {
       // Suppress log for every audio chunk
       if (this.audioChunksReceivedCount === 0) {
-         console.log(
+        console.log(
           `[GeminiSession] First audio chunk received from client for interview ${this.interviewId}. (Subsequent logs suppressed)`,
         );
       }
@@ -321,7 +319,8 @@ export class GeminiSession implements DurableObject {
     const config = {
       // IMPORTANT: Use Modality.AUDIO OR Modality.TEXT, never both
       responseModalities: [Modality.AUDIO],
-      systemInstruction: "You are a professional interviewer. Your goal is to conduct a behavioral interview. Start by introducing yourself and asking the candidate to introduce themselves.",
+      systemInstruction:
+        "You are a professional interviewer. Your goal is to conduct a behavioral interview. Start by introducing yourself and asking the candidate to introduce themselves.",
       outputAudioTranscription: {},
     };
 
@@ -340,10 +339,14 @@ export class GeminiSession implements DurableObject {
         },
         onmessage: (message: any) => {
           // Log simplified message type to reduce noise, unless it's a specific event
-          if (message.serverContent?.modelTurn?.parts?.some((p: any) => p.inlineData)) {
-             // It's audio, suppressed in handleGeminiMessage usually, but good to know we got message
+          if (
+            message.serverContent?.modelTurn?.parts?.some(
+              (p: any) => p.inlineData,
+            )
+          ) {
+            // It's audio, suppressed in handleGeminiMessage usually, but good to know we got message
           } else {
-             console.log(
+            console.log(
               `[GeminiSession] Received message from Gemini (type: ${Object.keys(message).join(",")})`,
             );
           }
@@ -407,7 +410,13 @@ export class GeminiSession implements DurableObject {
 
     // Send initial greeting to trigger the AI to speak first
     this.geminiSession.sendClientContent({
-      turns: [{ role: "user", parts: [{ text: "Hello, let's start the interview." }], turnComplete: true }],
+      turns: [
+        {
+          role: "user",
+          parts: [{ text: "Hello, let's start the interview." }],
+          turnComplete: true,
+        },
+      ],
     });
     console.log("[GeminiSession] Sent initial greeting to Gemini");
   }
@@ -464,9 +473,9 @@ export class GeminiSession implements DurableObject {
     if (message.data) {
       this.audioResponsesReceivedCount++;
       if (this.audioResponsesReceivedCount === 1) {
-          console.log(
-            `[GeminiSession] Received first audio response for interview ${this.interviewId} (length: ${message.data.length}). Subsequent logs suppressed.`,
-          );
+        console.log(
+          `[GeminiSession] Received first audio response for interview ${this.interviewId} (length: ${message.data.length}). Subsequent logs suppressed.`,
+        );
       }
       // message.data is base64 encoded audio from Gemini
       // Convert base64 to Uint8Array for protobuf

@@ -78,7 +78,9 @@ describe("ApiClient", () => {
 
       await expect(
         apiClient.updateStatus("interview-123", "IN_PROGRESS"),
-      ).rejects.toThrow("Failed to update status: 500 Internal Server Error - Database connection failed");
+      ).rejects.toThrow(
+        "Failed to update status: 500 Internal Server Error - Database connection failed",
+      );
     });
   });
 
@@ -171,7 +173,9 @@ describe("ApiClient", () => {
 
       await expect(
         apiClient.submitTranscript("interview-123", transcript, endedAt),
-      ).rejects.toThrow("Failed to submit transcript: 404 Not Found - Interview not found");
+      ).rejects.toThrow(
+        "Failed to submit transcript: 404 Not Found - Interview not found",
+      );
     });
   });
 });

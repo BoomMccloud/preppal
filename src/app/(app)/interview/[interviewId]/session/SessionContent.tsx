@@ -22,7 +22,7 @@ export function SessionContent({ interviewId }: SessionContentProps) {
     },
     {
       refetchInterval: 1000,
-    }
+    },
   );
 
   const { data: interviewStatus } = api.debug.getInterviewStatus.useQuery(
@@ -30,15 +30,19 @@ export function SessionContent({ interviewId }: SessionContentProps) {
     {
       enabled: !!interviewId,
       refetchInterval: 5000, // Refetch every 5 seconds
-    }
+    },
   );
 
   const handleCheckStatus = async () => {
     try {
-      const response = await api.debug.getInterviewStatus.fetch({ interviewId });
+      const response = await api.debug.getInterviewStatus.fetch({
+        interviewId,
+      });
       setDebugInfo(JSON.stringify(response, null, 2));
     } catch (error) {
-      setDebugInfo(`Error: ${error instanceof Error ? error.message : "Unknown error"}`);
+      setDebugInfo(
+        `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
     }
   };
 
@@ -137,7 +141,7 @@ export function SessionContent({ interviewId }: SessionContentProps) {
           <div className="flex items-center gap-4">
             <button
               onClick={handleCheckStatus}
-              className="rounded bg-blue-500 px-3 py-1 text-white text-sm hover:bg-blue-600"
+              className="rounded bg-blue-500 px-3 py-1 text-sm text-white hover:bg-blue-600"
             >
               Check Status
             </button>

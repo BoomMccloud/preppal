@@ -10,7 +10,10 @@ class AudioPlayerProcessor extends AudioWorkletProcessor {
     // Listen for chunks sent from the main thread.
     this.port.onmessage = (event) => {
       if (!this.hasReceivedData) {
-        console.log("[AudioWorklet] Received first audio chunk", event.data.length);
+        console.log(
+          "[AudioWorklet] Received first audio chunk",
+          event.data.length,
+        );
         this.hasReceivedData = true;
       }
       const chunk = event.data; // This is a Float32Array
