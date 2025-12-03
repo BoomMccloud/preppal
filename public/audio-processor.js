@@ -1,59 +1,73 @@
 class ResamplingProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super();
-    // The sample rates are passed from the main thread.
     this.nativeSampleRate = options.processorOptions.nativeSampleRate;
     this.targetSampleRate = options.processorOptions.targetSampleRate;
-    this.inputBuffer = [];
+    this.resamplingRatio = this.nativeSampleRate / this.targetSampleRate;
+    this.buffer = new Float32Array(this.nativeSampleRate * 5); // 5 seconds of buffer
+    this.bufferOffset = 0;
   }
 
   process(inputs, outputs, parameters) {
     const input = inputs[0];
-    if (!input || input.length === 0) return true;
-
-    // Mix down to mono
-    let monoInput = input[0];
-    if (input.length > 1) {
-      monoInput = new Float32Array(input[0].length);
-      for (let i = 0; i < input[0].length; i++) {
-        let sum = 0;
-        for (let channel = 0; channel < input.length; channel++) {
-          sum += input[channel][i];
-        }
-        monoInput[i] = sum / input.length;
-      }
+    if (!input || input.length === 0) {
+      return true;
     }
 
-    const audioData = monoInput;
+    // 1. Mix down to mono and add to buffer
+    const monoInput = new Float32Array(input[0].length);
+    for (let i = 0; i < input[0].length; i++) {
+      let sum = 0;
+      for (let channel = 0; channel < input.length; channel++) {
+        sum += input[channel][i];
+      }
+      monoInput[i] = sum / input.length;
+    }
 
-    // Downsample by taking every Nth sample.
-    const ratio = this.nativeSampleRate / this.targetSampleRate;
-    const outputLength = Math.floor(audioData.length / ratio);
+    // Check if buffer has enough space
+    if (this.bufferOffset + monoInput.length > this.buffer.length) {
+      console.error("Audio buffer overflow");
+      return true;
+    }
+    this.buffer.set(monoInput, this.bufferOffset);
+    this.bufferOffset += monoInput.length;
 
-    // Safety check
-    if (outputLength === 0) return true;
+    // 2. Resample and send chunks
+    const outputSamples = [];
+    let lastSampleIndex = 0;
 
-    const downsampled = new Float32Array(outputLength);
-    for (let i = 0, j = 0; j < downsampled.length; i += ratio, j++) {
-      // Use linear interpolation for better quality? Or simple nearest neighbor?
-      // Simple nearest neighbor for performance as per original code, but with safer indexing
+    for (let i = 0; i < this.bufferOffset - 1; i += this.resamplingRatio) {
       const index = Math.floor(i);
-      if (index < audioData.length) {
-        downsampled[j] = audioData[index];
+      const fraction = i - index;
+
+      const sample1 = this.buffer[index];
+      const sample2 = this.buffer[index + 1];
+
+      // Linear interpolation
+      const interpolatedSample = sample1 + (sample2 - sample1) * fraction;
+      outputSamples.push(interpolatedSample);
+
+      lastSampleIndex = index + 1;
+    }
+
+    if (outputSamples.length > 0) {
+      // Convert to 16-bit PCM
+      const pcm16 = new Int16Array(outputSamples.length);
+      for (let i = 0; i < outputSamples.length; i++) {
+        const s = Math.max(-1, Math.min(1, outputSamples[i]));
+        pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
       }
+
+      this.port.postMessage(pcm16.buffer, [pcm16.buffer]);
     }
 
-    // Convert from Float32 (-1.0 to 1.0) to 16-bit PCM (-32768 to 32767)
-    const pcm16 = new Int16Array(downsampled.length);
-    for (let i = 0; i < downsampled.length; i++) {
-      // Clamp values to avoid overflow distortion
-      const val = Math.max(-1, Math.min(1, downsampled[i]));
-      pcm16[i] = val < 0 ? val * 32768 : val * 32767;
-    }
+    // 3. Shift the remaining buffer
+    const remaining = this.buffer.slice(lastSampleIndex, this.bufferOffset);
+    this.buffer.fill(0);
+    this.buffer.set(remaining, 0);
+    this.bufferOffset = remaining.length;
 
-    // Post the raw buffer back to the main thread
-    this.port.postMessage(pcm16.buffer, [pcm16.buffer]);
-    return true; // Keep processor alive
+    return true; // Keep the processor alive
   }
 }
 

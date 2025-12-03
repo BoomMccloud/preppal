@@ -180,10 +180,12 @@ export class GeminiSession implements DurableObject {
     const message = decodeClientMessage(buffer);
 
     if (message.audioChunk) {
-      // Suppress log for every audio chunk
-      if (this.audioChunksReceivedCount === 0) {
+      // Increment counter before handling the chunk
+      this.audioChunksReceivedCount++;
+      // Log every 100th audio chunk to track progress without spam
+      if (this.audioChunksReceivedCount === 1 || this.audioChunksReceivedCount % 100 === 0) {
         console.log(
-          `[GeminiSession] First audio chunk received from client for interview ${this.interviewId}. (Subsequent logs suppressed)`,
+          `[GeminiSession] Audio chunk #${this.audioChunksReceivedCount} received from client for interview ${this.interviewId}`,
         );
       }
       await this.handleAudioChunk(ws, message.audioChunk);
@@ -213,13 +215,14 @@ export class GeminiSession implements DurableObject {
 
     const audioContent = audioChunk.audioContent;
     if (!audioContent || audioContent.length === 0) {
-      console.warn(
-        `[GeminiSession] Received empty audio chunk for interview ${this.interviewId}`,
-      );
+      // Only log empty audio chunk warning once
+      if (this.audioChunksReceivedCount === 1) {
+        console.warn(
+          `[GeminiSession] Received empty audio chunk for interview ${this.interviewId}`,
+        );
+      }
       return;
     }
-
-    this.audioChunksReceivedCount++;
 
     // Convert binary audio to base64 for Gemini
     const base64Audio = AudioConverter.binaryToBase64(

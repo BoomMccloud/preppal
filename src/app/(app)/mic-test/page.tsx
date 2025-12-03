@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
@@ -43,19 +42,21 @@ export default function MicTestPage() {
     if (stream) {
       const audioContext = new AudioContext();
       const analyser = audioContext.createAnalyser();
-      analyser.fftSize = 256;
+      // A smaller FFT size is more responsive to quick changes in audio level.
+      analyser.fftSize = 32;
       const source = audioContext.createMediaStreamSource(stream);
       source.connect(analyser);
       analyserRef.current = analyser;
+      // Use time domain data to get volume, not frequency data.
       dataArrayRef.current = new Uint8Array(analyser.frequencyBinCount);
 
       const updateAudioLevel = () => {
         if (analyserRef.current && dataArrayRef.current) {
-          analyserRef.current.getByteFrequencyData(dataArrayRef.current);
-          const average =
-            dataArrayRef.current.reduce((sum, value) => sum + value, 0) /
-            dataArrayRef.current.length;
-          setAudioLevel(average / 128); // Normalize to 0-1 range
+          analyserRef.current.getByteTimeDomainData(dataArrayRef.current);
+          // Find the peak volume in the current buffer.
+          const max = dataArrayRef.current.reduce((a, b) => Math.max(a, b), 0);
+          // Normalize the peak value (0-255) to a 0-1 range for the visualizer.
+          setAudioLevel(max / 255);
         }
         animationFrameRef.current = requestAnimationFrame(updateAudioLevel);
       };
@@ -67,28 +68,27 @@ export default function MicTestPage() {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
-      if (analyserRef.current) {
-        analyserRef.current.disconnect();
-        analyserRef.current = null;
+      if (analyserRef.current?.context.state !== "closed") {
+        void analyserRef.current?.context.close();
       }
     };
   }, [stream]);
 
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Microphone Test</h1>
-      <div className="flex items-center gap-4 mb-4">
+      <h1 className="mb-4 text-2xl font-bold">Microphone Test</h1>
+      <div className="mb-4 flex items-center gap-4">
         <button
           onClick={handleStart}
           disabled={isRecording}
-          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
+          className="rounded bg-blue-500 px-4 py-2 font-bold text-white hover:bg-blue-700 disabled:opacity-50"
         >
           Start Microphone
         </button>
         <button
           onClick={handleStop}
           disabled={!isRecording}
-          className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
+          className="rounded bg-red-500 px-4 py-2 font-bold text-white hover:bg-red-700 disabled:opacity-50"
         >
           Stop Microphone
         </button>
@@ -96,11 +96,19 @@ export default function MicTestPage() {
         {!isRecording && <div className="text-red-500">Microphone is OFF</div>}
       </div>
       <div>
-        <h2 className="text-xl font-semibold mb-2">Audio Visualizer</h2>
+        <h2 className="mb-2 text-xl font-semibold">Audio Visualizer</h2>
         {isRecording ? (
-          <AudioVisualizer audioLevel={audioLevel} />
+          <div className="flex items-center gap-4">
+            <AudioVisualizer audioLevel={audioLevel} />
+            <div className="h-4 w-full rounded-full bg-gray-200 dark:bg-gray-700">
+              <div
+                className="h-4 rounded-full bg-blue-600"
+                style={{ width: `${audioLevel * 100}%` }}
+              ></div>
+            </div>
+          </div>
         ) : (
-          <div className="w-full h-32 bg-gray-200 flex items-center justify-center">
+          <div className="flex h-32 w-full items-center justify-center bg-gray-200">
             <p>Inactive</p>
           </div>
         )}

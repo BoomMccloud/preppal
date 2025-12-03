@@ -45,6 +45,7 @@ export class AudioRecorder {
     console.log("Stopping audio recorder...");
     if (this.workletNode) {
       this.workletNode.disconnect();
+      this.workletNode = null;
     }
     if (this.stream) {
       this.stream.getTracks().forEach((track) => {

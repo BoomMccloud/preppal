@@ -4,12 +4,7 @@ import { AudioRecorder } from "~/lib/audio/AudioRecorder";
 import { AudioPlayer } from "~/lib/audio/AudioPlayer";
 import { preppal } from "~/lib/interview_pb";
 
-type SessionState =
-  | "initializing"
-  | "connecting"
-  | "live"
-  | "ending"
-  | "error";
+type SessionState = "initializing" | "connecting" | "live" | "ending" | "error";
 
 interface TranscriptEntry {
   text: string;
@@ -55,7 +50,9 @@ export function useInterviewSocket({
     const lastEntry = transcript[transcript.length - 1];
     if (lastEntry?.speaker === "USER" && isAiSpeaking) {
       if (audioPlayerRef.current) {
-        console.log("[Barge-in] User started speaking, clearing AI audio queue.");
+        console.log(
+          "[Barge-in] User started speaking, clearing AI audio queue.",
+        );
         audioPlayerRef.current.clear();
         setIsAiSpeaking(false);
       }
@@ -74,7 +71,10 @@ export function useInterviewSocket({
     });
 
   const startTimer = () => {
-    timerRef.current = setInterval(() => setElapsedTime((prev) => prev + 1), 1000);
+    timerRef.current = setInterval(
+      () => setElapsedTime((prev) => prev + 1),
+      1000,
+    );
   };
 
   const stopTimer = () => {
@@ -101,7 +101,8 @@ export function useInterviewSocket({
               const message = preppal.ClientToServerMessage.create({
                 audioChunk: { audioContent: new Uint8Array(audioChunk) },
               });
-              const buffer = preppal.ClientToServerMessage.encode(message).finish();
+              const buffer =
+                preppal.ClientToServerMessage.encode(message).finish();
               wsRef.current.send(buffer);
             } catch (err) {
               console.error("Error sending audio chunk:", err);
@@ -130,7 +131,8 @@ export function useInterviewSocket({
 
   const connectWebSocket = (token: string) => {
     setState("connecting");
-    const workerUrl = process.env.NEXT_PUBLIC_WORKER_URL ?? "http://localhost:8787";
+    const workerUrl =
+      process.env.NEXT_PUBLIC_WORKER_URL ?? "http://localhost:8787";
     const wsUrl = `${workerUrl}/${interviewId}?token=${encodeURIComponent(token)}`;
     console.log(`[WebSocket] Connecting to: ${wsUrl}`);
 
@@ -146,15 +148,21 @@ export function useInterviewSocket({
     ws.onmessage = async (event: MessageEvent) => {
       if (!(event.data instanceof ArrayBuffer)) return;
 
-      const message = preppal.ServerToClientMessage.decode(new Uint8Array(event.data));
+      const message = preppal.ServerToClientMessage.decode(
+        new Uint8Array(event.data),
+      );
       console.log(`[WebSocket] Received message:`, message);
 
       if (message.transcriptUpdate) {
-        setTranscript((prev) => [...prev, {
-          text: message.transcriptUpdate.text!,
-          speaker: message.transcriptUpdate.speaker === "USER" ? "USER" : "AI",
-          is_final: message.transcriptUpdate.isFinal!,
-        }]);
+        setTranscript((prev) => [
+          ...prev,
+          {
+            text: message.transcriptUpdate.text!,
+            speaker:
+              message.transcriptUpdate.speaker === "USER" ? "USER" : "AI",
+            is_final: message.transcriptUpdate.isFinal!,
+          },
+        ]);
       } else if (message.audioResponse) {
         if (!isAiSpeaking) {
           setIsAiSpeaking(true);
@@ -196,7 +204,9 @@ export function useInterviewSocket({
     if (wsRef.current && state === "live") {
       setState("ending");
       try {
-        const message = preppal.ClientToServerMessage.create({ endRequest: {} });
+        const message = preppal.ClientToServerMessage.create({
+          endRequest: {},
+        });
         const buffer = preppal.ClientToServerMessage.encode(message).finish();
         wsRef.current.send(buffer);
         wsRef.current.close(1000, "User ended interview");
