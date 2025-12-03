@@ -7,11 +7,13 @@ import { AudioRecorder } from "./AudioRecorder";
 import { preppal } from "../interview_pb.js";
 
 type ConnectionState = "disconnected" | "connecting" | "connected";
+type TranscriptUpdate = preppal.TranscriptUpdate;
 
 interface RawClientCallbacks {
   onConnectionStateChange?: (state: ConnectionState) => void;
   onRecordingStateChange?: (isRecording: boolean) => void;
   onSpeakingStateChange?: (isSpeaking: boolean) => void;
+  onTranscriptUpdate?: (transcript: TranscriptUpdate) => void;
   onError?: (error: string) => void;
 }
 
@@ -20,10 +22,6 @@ export class RawAudioClient {
   private player: AudioPlayer;
   private recorder: AudioRecorder;
   private callbacks: RawClientCallbacks;
-  private transcriptBuffers: { [speaker: string]: string } = {
-    USER: "",
-    AI: "",
-  };
 
   constructor(callbacks: RawClientCallbacks = {}) {
     this.callbacks = callbacks;
@@ -115,20 +113,7 @@ export class RawAudioClient {
       if (message.audioResponse?.audioContent) {
         void this.player.enqueue(message.audioResponse.audioContent);
       } else if (message.transcriptUpdate) {
-        const transcript = message.transcriptUpdate;
-        if (transcript?.speaker && transcript?.text) {
-          this.transcriptBuffers[transcript.speaker] += transcript.text;
-          const sentences = this.transcriptBuffers[transcript.speaker].split(
-            /(?<=[.?!])\s+(?=[A-Z])/,
-          );
-          if (sentences.length > 1) {
-            for (let i = 0; i < sentences.length - 1; i++) {
-              console.log(`[${transcript.speaker}] ${sentences[i].trim()}`);
-            }
-            this.transcriptBuffers[transcript.speaker] =
-              sentences[sentences.length - 1];
-          }
-        }
+        this.callbacks.onTranscriptUpdate?.(message.transcriptUpdate);
       }
     } else {
       console.log("Received text message:", data);

@@ -9,6 +9,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { RawAudioClient } from "~/lib/audio/RawAudioClient";
+import { TranscriptManager } from "~/lib/audio/TranscriptManager";
 
 export default function RawWorkerTestPage() {
   const [isConnected, setIsConnected] = useState(false);
@@ -16,9 +17,17 @@ export default function RawWorkerTestPage() {
   const [error, setError] = useState<string | null>(null);
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
   const clientRef = useRef<RawAudioClient | null>(null);
+  const transcriptManagerRef = useRef<TranscriptManager | null>(null);
 
   useEffect(() => {
-    // Instantiate the client with callbacks to update React state
+    // 1. Instantiate the transcript manager to log sentences
+    transcriptManagerRef.current = new TranscriptManager({
+      onSentence: (speaker, sentence) => {
+        console.log(`[${speaker}]: ${sentence}`);
+      },
+    });
+
+    // 2. Instantiate the raw client
     clientRef.current = new RawAudioClient({
       onConnectionStateChange: (state) => {
         setIsConnected(state === "connected");
@@ -26,6 +35,9 @@ export default function RawWorkerTestPage() {
       onRecordingStateChange: setIsRecording,
       onSpeakingStateChange: setIsAiSpeaking,
       onError: setError,
+      onTranscriptUpdate: (update) => {
+        transcriptManagerRef.current?.process(update);
+      },
     });
 
     // Cleanup on unmount
