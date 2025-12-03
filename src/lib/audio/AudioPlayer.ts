@@ -1,56 +1,35 @@
 export class AudioPlayer {
   private audioContext: AudioContext | null = null;
-  private workletNode: AudioWorkletNode | null = null;
+  private queue: AudioBuffer[] = [];
+  private isPlaying = false;
   private sampleRate: number;
 
-  constructor(sampleRate = 16000) {
+  constructor(sampleRate = 24000) {
     this.sampleRate = sampleRate;
   }
 
   public async start() {
     if (this.audioContext) return;
-
     this.audioContext = new AudioContext({ sampleRate: this.sampleRate });
     console.log(
       `[AudioPlayer] Started AudioContext. State: ${this.audioContext.state}, SampleRate: ${this.sampleRate}`,
     );
-
-    // The worklet file must be served publicly.
-    await this.audioContext.audioWorklet.addModule(
-      "/audio-player-processor.js",
-    );
-
-    this.workletNode = new AudioWorkletNode(
-      this.audioContext,
-      "audio-player-processor",
-    );
-    this.workletNode.connect(this.audioContext.destination);
   }
 
   public stop() {
     console.log("Stopping audio player...");
+    this.isPlaying = false;
+    this.queue = [];
     if (this.audioContext) {
-      void this.audioContext.close();
-      this.audioContext = null;
-      this.workletNode = null;
+      void this.audioContext.close().then(() => {
+        this.audioContext = null;
+      });
     }
   }
 
-  // Receives a raw 16-bit PCM ArrayBuffer from the WebSocket.
+  // Receives a raw 16-bit PCM ArrayBuffer and adds it to the queue.
   public async enqueue(pcm16ArrayBuffer: ArrayBuffer) {
-    if (!this.workletNode || !this.audioContext) return;
-
-    if (this.audioContext.state === "suspended") {
-      console.warn(
-        "[AudioPlayer] AudioContext is suspended. Attempting to resume...",
-      );
-      try {
-        await this.audioContext.resume();
-        console.log("[AudioPlayer] AudioContext resumed successfully");
-      } catch (err) {
-        console.error("[AudioPlayer] Failed to resume AudioContext:", err);
-      }
-    }
+    if (!this.audioContext) return;
 
     // 1. Convert the 16-bit PCM data into the Float32 format the Web Audio API needs.
     const pcm16 = new Int16Array(pcm16ArrayBuffer);
@@ -59,8 +38,48 @@ export class AudioPlayer {
       pcm32[i] = pcm16[i]! / 32768.0; // Convert to -1.0 to 1.0 range
     }
 
-    // 2. Post the Float32Array to the worklet.
-    // The second argument makes this a "zero-copy" transfer for high performance.
-    this.workletNode.port.postMessage(pcm32, [pcm32.buffer]);
+    // 2. Create an AudioBuffer.
+    const buffer = this.audioContext.createBuffer(
+      1,
+      pcm32.length,
+      this.audioContext.sampleRate,
+    );
+    buffer.copyToChannel(pcm32, 0);
+
+    // 3. Add to queue and start playback loop if not already started.
+    this.queue.push(buffer);
+    if (!this.isPlaying) {
+      void this.playNextInQueue();
+    }
+  }
+
+  private async playNextInQueue() {
+    if (this.queue.length === 0 || !this.audioContext) {
+      this.isPlaying = false;
+      return;
+    }
+
+    this.isPlaying = true;
+
+    // Resume context if it's suspended (e.g., due to browser policy)
+    if (this.audioContext.state === "suspended") {
+      await this.audioContext.resume();
+    }
+
+    const buffer = this.queue.shift();
+    if (!buffer) {
+      this.isPlaying = false;
+      return;
+    }
+
+    const source = this.audioContext.createBufferSource();
+    source.buffer = buffer;
+    source.connect(this.audioContext.destination);
+    source.start();
+
+    source.onended = () => {
+      // When this buffer finishes, play the next one.
+      void this.playNextInQueue();
+    };
   }
 }
