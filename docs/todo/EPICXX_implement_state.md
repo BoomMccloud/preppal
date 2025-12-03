@@ -38,10 +38,14 @@ Following TDD approach: Red → Green → Refactor for each phase.
 - [ ] **Phase 2: Component Integration Tests**
   - [ ] Write MainApp component rendering tests
   - [ ] Write StartButton interaction tests with mocked tRPC
-  - [ ] Write InterviewSession component tests
+  - [ ] Write InterviewSession component tests for integration with the global state.
   - [ ] Implement MainApp component
   - [ ] Implement StartButton component
-  - [ ] Implement InterviewSession component
+  - [ ] **Implement InterviewSession component and its local state**
+    - [ ] Refactor `useInterviewSocket.ts` to orchestrate local state.
+    - [ ] Create `interviewState.ts` to manage real-time session state with a `useReducer` hook.
+    - [ ] Encapsulate WebSocket logic into a dedicated custom hook.
+    - [ ] Encapsulate audio handling (`AudioRecorder`, `AudioPlayer`) into a dedicated custom hook.
 - [ ] **Phase 3: State Integration Tests**
   - [ ] Write error handling flow tests
   - [ ] Write permission denied flow tests
@@ -56,7 +60,9 @@ Following TDD approach: Red → Green → Refactor for each phase.
 - `src/app/__tests__/InterviewSession.test.tsx`
 
 ## Components to Create/Modify
-- `src/app/stores/interview-store.ts`
+- `src/app/stores/interview-store.ts` (Global State)
+- `src/app/(app)/interview/[interviewId]/session/interviewState.ts` (Local State)
+- `src/app/(app)/interview/[interviewId]/session/useInterviewSocket.ts` (Refactor)
 - `src/app/components/MainApp.tsx`
 - `src/app/components/StartButton.tsx`
 - `src/app/components/InterviewSession.tsx`
