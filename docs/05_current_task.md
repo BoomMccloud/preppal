@@ -1,132 +1,39 @@
-# Current Task: FEAT17 - Real-Time Client Audio Integration
+# Refactor SessionContent.tsx
 
-**Date:** December 2, 2025
-**Status:** Completed (TDD / Hook Refactoring)
+Based on the simpler and more direct implementation in `raw-worker-test/page.tsx`, we will refactor `SessionContent.tsx` to improve its structure, modularity, and testability.
 
-## Overview
-We are integrating the frontend with the new real-time audio backend (Cloudflare Worker). The backend and core frontend audio services (`AudioRecorder`, `AudioPlayer`) are complete. The remaining work is strictly in the **WebSocket integration layer** (`useInterviewSocket`) and **UI connection**.
+## Plan
 
-We have followed a **TDD approach**: Writing failing tests for the new hook logic before implementing it.
+1.  **Extract `RawAudioClient` and `TranscriptManager` from `useInterviewSocket`**:
+    -   The `useInterviewSocket` hook will be refactored to expose instances of `RawAudioClient` and `TranscriptManager`.
+    -   `SessionContent` will then instantiate and use these classes directly, similar to `raw-worker-test/page.tsx`.
 
----
+2.  **Define a Clear State Machine**:
+    -   Create a dedicated state management solution (e.g., a custom hook using `useReducer` or a state machine library) to manage the session's lifecycle. This will consolidate the various states (tRPC query status, WebSocket connection, UI interactions) into a single, predictable state object, reducing the complexity of multiple `useState` and `useEffect` hooks.
 
-## Progress Dashboard
+    -   **Session States:**
+        -   `loading`: The initial state when the component mounts. The tRPC query to fetch interview data is in progress.
+            -   **Component:** Renders a loading spinner or a skeleton UI.
+        -   `connecting`: The tRPC query was successful and we have the necessary data (like the WebSocket URL). The client is now attempting to connect to the WebSocket server.
+            -   **Component:** `ConnectingState`. Displays a message like "Connecting to interview session...".
+        -   `live`: The WebSocket connection is established and the interview is active. The user can speak, and the system will record, transcribe, and receive responses.
+            -   **Component:** `LiveInterview`. This component will contain the `TranscriptDisplay` and `InterviewControls`.
+        -   `ended`: The interview has concluded, either by the user manually ending it or by the server terminating the session.
+            -   **Component:** Renders a summary view or a message indicating the session is over, with a link to the feedback page.
+        -   `error`: An error has occurred. This state should store the error details. The error could originate from the tRPC query or the WebSocket connection.
+            -   **Component:** `ErrorState`. Displays an informative error message and a prompt to retry the connection.
 
-### Completed ✅
-- **Backend**: Cloudflare Worker & Gemini integration (FEAT16).
-- **Audio Services**: `AudioRecorder` and `AudioPlayer` implemented & tested (100% coverage).
-- **Protobuf**: Definitions and generated types ready.
-- **Session UI**: Basic layout and navigation (FEAT15).
-- **Configuration**: Added `NEXT_PUBLIC_WORKER_URL` to `.env` and `env.js`.
-- **WebSocket Hook (`useInterviewSocket`)**: Refactored to support Protobuf & new Auth flow.
-- **Hook Tests**: `session/page.test.tsx` rewritten to match new specs.
-- **Hook Implementation**: Verified refactored hook implementation
-- **Documentation**: Updated all relevant documentation
-- **JWT Refactoring**: Replaced `jsonwebtoken` with `jose` for consistent crypto implementation
-- **Targeted Functional Tests**: Implemented maintainable tests covering critical user journeys
-- **UI Integration**: Visual feedback for Listening/Speaking.
-- **UI Integration**: End Interview functionality.
-- **E2E Testing**: Full flow verification against the local worker.
+3.  **Component Composition**:
+    -   Break down the UI of `SessionContent` into smaller, more focused components:
+        -   `ConnectingState`: Renders the UI when the WebSocket is connecting.
+        -   `ErrorState`: Renders the UI when there is a connection error.
+        -   `LiveInterview`: Renders the main interview UI with the transcript and controls.
+        -   `Transcript`: A dedicated component for displaying the transcript.
 
-### In Progress ⚠️
-- None
+4.  **Adopt a Hybrid Data Fetching Strategy**:
+    -   **Initial State Fetch via tRPC**: On component mount, use a single `api.interview.getById.useQuery` to fetch the interview's current status. This is essential for handling initial edge cases, such as the interview already being `COMPLETED`, in which case we can redirect immediately. The polling `refetchInterval` will be removed to avoid unnecessary network requests.
+    -   **Real-time Updates via WebSocket**: After the initial check confirms the interview is ready, all subsequent state changes (like the session ending) will be communicated exclusively through the WebSocket connection. This provides a more efficient, event-driven approach and eliminates the need for HTTP polling during the live interview session.
 
-### Pending ⏳
-- **UI Integration**: Display real-time transcripts (Deferred).
-- **Performance Optimization**: Optimize audio streaming performance.
-- **Error Handling**: Enhance error handling and user feedback.
-
----
-
-## Immediate Next Steps
-
-1.  ~~**Update Config**: Add `NEXT_PUBLIC_WORKER_URL` to `.env` and `env.js`.~~
-2.  ~~**Write Tests**: Rewrite `src/app/(app)/interview/[interviewId]/session/page.test.tsx` to fail against the current implementation (expecting Protobuf/New URL).~~
-3.  ~~**Refactor Hook**: Update `useInterviewSocket.ts` to pass the new tests.~~
-    - ~~Use `generateWorkerToken`.~~
-    - ~~Implement Protobuf encoding/decoding.~~
-    - ~~Wire up Audio services.~~
-4.  ~~**Refactor JWT Dependencies**: Replace `jsonwebtoken` with `jose` throughout the project.~~
-5.  ~~**Implement Targeted Tests**: Create maintainable functional tests covering critical user journeys.~~
-6.  ~~**UI Integration**: Add visual feedback for "Listening" vs "Speaking" states.~~
-7.  ~~**UI Integration**: Ensure "End Interview" button functions correctly.~~
-8.  ~~**E2E Testing**: Perform full flow verification against the Cloudflare Worker.~~
-
----
-
-## Architecture Alignment
-
-The implementation now aligns with the updated architecture:
-
-1. **Frontend (Next.js/React)**: Handles UI, authentication, and real-time communication
-2. **Backend (Next.js tRPC)**: Manages business logic, database operations, and token generation
-3. **Real-Time Engine (Cloudflare Worker)**: Manages WebSocket connections and AI integration
-
-## Technical Implementation Details
-
-### Authentication Flow
-- Uses `interview.generateWorkerToken` to obtain a JWT for Cloudflare Worker authentication
-- Connects to `wss://<WORKER_URL>/<interviewId>?token=<jwt>` instead of sending a `StartRequest` message
-
-### Message Protocol
-- All communication uses Protocol Buffers (`proto/interview.proto`)
-- Supports all message types:
-  - `ClientToServerMessage`: `audio_chunk`, `end_request`
-  - `ServerToClientMessage`: `transcript_update`, `audio_response`, `error`, `session_ended`
-
-### Audio Services
-- `AudioRecorder`: Captures and downsamples microphone audio to 16kHz PCM
-- `AudioPlayer`: Receives and plays AI-generated audio chunks
-- Both services integrated with the WebSocket communication layer
-
-## Test Coverage
-
-### Unit Tests
-- ✅ AudioRecorder: 100% coverage
-- ✅ AudioPlayer: 100% coverage
-- ✅ Protobuf Utilities: Basic encoding/decoding verified
-- ✅ useInterviewSocket: Core functionality implemented with maintainable tests
-- ✅ SessionContent: UI states including visual feedback and end interview
-
-### Integration Tests
-- ✅ WebSocket Connection: Implemented with proper URL construction
-- ✅ Message Handling: Protobuf encoding/decoding for all message types
-- ✅ Audio Services Integration: Properly connected
-- ✅ Authentication Flow: Uses correct API endpoint
-- ✅ JWT Refactoring: Consistent crypto implementation with `jose`
-
-### E2E Tests
-- ✅ Authentication Flow: Token generation and WebSocket connection
-- ✅ Audio Streaming: Sending and receiving audio chunks
-- ✅ Message Handling: Transcript updates, audio responses, errors, session end
-- ✅ Session Lifecycle: Start, live, end states
-- ✅ UI Integration: State transitions, visual feedback, controls
-
-## Current Status
-
-### Completed
-- ✅ Configuration updates
-- ✅ Test implementation
-- ✅ Hook refactoring
-- ✅ Documentation updates
-- ✅ Architecture alignment
-- ✅ JWT dependency refactoring
-- ✅ Targeted functional test implementation
-- ✅ UI Integration (Visual Feedback & End Interview)
-- ✅ E2E Testing with Cloudflare Worker
-
-### In Progress
-- None
-
-## Next Steps
-
-1. **UI Integration**: Update SessionContent.tsx to display real-time transcripts (Future Todo)
-2. **Performance Optimization**: Optimize audio streaming performance
-3. **Error Handling**: Enhance error handling and user feedback
-
----
-
-## Reference Documents
-- **Plan**: [FEAT17_implementation_plan.md](./FEAT17_implementation_plan.md) (Technical Specs)
-- **Design**: [01_design.md](./01_design.md)
-- **Protobuf**: `proto/interview.proto`
+5.  **Isolate Debugging UI**:
+    -   Move the debugging UI in `SessionContent` to a separate component.
+    -   This component can be conditionally rendered based on a development flag.
