@@ -20,7 +20,10 @@ export class RawAudioClient {
   private player: AudioPlayer;
   private recorder: AudioRecorder;
   private callbacks: RawClientCallbacks;
-  private transcriptBuffer = "";
+  private transcriptBuffers: { [speaker: string]: string } = {
+    USER: "",
+    AI: "",
+  };
 
   constructor(callbacks: RawClientCallbacks = {}) {
     this.callbacks = callbacks;
@@ -113,16 +116,17 @@ export class RawAudioClient {
         void this.player.enqueue(message.audioResponse.audioContent);
       } else if (message.transcriptUpdate) {
         const transcript = message.transcriptUpdate;
-        if (transcript?.text) {
-          this.transcriptBuffer += transcript.text;
-          const sentences = this.transcriptBuffer.split(
+        if (transcript?.speaker && transcript?.text) {
+          this.transcriptBuffers[transcript.speaker] += transcript.text;
+          const sentences = this.transcriptBuffers[transcript.speaker].split(
             /(?<=[.?!])\s+(?=[A-Z])/,
           );
           if (sentences.length > 1) {
             for (let i = 0; i < sentences.length - 1; i++) {
               console.log(`[${transcript.speaker}] ${sentences[i].trim()}`);
             }
-            this.transcriptBuffer = sentences[sentences.length - 1];
+            this.transcriptBuffers[transcript.speaker] =
+              sentences[sentences.length - 1];
           }
         }
       }

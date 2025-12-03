@@ -10,7 +10,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { RawAudioClient } from "~/lib/audio/RawAudioClient";
 
-const useRawSocket = () => {
+export default function RawWorkerTestPage() {
   const [isConnected, setIsConnected] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,20 +48,6 @@ const useRawSocket = () => {
   const disconnect = useCallback(() => {
     clientRef.current?.disconnect();
   }, []);
-
-  return {
-    isConnected,
-    isRecording,
-    isAiSpeaking,
-    error,
-    connect,
-    disconnect,
-  };
-};
-
-export default function RawWorkerTestPage() {
-  const { isConnected, isRecording, isAiSpeaking, error, connect, disconnect } =
-    useRawSocket();
 
   return (
     <main className="prose dark:prose-invert container mx-auto p-4">
