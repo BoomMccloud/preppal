@@ -37,15 +37,30 @@ export class AudioRecorder {
     }
   }
 
+  getStream(): MediaStream | null {
+    return this.stream;
+  }
+
   stop() {
     console.log("Stopping audio recorder...");
+    if (this.workletNode) {
+      this.workletNode.disconnect();
+      this.workletNode = null;
+    }
     if (this.stream) {
-      this.stream.getTracks().forEach((track) => track.stop());
+      this.stream.getTracks().forEach((track) => {
+        track.stop();
+      });
+      this.stream = null;
     }
     if (this.audioContext) {
-      void this.audioContext.close();
-      this.audioContext = null;
-      this.workletNode = null;
+      // close() returns a promise, let's handle it.
+      this.audioContext
+        .close()
+        .then(() => {
+          this.audioContext = null;
+        })
+        .catch((e) => console.error("Error closing audio context", e));
     }
   }
 }
