@@ -25,6 +25,7 @@ export class GeminiSession implements DurableObject {
   private userInitiatedClose = false;
   private audioChunksReceivedCount = 0;
   private audioResponsesReceivedCount = 0;
+  private sessionEnded = false;
 
   constructor(
     private state: DurableObjectState,
@@ -35,6 +36,23 @@ export class GeminiSession implements DurableObject {
       env.NEXT_PUBLIC_API_URL,
       env.WORKER_SHARED_SECRET,
     );
+  }
+
+  private safeSend(ws: WebSocket, data: ArrayBuffer | string) {
+    try {
+      if (ws.readyState === WebSocket.READY_STATE_OPEN) {
+        ws.send(data);
+      } else {
+        console.warn(
+          `[GeminiSession] Attempted to send message to closed WebSocket for interview ${this.interviewId}`
+        );
+      }
+    } catch (error) {
+      console.error(
+        `[GeminiSession] Failed to send message to WebSocket for interview ${this.interviewId}:`,
+        error
+      );
+    }
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -118,14 +136,7 @@ export class GeminiSession implements DurableObject {
           5000,
           "Internal error processing message",
         );
-        try {
-          server.send(encodeServerMessage(errorMsg));
-        } catch (sendError) {
-          console.error(
-            `[GeminiSession] Failed to send error message:`,
-            sendError,
-          );
-        }
+        this.safeSend(server, encodeServerMessage(errorMsg));
       }
     });
 
@@ -179,6 +190,14 @@ export class GeminiSession implements DurableObject {
     ws: WebSocket,
     audioChunk: preppal.IAudioChunk,
   ): Promise<void> {
+    // Don't process audio chunks if the session has ended
+    if (this.sessionEnded) {
+      console.warn(
+        `[GeminiSession] Received audio chunk after session ended for interview ${this.interviewId}`,
+      );
+      return;
+    }
+
     const audioContent = audioChunk.audioContent;
     if (!audioContent || audioContent.length === 0) {
       console.warn(
@@ -201,12 +220,19 @@ export class GeminiSession implements DurableObject {
           `[GeminiSession] Sending first audio chunk to Gemini for interview ${this.interviewId}`,
         );
       }
-      this.geminiSession.sendRealtimeInput({
-        audio: {
-          data: base64Audio,
-          mimeType: "audio/pcm;rate=16000",
-        },
-      });
+      try {
+        this.geminiSession.sendRealtimeInput({
+          audio: {
+            data: base64Audio,
+            mimeType: "audio/pcm;rate=16000",
+          },
+        });
+      } catch (error) {
+        console.error(
+          `[GeminiSession] Failed to send audio chunk to Gemini for interview ${this.interviewId}:`,
+          error,
+        );
+      }
     } else {
       console.warn(
         `[GeminiSession] Gemini session not initialized, audio chunk dropped for interview ${this.interviewId}`,
@@ -221,6 +247,7 @@ export class GeminiSession implements DurableObject {
 
     // Mark as user-initiated close
     this.userInitiatedClose = true;
+    this.sessionEnded = true;
 
     // Close Gemini connection if exists
     if (this.geminiSession) {
@@ -274,21 +301,7 @@ export class GeminiSession implements DurableObject {
       preppal.SessionEnded.Reason.USER_INITIATED,
     );
 
-    // Safe send - check if WebSocket is still open
-    try {
-      if (ws.readyState === WebSocket.READY_STATE_OPEN) {
-        ws.send(encodeServerMessage(endedMsg));
-      } else {
-        console.warn(
-          `[GeminiSession] Attempted to send session ended message to closed WebSocket for interview ${this.interviewId}`
-        );
-      }
-    } catch (error) {
-      console.error(
-        `[GeminiSession] Failed to send session ended message for interview ${this.interviewId}:`,
-        error
-      );
-    }
+    this.safeSend(ws, encodeServerMessage(endedMsg));
 
     // Close the WebSocket
     ws.close(1000, "Interview ended by user");
@@ -354,12 +367,15 @@ export class GeminiSession implements DurableObject {
           }
 
           const errorMsg = createErrorResponse(4002, "AI service error");
-          serverSideWs.send(encodeServerMessage(errorMsg)); // Send error to serverSideWs
+          this.safeSend(serverSideWs, encodeServerMessage(errorMsg));
         },
         onclose: async () => {
           console.log(
             `[GeminiSession] Gemini connection closed for interview ${this.interviewId}`,
           );
+
+          // Mark session as ended
+          this.sessionEnded = true;
 
           // Only update status to ERROR if this was an unexpected close
           if (!this.userInitiatedClose) {
@@ -378,7 +394,7 @@ export class GeminiSession implements DurableObject {
             const endMsg = createSessionEnded(
               preppal.SessionEnded.Reason.GEMINI_ENDED,
             );
-            serverSideWs.send(encodeServerMessage(endMsg)); // Send session ended to serverSideWs
+            this.safeSend(serverSideWs, encodeServerMessage(endMsg));
             serverSideWs.close(1000, "AI ended session"); // Close serverSideWs
           }
         },
@@ -397,23 +413,13 @@ export class GeminiSession implements DurableObject {
   }
 
   private handleGeminiMessage(serverSideWs: WebSocket, message: any): void {
-    // Helper function to safely send messages
-    const safeSend = (data: ArrayBuffer | string) => {
-      try {
-        if (serverSideWs.readyState === WebSocket.READY_STATE_OPEN) {
-          serverSideWs.send(data);
-        } else {
-          console.warn(
-            `[GeminiSession] Attempted to send message to closed WebSocket for interview ${this.interviewId}`
-          );
-        }
-      } catch (error) {
-        console.error(
-          `[GeminiSession] Failed to send message to WebSocket for interview ${this.interviewId}:`,
-          error
-        );
-      }
-    };
+    // Don't process messages if the session has ended
+    if (this.sessionEnded) {
+      console.warn(
+        `[GeminiSession] Received Gemini message after session ended for interview ${this.interviewId}`,
+      );
+      return;
+    }
 
     // Handle input transcription (user speech)
     if (message.serverContent?.inputTranscription) {
@@ -427,7 +433,7 @@ export class GeminiSession implements DurableObject {
 
       // Send to client
       const transcriptMsg = createTranscriptUpdate("USER", text, true);
-      safeSend(encodeServerMessage(transcriptMsg));
+      this.safeSend(serverSideWs, encodeServerMessage(transcriptMsg));
     }
 
     // Handle output transcription (AI speech)
@@ -442,7 +448,7 @@ export class GeminiSession implements DurableObject {
 
       // Send to client
       const transcriptMsg = createTranscriptUpdate("AI", text, true);
-      safeSend(encodeServerMessage(transcriptMsg));
+      this.safeSend(serverSideWs, encodeServerMessage(transcriptMsg));
     }
 
     // Handle AI text response
@@ -451,7 +457,7 @@ export class GeminiSession implements DurableObject {
         `[GeminiSession] Received text response for interview ${this.interviewId}: ${message.text}`,
       );
       const transcriptMsg = createTranscriptUpdate("AI", message.text, true);
-      safeSend(encodeServerMessage(transcriptMsg));
+      this.safeSend(serverSideWs, encodeServerMessage(transcriptMsg));
     }
 
     // Handle AI audio response
@@ -467,7 +473,7 @@ export class GeminiSession implements DurableObject {
       const audioData = AudioConverter.base64ToBinary(message.data);
 
       const audioMsg = createAudioResponse(audioData);
-      safeSend(encodeServerMessage(audioMsg));
+      this.safeSend(serverSideWs, encodeServerMessage(audioMsg));
     }
   }
 
@@ -475,6 +481,9 @@ export class GeminiSession implements DurableObject {
     console.log(
       `[GeminiSession] Cleaning up session for interview ${this.interviewId}`,
     );
+    // Mark session as ended
+    this.sessionEnded = true;
+
     if (this.geminiSession) {
       this.geminiSession.close();
     }
