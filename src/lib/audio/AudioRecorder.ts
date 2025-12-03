@@ -41,11 +41,10 @@ export class AudioRecorder {
     return this.stream;
   }
 
-  stop() {
+  async stop() {
     console.log("Stopping audio recorder...");
     if (this.workletNode) {
       this.workletNode.disconnect();
-      this.workletNode = null;
     }
     if (this.stream) {
       this.stream.getTracks().forEach((track) => {
@@ -54,13 +53,8 @@ export class AudioRecorder {
       this.stream = null;
     }
     if (this.audioContext) {
-      // close() returns a promise, let's handle it.
-      this.audioContext
-        .close()
-        .then(() => {
-          this.audioContext = null;
-        })
-        .catch((e) => console.error("Error closing audio context", e));
+      await this.audioContext.close();
+      this.audioContext = null;
     }
   }
 }
