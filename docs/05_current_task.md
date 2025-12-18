@@ -19,6 +19,9 @@ Implement dynamic system prompt generation for the Gemini Live API, allowing the
 - [ ] Integrate into production app - Ensure persona is set when creating interviews
 - [ ] Write unit tests for `buildSystemPrompt`
 
+## Documentation Tasks
+- [x] Consolidate `DEV_LOGIN.md` into `07_devops.md` for a unified development and production guide.
+
 ## Key Files
 - `prisma/schema.prisma` - `persona String?` on Interview model
 - `src/server/api/routers/interview.ts` - `getContext` returns persona
