@@ -15,7 +15,10 @@ interface RawClientCallbacks {
   onSpeakingStateChange?: (isSpeaking: boolean) => void;
   onTranscriptUpdate?: (transcript: TranscriptUpdate) => void;
   onError?: (error: string) => void;
-  onDebugInfo?: (info: { connectAttempts: number; activeConnections: number }) => void;
+  onDebugInfo?: (info: {
+    connectAttempts: number;
+    activeConnections: number;
+  }) => void;
 }
 
 export class RawAudioClient {
@@ -64,7 +67,9 @@ export class RawAudioClient {
     this.ws.onopen = async () => {
       this.activeConnections++;
       this.updateDebugInfo();
-      console.log(`Raw WebSocket connected. (Active: ${this.activeConnections})`);
+      console.log(
+        `Raw WebSocket connected. (Active: ${this.activeConnections})`,
+      );
       this.callbacks.onConnectionStateChange?.("connected");
       try {
         await this.recorder.start(this.handleAudioData);
@@ -91,7 +96,9 @@ export class RawAudioClient {
     this.ws.onclose = () => {
       this.activeConnections = Math.max(0, this.activeConnections - 1);
       this.updateDebugInfo();
-      console.log(`Raw WebSocket disconnected. (Active: ${this.activeConnections})`);
+      console.log(
+        `Raw WebSocket disconnected. (Active: ${this.activeConnections})`,
+      );
       void this.cleanup();
     };
   }

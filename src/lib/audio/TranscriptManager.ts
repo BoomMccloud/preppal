@@ -2,7 +2,7 @@
  * @file src/lib/audio/TranscriptManager.ts
  * @description Manages buffering and sentence detection for real-time transcripts.
  */
-import { preppal } from '~/lib/interview_pb';
+import { preppal } from "~/lib/interview_pb";
 
 type TranscriptUpdate = preppal.TranscriptUpdate;
 
@@ -12,8 +12,8 @@ interface TranscriptManagerCallbacks {
 
 export class TranscriptManager {
   private transcriptBuffers: { [speaker: string]: string } = {
-    USER: '',
-    AI: '',
+    USER: "",
+    AI: "",
   };
   private callbacks: TranscriptManagerCallbacks;
 
@@ -43,6 +43,6 @@ export class TranscriptManager {
   }
 
   public getBufferedText(speaker: string): string {
-    return this.transcriptBuffers[speaker] || '';
+    return this.transcriptBuffers[speaker] || "";
   }
 }

@@ -61,7 +61,9 @@ Output JSON only.
     // Clean up potential markdown code blocks
     let cleanText = text.trim();
     if (cleanText.startsWith("```")) {
-      cleanText = cleanText.replace(/^```(json)?\n?/, "").replace(/\n?```$/, "");
+      cleanText = cleanText
+        .replace(/^```(json)?\n?/, "")
+        .replace(/\n?```$/, "");
     }
 
     const json = JSON.parse(cleanText);

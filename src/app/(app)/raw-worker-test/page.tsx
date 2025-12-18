@@ -16,7 +16,10 @@ export default function RawWorkerTestPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
-  const [debugInfo, setDebugInfo] = useState({ connectAttempts: 0, activeConnections: 0 });
+  const [debugInfo, setDebugInfo] = useState({
+    connectAttempts: 0,
+    activeConnections: 0,
+  });
   const clientRef = useRef<RawAudioClient | null>(null);
   const transcriptManagerRef = useRef<TranscriptManager | null>(null);
 
@@ -121,13 +124,17 @@ export default function RawWorkerTestPage() {
           Active Connections:{" "}
           <strong
             className={
-              debugInfo.activeConnections > 1 ? "text-red-600" : "text-green-600"
+              debugInfo.activeConnections > 1
+                ? "text-red-600"
+                : "text-green-600"
             }
           >
             {debugInfo.activeConnections}
           </strong>
           {debugInfo.activeConnections > 1 && (
-            <span className="ml-2 text-red-600">⚠️ Multiple connections detected!</span>
+            <span className="ml-2 text-red-600">
+              ⚠️ Multiple connections detected!
+            </span>
           )}
         </p>
       </div>

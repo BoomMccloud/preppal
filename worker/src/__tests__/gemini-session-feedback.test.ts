@@ -1,13 +1,13 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { GeminiSession } from '../gemini-session';
-import * as feedbackUtils from '../utils/feedback';
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { GeminiSession } from "../gemini-session";
+import * as feedbackUtils from "../utils/feedback";
 
 // Mock dependencies
-vi.mock('../utils/feedback', () => ({
+vi.mock("../utils/feedback", () => ({
   generateFeedback: vi.fn(),
 }));
 
-vi.mock('../api-client', () => {
+vi.mock("../api-client", () => {
   return {
     ApiClient: vi.fn().mockImplementation(() => ({
       submitTranscript: vi.fn().mockResolvedValue(undefined),
@@ -17,7 +17,7 @@ vi.mock('../api-client', () => {
   };
 });
 
-describe('GeminiSession.handleEndRequest - P0 Critical Tests', () => {
+describe("GeminiSession.handleEndRequest - P0 Critical Tests", () => {
   let session: any;
   let mockWs: any;
   let mockEnv: any;
@@ -33,9 +33,9 @@ describe('GeminiSession.handleEndRequest - P0 Critical Tests', () => {
     };
 
     mockEnv = {
-      NEXT_PUBLIC_API_URL: 'http://localhost:3000',
-      WORKER_SHARED_SECRET: 'secret',
-      GEMINI_API_KEY: 'api-key',
+      NEXT_PUBLIC_API_URL: "http://localhost:3000",
+      WORKER_SHARED_SECRET: "secret",
+      GEMINI_API_KEY: "api-key",
     };
 
     mockState = {
@@ -43,30 +43,34 @@ describe('GeminiSession.handleEndRequest - P0 Critical Tests', () => {
     };
 
     session = new GeminiSession(mockState, mockEnv);
-    (session as any).interviewId = 'test-interview-id';
+    (session as any).interviewId = "test-interview-id";
     (session as any).transcriptManager = {
-      getTranscript: vi.fn().mockReturnValue([{ speaker: 'USER', content: 'test' }]),
+      getTranscript: vi
+        .fn()
+        .mockReturnValue([{ speaker: "USER", content: "test" }]),
     };
     (session as any).interviewContext = {
-      jobDescription: 'test jd',
-      resume: 'test resume',
+      jobDescription: "test jd",
+      resume: "test resume",
     };
   });
 
-  it('should close WebSocket immediately and then process background tasks', async () => {
+  it("should close WebSocket immediately and then process background tasks", async () => {
     await session.handleEndRequest(mockWs);
 
     // WebSocket should be closed
     expect(mockWs.close).toHaveBeenCalled();
-    
+
     // Background tasks should have been triggered
     expect((session as any).apiClient.submitTranscript).toHaveBeenCalled();
     expect(feedbackUtils.generateFeedback).toHaveBeenCalled();
     expect((session as any).apiClient.submitFeedback).toHaveBeenCalled();
   });
 
-  it('should continue to save transcript even if feedback generation fails', async () => {
-    vi.mocked(feedbackUtils.generateFeedback).mockRejectedValue(new Error('AI error'));
+  it("should continue to save transcript even if feedback generation fails", async () => {
+    vi.mocked(feedbackUtils.generateFeedback).mockRejectedValue(
+      new Error("AI error"),
+    );
 
     await session.handleEndRequest(mockWs);
 
@@ -76,8 +80,10 @@ describe('GeminiSession.handleEndRequest - P0 Critical Tests', () => {
     expect((session as any).apiClient.submitFeedback).not.toHaveBeenCalled();
   });
 
-  it('should not proceed to feedback if transcript submission fails', async () => {
-    vi.mocked((session as any).apiClient.submitTranscript).mockRejectedValue(new Error('DB error'));
+  it("should not proceed to feedback if transcript submission fails", async () => {
+    vi.mocked((session as any).apiClient.submitTranscript).mockRejectedValue(
+      new Error("DB error"),
+    );
 
     await session.handleEndRequest(mockWs);
 

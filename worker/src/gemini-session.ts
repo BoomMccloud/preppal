@@ -96,18 +96,23 @@ export class GeminiSession implements DurableObject {
 
     // Accept the WebSocket connection
     server.accept();
-    console.log(
-      `[GeminiSession] Step 2: WebSocket connection accepted.`,
-    );
+    console.log(`[GeminiSession] Step 2: WebSocket connection accepted.`);
 
     // Fetch interview context
     if (!this.isDebug) {
       try {
-        console.log(`[GeminiSession] Fetching context for interview ${this.interviewId}`);
-        this.interviewContext = await this.apiClient.getContext(this.interviewId!);
+        console.log(
+          `[GeminiSession] Fetching context for interview ${this.interviewId}`,
+        );
+        this.interviewContext = await this.apiClient.getContext(
+          this.interviewId!,
+        );
         console.log(`[GeminiSession] Context fetched successfully`);
       } catch (error) {
-        console.error(`[GeminiSession] Failed to fetch interview context:`, error);
+        console.error(
+          `[GeminiSession] Failed to fetch interview context:`,
+          error,
+        );
         // Continue with empty context
       }
     }
@@ -336,7 +341,10 @@ export class GeminiSession implements DurableObject {
         await this.apiClient.submitFeedback(this.interviewId!, feedback);
         console.log(`[GeminiSession] Feedback submitted successfully`);
       } catch (feedbackError) {
-        console.error(`[GeminiSession] Failed to generate/submit feedback:`, feedbackError);
+        console.error(
+          `[GeminiSession] Failed to generate/submit feedback:`,
+          feedbackError,
+        );
         // We still consider the interview COMPLETED since transcript is saved
       }
 
@@ -351,7 +359,10 @@ export class GeminiSession implements DurableObject {
       try {
         await this.apiClient.updateStatus(this.interviewId!, "ERROR");
       } catch (statusError) {
-        console.error(`[GeminiSession] Failed to set ERROR status:`, statusError);
+        console.error(
+          `[GeminiSession] Failed to set ERROR status:`,
+          statusError,
+        );
       }
     }
   }

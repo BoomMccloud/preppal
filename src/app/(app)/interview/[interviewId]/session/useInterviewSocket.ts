@@ -114,7 +114,9 @@ export function useInterviewSocket({
           await audioRecorder.start((audioChunk) => {
             chunkCount++;
             if (chunkCount <= 3) {
-              console.log(`[AudioRecorder] Received audio chunk #${chunkCount}, size: ${audioChunk.byteLength} bytes`);
+              console.log(
+                `[AudioRecorder] Received audio chunk #${chunkCount}, size: ${audioChunk.byteLength} bytes`,
+              );
             }
 
             if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -126,16 +128,22 @@ export function useInterviewSocket({
                   preppal.ClientToServerMessage.encode(message).finish();
                 wsRef.current.send(buffer);
                 if (chunkCount <= 3) {
-                  console.log(`[AudioRecorder] Sent audio chunk #${chunkCount} via WebSocket`);
+                  console.log(
+                    `[AudioRecorder] Sent audio chunk #${chunkCount} via WebSocket`,
+                  );
                 }
               } catch (err) {
                 console.error("Error sending audio chunk:", err);
               }
             } else {
-              console.warn(`[AudioRecorder] WebSocket not open (state: ${wsRef.current?.readyState}), cannot send audio chunk`);
+              console.warn(
+                `[AudioRecorder] WebSocket not open (state: ${wsRef.current?.readyState}), cannot send audio chunk`,
+              );
             }
           });
-          console.log("[AudioRecorder] Successfully started and capturing audio");
+          console.log(
+            "[AudioRecorder] Successfully started and capturing audio",
+          );
 
           startTimer();
         } catch (err) {
@@ -143,7 +151,7 @@ export function useInterviewSocket({
           setError(
             err instanceof Error
               ? `Audio initialization failed: ${err.message}`
-              : "Failed to initialize audio"
+              : "Failed to initialize audio",
           );
           setState("error");
         }
@@ -169,7 +177,9 @@ export function useInterviewSocket({
   const connectWebSocket = (token: string) => {
     // Close any existing connection before creating a new one
     if (wsRef.current) {
-      console.log("[WebSocket] Closing existing connection before reconnecting");
+      console.log(
+        "[WebSocket] Closing existing connection before reconnecting",
+      );
       wsRef.current.close();
       wsRef.current = null;
     }
@@ -180,7 +190,9 @@ export function useInterviewSocket({
       process.env.NEXT_PUBLIC_WORKER_URL ?? "http://localhost:8787"
     ).replace(/^http/, "ws");
     const wsUrl = `${workerUrl}/${interviewId}?token=${encodeURIComponent(token)}`;
-    console.log(`[WebSocket] Connecting to: ${wsUrl} (Attempt #${connectAttempts + 1})`);
+    console.log(
+      `[WebSocket] Connecting to: ${wsUrl} (Attempt #${connectAttempts + 1})`,
+    );
 
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
@@ -188,7 +200,9 @@ export function useInterviewSocket({
 
     ws.onopen = () => {
       setActiveConnections((prev) => prev + 1);
-      console.log(`[WebSocket] Connected successfully (Active: ${activeConnections + 1})`);
+      console.log(
+        `[WebSocket] Connected successfully (Active: ${activeConnections + 1})`,
+      );
       setState("live");
     };
 
@@ -235,7 +249,10 @@ export function useInterviewSocket({
 
     ws.onclose = (event) => {
       setActiveConnections((prev) => Math.max(0, prev - 1));
-      console.log(`[WebSocket] Closed: (Active: ${activeConnections - 1})`, event);
+      console.log(
+        `[WebSocket] Closed: (Active: ${activeConnections - 1})`,
+        event,
+      );
       if (["live", "connecting"].includes(stateRef.current)) {
         setError("Connection lost.");
         setState("error");

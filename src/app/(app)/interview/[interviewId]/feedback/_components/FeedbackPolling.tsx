@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "~/trpc/react";
 import FeedbackCard from "./FeedbackCard";
@@ -11,6 +11,7 @@ interface FeedbackPollingProps {
 
 export default function FeedbackPolling({ interviewId }: FeedbackPollingProps) {
   const router = useRouter();
+  const [shouldPoll, setShouldPoll] = useState(true);
 
   const { data, error } = api.interview.getById.useQuery(
     {
@@ -18,13 +19,17 @@ export default function FeedbackPolling({ interviewId }: FeedbackPollingProps) {
       includeFeedback: true,
     },
     {
-      refetchInterval: (data) => {
-        // Stop polling if we have feedback or if there's an error
-        if (data?.feedback || error) return false;
-        return 3000; // Poll every 3 seconds
-      },
+      refetchInterval: shouldPoll ? 3000 : false, // Poll every 3 seconds
+      retry: false, // Don't retry on error (like 404)
     },
   );
+
+  // Stop polling if we have feedback or an error
+  useEffect(() => {
+    if (error || data?.feedback) {
+      setShouldPoll(false);
+    }
+  }, [error, data?.feedback]);
 
   // Watch for feedback becoming available and refresh
   useEffect(() => {

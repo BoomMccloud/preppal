@@ -192,13 +192,12 @@ export class ApiClient {
     );
   }
 
-  async submitFeedback(
-    interviewId: string,
-    feedback: any,
-  ): Promise<void> {
+  async submitFeedback(interviewId: string, feedback: any): Promise<void> {
     const url = `${this.apiUrl}/api/trpc/interview.submitFeedback`;
 
-    console.log(`[API] Calling submitFeedback for interview ${interviewId}: ${url}`);
+    console.log(
+      `[API] Calling submitFeedback for interview ${interviewId}: ${url}`,
+    );
 
     const requestBody = {
       json: {
@@ -230,10 +229,14 @@ export class ApiClient {
 
     const jsonResponse: any = await response.json();
     if (jsonResponse.error) {
-      throw new Error(`tRPC error: ${jsonResponse.error.json?.message || "Unknown error"}`);
+      throw new Error(
+        `tRPC error: ${jsonResponse.error.json?.message || "Unknown error"}`,
+      );
     }
 
-    console.log(`[API] Successfully submitted feedback for interview ${interviewId}`);
+    console.log(
+      `[API] Successfully submitted feedback for interview ${interviewId}`,
+    );
   }
 
   async getContext(
@@ -243,7 +246,9 @@ export class ApiClient {
       JSON.stringify({ "0": { json: { interviewId } } }),
     )}`;
 
-    console.log(`[API] Calling getContext for interview ${interviewId}: ${url}`);
+    console.log(
+      `[API] Calling getContext for interview ${interviewId}: ${url}`,
+    );
 
     let response: Response;
     try {

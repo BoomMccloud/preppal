@@ -19,10 +19,13 @@ export default async function InterviewFeedbackPage({ params }: PageProps) {
       includeFeedback: true,
     });
 
-    // Handle non-COMPLETED status: 
+    // Handle non-COMPLETED status:
     // If it's still IN_PROGRESS, the worker might be currently saving the transcript.
     // Show polling state instead of redirecting immediately.
-    if (interview.status !== "COMPLETED" && interview.status !== "IN_PROGRESS") {
+    if (
+      interview.status !== "COMPLETED" &&
+      interview.status !== "IN_PROGRESS"
+    ) {
       console.warn(
         `[Feedback Page] User attempted to access feedback for non-relevant status - interviewId: ${interviewId}, status: ${interview.status}`,
       );

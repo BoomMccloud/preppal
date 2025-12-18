@@ -1198,12 +1198,17 @@ describe("interview.submitTranscript", () => {
       const { createCaller } = await import("~/server/api/root");
 
       const headers = new Headers();
-      headers.set("Authorization", `Bearer ${process.env.WORKER_SHARED_SECRET}`);
+      headers.set(
+        "Authorization",
+        `Bearer ${process.env.WORKER_SHARED_SECRET}`,
+      );
 
       const caller = createCaller({ db, session: null, headers });
 
       // Mock finding the interview
-      vi.mocked(db.interview.findUnique).mockResolvedValue({ id: "target-interview-id" } as any);
+      vi.mocked(db.interview.findUnique).mockResolvedValue({
+        id: "target-interview-id",
+      } as any);
 
       // Mock the db.interviewFeedback.upsert call
       vi.mocked(db.interviewFeedback.upsert).mockResolvedValue({
@@ -1212,7 +1217,9 @@ describe("interview.submitTranscript", () => {
         createdAt: new Date(),
       } as any);
 
-      const result = await (caller.interview as any).submitFeedback(mockFeedback);
+      const result = await (caller.interview as any).submitFeedback(
+        mockFeedback,
+      );
 
       expect(result).toBeDefined();
       expect(db.interviewFeedback.upsert).toHaveBeenCalledWith({
@@ -1232,9 +1239,15 @@ describe("interview.submitTranscript", () => {
       const { db } = await import("~/server/db");
       const { createCaller } = await import("~/server/api/root");
 
-      const caller = createCaller({ db, session: null, headers: new Headers() });
+      const caller = createCaller({
+        db,
+        session: null,
+        headers: new Headers(),
+      });
 
-      await expect((caller.interview as any).submitFeedback(mockFeedback)).rejects.toThrow("UNAUTHORIZED");
+      await expect(
+        (caller.interview as any).submitFeedback(mockFeedback),
+      ).rejects.toThrow("UNAUTHORIZED");
     });
 
     it("should throw NOT_FOUND if the interview does not exist", async () => {
@@ -1242,14 +1255,19 @@ describe("interview.submitTranscript", () => {
       const { createCaller } = await import("~/server/api/root");
 
       const headers = new Headers();
-      headers.set("Authorization", `Bearer ${process.env.WORKER_SHARED_SECRET}`);
+      headers.set(
+        "Authorization",
+        `Bearer ${process.env.WORKER_SHARED_SECRET}`,
+      );
 
       const caller = createCaller({ db, session: null, headers });
 
       // Mock interview not found
       vi.mocked(db.interview.findUnique).mockResolvedValue(null);
 
-      await expect((caller.interview as any).submitFeedback(mockFeedback)).rejects.toThrow("Interview not found");
+      await expect(
+        (caller.interview as any).submitFeedback(mockFeedback),
+      ).rejects.toThrow("Interview not found");
     });
 
     it("should validate the feedback schema using Zod", async () => {
@@ -1257,12 +1275,17 @@ describe("interview.submitTranscript", () => {
       const { createCaller } = await import("~/server/api/root");
 
       const headers = new Headers();
-      headers.set("Authorization", `Bearer ${process.env.WORKER_SHARED_SECRET}`);
+      headers.set(
+        "Authorization",
+        `Bearer ${process.env.WORKER_SHARED_SECRET}`,
+      );
 
       const caller = createCaller({ db, session: null, headers });
 
       // @ts-expect-error - testing invalid input
-      await expect((caller.interview as any).submitFeedback({ interviewId: "test" })).rejects.toThrow();
+      await expect(
+        (caller.interview as any).submitFeedback({ interviewId: "test" }),
+      ).rejects.toThrow();
     });
   });
 });

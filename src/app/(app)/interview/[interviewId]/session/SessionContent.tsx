@@ -14,20 +14,29 @@ export function SessionContent({ interviewId }: SessionContentProps) {
   const router = useRouter();
   const transcriptEndRef = useRef<HTMLDivElement>(null);
   const [debugInfo, setDebugInfo] = useState<string>("");
+  const [shouldPoll, setShouldPoll] = useState(true);
 
   // Check interview status - block if not PENDING
-  const { data: interview, isLoading, error: interviewError } = api.interview.getById.useQuery(
+  const {
+    data: interview,
+    isLoading,
+    error: interviewError,
+  } = api.interview.getById.useQuery(
     {
       id: interviewId,
     },
     {
-      refetchInterval: (data) => {
-        // Stop polling if interview is completed or if there's an error
-        if (data?.status === "COMPLETED" || interviewError) return false;
-        return 1000;
-      },
+      refetchInterval: shouldPoll ? 1000 : false, // Poll every 1 second
+      retry: false, // Don't retry on error (like 404)
     },
   );
+
+  // Stop polling if we have an error or interview is completed
+  useEffect(() => {
+    if (interviewError || interview?.status === "COMPLETED") {
+      setShouldPoll(false);
+    }
+  }, [interviewError, interview?.status]);
 
   const { data: interviewStatus } = api.debug.getInterviewStatus.useQuery(
     { interviewId },
@@ -37,17 +46,13 @@ export function SessionContent({ interviewId }: SessionContentProps) {
     },
   );
 
-  const handleCheckStatus = async () => {
-    try {
-      const response = await api.debug.getInterviewStatus.fetch({
-        interviewId,
-      });
-      setDebugInfo(JSON.stringify(response, null, 2));
-    } catch (error) {
-      setDebugInfo(
-        `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
-    }
+  const handleCheckStatus = () => {
+    // Display the current interview status from the query
+    const statusInfo = {
+      interview: interview ?? null,
+      interviewStatus: interviewStatus ?? null,
+    };
+    setDebugInfo(JSON.stringify(statusInfo, null, 2));
   };
 
   useEffect(() => {
