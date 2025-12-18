@@ -21,7 +21,10 @@ describe("WebSocketMessageHandler", () => {
     const encoded = preppal.ClientToServerMessage.encode(testMessage).finish();
 
     // Convert to ArrayBuffer
-    const buffer = encoded.buffer.slice(encoded.byteOffset, encoded.byteOffset + encoded.byteLength);
+    const buffer = encoded.buffer.slice(
+      encoded.byteOffset,
+      encoded.byteOffset + encoded.byteLength,
+    );
 
     // Decode it
     const decoded = handler.decodeMessage(buffer);

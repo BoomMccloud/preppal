@@ -2,7 +2,11 @@
 // ABOUTME: Wraps Google GenAI SDK with a cleaner, testable interface
 
 import { GoogleGenAI } from "@google/genai";
-import type { IGeminiClient, GeminiConfig, ClientTurn } from "./interfaces/index.js";
+import type {
+  IGeminiClient,
+  GeminiConfig,
+  ClientTurn,
+} from "./interfaces/index.js";
 
 /**
  * Client for managing Gemini Live API connections
@@ -40,7 +44,9 @@ export class GeminiClient implements IGeminiClient {
    * Send realtime audio input to Gemini
    * @throws Error if not connected
    */
-  sendRealtimeInput(input: { audio: { data: string; mimeType: string } }): void {
+  sendRealtimeInput(input: {
+    audio: { data: string; mimeType: string };
+  }): void {
     if (!this.session) {
       throw new Error("GeminiClient is not connected");
     }

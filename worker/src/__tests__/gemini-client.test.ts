@@ -82,7 +82,7 @@ describe("GeminiClient", () => {
           onerror: () => {},
           onclose: () => {},
         },
-      })
+      }),
     ).rejects.toThrow("already connected");
   });
 

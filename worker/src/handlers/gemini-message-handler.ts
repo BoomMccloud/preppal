@@ -38,7 +38,7 @@ export interface GeminiMessageResult {
 export class GeminiMessageHandler {
   constructor(
     private transcriptManager: ITranscriptManager,
-    private audioConverter: IAudioConverter
+    private audioConverter: IAudioConverter,
   ) {}
 
   /**

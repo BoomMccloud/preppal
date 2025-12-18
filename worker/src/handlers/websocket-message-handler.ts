@@ -22,7 +22,7 @@ export class WebSocketMessageHandler {
    * Determine message type for routing
    */
   getMessageType(
-    message: preppal.ClientToServerMessage
+    message: preppal.ClientToServerMessage,
   ): "audio" | "end" | "unknown" {
     if (message.audioChunk) {
       return "audio";

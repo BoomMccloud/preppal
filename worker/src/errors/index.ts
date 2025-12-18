@@ -16,7 +16,10 @@ export class WorkerError extends Error {
  * Error when Gemini connection fails
  */
 export class GeminiConnectionError extends WorkerError {
-  constructor(message: string, public cause?: Error) {
+  constructor(
+    message: string,
+    public cause?: Error,
+  ) {
     super(message);
   }
 }
@@ -25,7 +28,10 @@ export class GeminiConnectionError extends WorkerError {
  * Error when submitting transcript to backend
  */
 export class TranscriptSubmissionError extends WorkerError {
-  constructor(message: string, public cause?: Error) {
+  constructor(
+    message: string,
+    public cause?: Error,
+  ) {
     super(message);
   }
 }
@@ -34,7 +40,10 @@ export class TranscriptSubmissionError extends WorkerError {
  * Error when updating interview status
  */
 export class StatusUpdateError extends WorkerError {
-  constructor(message: string, public cause?: Error) {
+  constructor(
+    message: string,
+    public cause?: Error,
+  ) {
     super(message);
   }
 }
@@ -52,7 +61,10 @@ export class AuthenticationError extends WorkerError {
  * Error when WebSocket connection fails
  */
 export class WebSocketError extends WorkerError {
-  constructor(message: string, public cause?: Error) {
+  constructor(
+    message: string,
+    public cause?: Error,
+  ) {
     super(message);
   }
 }
@@ -61,7 +73,10 @@ export class WebSocketError extends WorkerError {
  * Error when feedback generation fails
  */
 export class FeedbackGenerationError extends WorkerError {
-  constructor(message: string, public cause?: Error) {
+  constructor(
+    message: string,
+    public cause?: Error,
+  ) {
     super(message);
   }
 }

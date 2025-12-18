@@ -1,7 +1,10 @@
 // ABOUTME: Transcript tracking for interview conversations
 // ABOUTME: Maintains chronological history of user and AI speech with timestamps
 
-import type { ITranscriptManager, TranscriptEntry } from "./interfaces/index.js";
+import type {
+  ITranscriptManager,
+  TranscriptEntry,
+} from "./interfaces/index.js";
 
 /**
  * Manages conversation transcript tracking during an interview session

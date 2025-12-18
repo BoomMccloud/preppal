@@ -66,7 +66,7 @@ export interface IApiClient {
   submitTranscript(
     interviewId: string,
     transcript: TranscriptEntry[],
-    endedAt: string
+    endedAt: string,
   ): Promise<void>;
   submitFeedback(interviewId: string, feedback: FeedbackData): Promise<void>;
   getContext(interviewId: string): Promise<InterviewContext>;

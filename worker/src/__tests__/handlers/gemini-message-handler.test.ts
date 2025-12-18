@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { GeminiMessageHandler } from "../../handlers/gemini-message-handler";
-import type { ITranscriptManager, IAudioConverter } from "../../interfaces/index.js";
+import type {
+  ITranscriptManager,
+  IAudioConverter,
+} from "../../interfaces/index.js";
 
 describe("GeminiMessageHandler", () => {
   let handler: GeminiMessageHandler;
@@ -23,7 +26,7 @@ describe("GeminiMessageHandler", () => {
 
     handler = new GeminiMessageHandler(
       mockTranscriptManager,
-      mockAudioConverter
+      mockAudioConverter,
     );
   });
 
@@ -36,7 +39,9 @@ describe("GeminiMessageHandler", () => {
 
     const result = handler.handleMessage(message);
 
-    expect(mockTranscriptManager.addUserTranscript).toHaveBeenCalledWith("Hello");
+    expect(mockTranscriptManager.addUserTranscript).toHaveBeenCalledWith(
+      "Hello",
+    );
     expect(result.userTranscript).toBeDefined();
     expect(result.userTranscript?.text).toBe("Hello");
     expect(result.userTranscript?.message).toBeDefined();
@@ -52,7 +57,9 @@ describe("GeminiMessageHandler", () => {
 
     const result = handler.handleMessage(message);
 
-    expect(mockTranscriptManager.addAITranscript).toHaveBeenCalledWith("Hi there");
+    expect(mockTranscriptManager.addAITranscript).toHaveBeenCalledWith(
+      "Hi there",
+    );
     expect(result.aiTranscript).toBeDefined();
     expect(result.aiTranscript?.text).toBe("Hi there");
     expect(result.aiTranscript?.message).toBeDefined();
@@ -66,7 +73,9 @@ describe("GeminiMessageHandler", () => {
 
     const result = handler.handleMessage(message);
 
-    expect(mockAudioConverter.base64ToBinary).toHaveBeenCalledWith("base64audiodata");
+    expect(mockAudioConverter.base64ToBinary).toHaveBeenCalledWith(
+      "base64audiodata",
+    );
     expect(result.audio).toBeDefined();
     expect(result.audio?.data).toEqual(new Uint8Array([1, 2, 3]));
     expect(result.audio?.message).toBeDefined();
@@ -97,8 +106,12 @@ describe("GeminiMessageHandler", () => {
 
     const result = handler.handleMessage(message);
 
-    expect(mockTranscriptManager.addUserTranscript).toHaveBeenCalledWith("Question");
-    expect(mockTranscriptManager.addAITranscript).toHaveBeenCalledWith("Answer");
+    expect(mockTranscriptManager.addUserTranscript).toHaveBeenCalledWith(
+      "Question",
+    );
+    expect(mockTranscriptManager.addAITranscript).toHaveBeenCalledWith(
+      "Answer",
+    );
     expect(result.userTranscript).toBeDefined();
     expect(result.aiTranscript).toBeDefined();
   });
