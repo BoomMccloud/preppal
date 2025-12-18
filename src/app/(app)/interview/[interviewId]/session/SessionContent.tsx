@@ -190,12 +190,16 @@ export function SessionContent({ interviewId }: SessionContentProps) {
       </div>
 
       {/* Main content area */}
-      <div className="flex-1 overflow-y-auto bg-gray-50 p-6">
-        <div className="mx-auto max-w-4xl space-y-6">
-          {/* AI Avatar / Video Feed Placeholder */}
-          <AIAvatar status={isAiSpeaking ? "Speaking..." : "Listening..."} />
+      <div className="flex min-h-0 flex-1 flex-col bg-gray-50">
+        {/* AI Avatar - Fixed at top */}
+        <div className="shrink-0 p-6 pb-0">
+          <div className="mx-auto max-w-4xl">
+            <AIAvatar status={isAiSpeaking ? "Speaking..." : "Listening..."} />
+          </div>
+        </div>
 
-          {/* Transcript */}
+        {/* Transcript - Scrollable */}
+        <div className="flex-1 overflow-y-auto p-6">
           <div className="mx-auto max-w-3xl space-y-4">
             {transcript.length === 0 ? (
               <div className="text-center text-gray-500">
