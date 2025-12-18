@@ -16,6 +16,7 @@ vi.mock("../api-client");
 
 // Mock WebSocketPair for the Cloudflare Workers environment
 class MockWebSocket {
+  readyState = 1; // WebSocket.READY_STATE_OPEN
   send = vi.fn();
   close = vi.fn();
   addEventListener = vi.fn();
@@ -38,6 +39,11 @@ class MockWebSocketPair {
 // Globally mock WebSocketPair if it's not defined, as it's a Workers API
 if (typeof WebSocketPair === "undefined") {
   (global as any).WebSocketPair = MockWebSocketPair as any;
+}
+
+// Mock WebSocket constants for Cloudflare Workers
+if (typeof WebSocket !== "undefined") {
+  (WebSocket as any).READY_STATE_OPEN = 1;
 }
 
 // Mock the global Response object to allow status 101 for WebSocket upgrades
@@ -281,11 +287,11 @@ describe("GeminiSession - Error Handling", () => {
     const response = await session.fetch(request);
 
     expect(mockConsoleError).toHaveBeenCalledWith(
-      "[GeminiSession] Failed to initialize Gemini:",
-      mockError,
+      "[GeminiSession] Failed to establish session:",
+      expect.any(Error),
     );
     expect(mockUpdateStatus).toHaveBeenCalledWith("test-interview", "ERROR");
-    expect(response.status).toBe(101); // WebSocket upgrade response
+    expect(response.status).toBe(500); // Error response (not 101 WebSocket upgrade)
   });
 
   it("should log error and update status to ERROR when Gemini onerror callback is invoked", async () => {
@@ -323,7 +329,7 @@ describe("GeminiSession - Error Handling", () => {
       mockGeminiError,
     );
     expect(mockUpdateStatus).toHaveBeenCalledWith("test-interview", "ERROR");
-    expect(mockClientWs.send).toHaveBeenCalled(); // Should send an error message to client
+    expect(mockServerWs.send).toHaveBeenCalled(); // Should send an error message to client via server WebSocket
   });
 });
 

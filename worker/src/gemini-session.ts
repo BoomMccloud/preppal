@@ -3,314 +3,385 @@
 
 import type { Env } from "./index";
 import {
-  decodeClientMessage,
   encodeServerMessage,
   createErrorResponse,
   createSessionEnded,
-  createTranscriptUpdate,
-  createAudioResponse,
 } from "./messages";
 import { preppal } from "./lib/interview_pb.js";
 import { AudioConverter } from "./audio-converter";
 import { TranscriptManager } from "./transcript-manager";
-import { GoogleGenAI, Modality } from "@google/genai";
+import { Modality } from "@google/genai";
 import { ApiClient } from "./api-client";
+import { GeminiClient } from "./gemini-client";
 import { generateFeedback } from "./utils/feedback";
+import { WebSocketMessageHandler } from "./handlers/websocket-message-handler";
+import { GeminiMessageHandler } from "./handlers/gemini-message-handler";
 
+// Import interfaces
+import type {
+  ITranscriptManager,
+  IAudioConverter,
+  IApiClient,
+  IGeminiClient,
+  GeminiMessage,
+  InterviewContext,
+} from "./interfaces/index.js";
+
+// Import error types
+import {
+  GeminiConnectionError,
+  StatusUpdateError,
+  AuthenticationError,
+} from "./errors/index.js";
+
+/**
+ * Durable Object managing individual Gemini Live API WebSocket sessions
+ * Coordinates WebSocket connections, Gemini API interactions, and transcript management
+ */
 export class GeminiSession implements DurableObject {
+  // Session state
   private userId?: string;
   private interviewId?: string;
-  private transcriptManager: TranscriptManager;
-  private geminiSession: any;
-  private apiClient: ApiClient;
-  private userInitiatedClose = false;
-  private audioChunksReceivedCount = 0;
-  private audioResponsesReceivedCount = 0;
-  private sessionEnded = false;
   private isDebug = false;
-  private interviewContext: { jobDescription: string; resume: string } = {
+  private userInitiatedClose = false;
+  private sessionEnded = false;
+  private interviewContext: InterviewContext = {
     jobDescription: "",
     resume: "",
   };
 
+  // Metrics
+  private audioChunksReceivedCount = 0;
+  private audioResponsesReceivedCount = 0;
+
+  // Dependencies (injected via constructor)
+  private transcriptManager: ITranscriptManager;
+  private apiClient: IApiClient;
+  private geminiClient: IGeminiClient;
+  private wsMessageHandler: WebSocketMessageHandler;
+  private geminiMessageHandler: GeminiMessageHandler;
+
+  // NOTE: AudioConverter is NOT injected yet - Phase 6 will convert it to instance methods
+  // For now, we use static methods via AudioConverter class directly
+
   constructor(
     private state: DurableObjectState,
-    private env: Env,
+    private env: Env
   ) {
+    // Initialize services
     this.transcriptManager = new TranscriptManager();
     this.apiClient = new ApiClient(
       env.NEXT_PUBLIC_API_URL,
-      env.WORKER_SHARED_SECRET,
+      env.WORKER_SHARED_SECRET
+    );
+    this.geminiClient = new GeminiClient(env.GEMINI_API_KEY);
+
+    // Initialize handlers
+    // NOTE: GeminiMessageHandler uses AudioConverter static methods for now
+    const audioConverter = {
+      binaryToBase64: (binary: Uint8Array) =>
+        AudioConverter.binaryToBase64(binary),
+      base64ToBinary: (base64: string) => AudioConverter.base64ToBinary(base64),
+    };
+    this.wsMessageHandler = new WebSocketMessageHandler();
+    this.geminiMessageHandler = new GeminiMessageHandler(
+      this.transcriptManager,
+      audioConverter
     );
   }
 
-  private safeSend(ws: WebSocket, data: ArrayBuffer | string) {
-    try {
-      if (ws.readyState === WebSocket.READY_STATE_OPEN) {
-        ws.send(data);
-      } else {
-        // console.warn(
-        //   `[GeminiSession] Attempted to send message to closed WebSocket for interview ${this.interviewId}`,
-        // );
-      }
-    } catch (error) {
-      console.error(
-        `[GeminiSession] Failed to send message to WebSocket for interview ${this.interviewId}:`,
-        error,
-      );
-    }
-  }
-
+  /**
+   * Durable Object fetch handler - entry point for WebSocket connections
+   */
   async fetch(request: Request): Promise<Response> {
-    const url = new URL(request.url);
-    if (this.env.DEV_MODE === "true" && url.pathname === "/debug/live-audio") {
-      this.isDebug = true;
-      console.log("[GeminiSession] Debug mode activated.");
-    }
-    // Handle WebSocket upgrade
-    const upgradeHeader = request.headers.get("Upgrade");
-    if (upgradeHeader !== "websocket") {
-      return new Response("Expected WebSocket", { status: 426 });
-    }
-
-    // Extract user context from headers (set by the main worker after JWT validation)
-    this.userId = request.headers.get("X-User-Id") ?? undefined;
-    this.interviewId = request.headers.get("X-Interview-Id") ?? undefined;
-
-    if (!this.isDebug && (!this.userId || !this.interviewId)) {
-      return new Response("Missing authentication context", { status: 401 });
-    }
-
-    if (this.isDebug) {
-      this.userId = "debug-user";
-      this.interviewId = `debug-interview-${new Date().getTime()}`;
-    }
-
-    console.log(
-      `[GeminiSession] Step 1: WebSocket connection request received. User: ${this.userId}, Interview: ${this.interviewId}`,
-    );
-
-    // Create WebSocket pair
-    const webSocketPair = new WebSocketPair();
-    const [client, server] = Object.values(webSocketPair);
-
-    // Accept the WebSocket connection
-    server.accept();
-    console.log(`[GeminiSession] Step 2: WebSocket connection accepted.`);
-
-    // Fetch interview context
-    if (!this.isDebug) {
-      try {
-        console.log(
-          `[GeminiSession] Fetching context for interview ${this.interviewId}`,
-        );
-        this.interviewContext = await this.apiClient.getContext(
-          this.interviewId!,
-        );
-        console.log(`[GeminiSession] Context fetched successfully`);
-      } catch (error) {
-        console.error(
-          `[GeminiSession] Failed to fetch interview context:`,
-          error,
-        );
-        // Continue with empty context
-      }
-    }
-
-    // Initialize Gemini connection
-
     try {
-      console.log(
-        `[GeminiSession] Step 3: Attempting to initialize Gemini connection for interview ${this.interviewId}`,
-      );
-      await this.initializeGemini(client, server);
-      console.log(
-        `[GeminiSession] Step 4: Gemini connection initialized successfully for interview ${this.interviewId}`,
-      );
-
-      // Update interview status to IN_PROGRESS
-      if (!this.isDebug) {
-        console.log(`[GeminiSession] Step 5: Updating status to IN_PROGRESS`);
-        await this.apiClient.updateStatus(this.interviewId!, "IN_PROGRESS");
-        console.log(`[GeminiSession] Step 6: Status updated to IN_PROGRESS`);
+      // Check for debug mode
+      const url = new URL(request.url);
+      if (this.env.DEV_MODE === "true" && url.pathname === "/debug/live-audio") {
+        this.isDebug = true;
+        console.log("[GeminiSession] Debug mode activated");
       }
-    } catch (error) {
-      console.error("[GeminiSession] Failed to initialize Gemini:", error);
 
-      // Update status to ERROR
+      // Validate WebSocket upgrade
+      const upgradeHeader = request.headers.get("Upgrade");
+      if (upgradeHeader !== "websocket") {
+        return new Response("Expected WebSocket", { status: 426 });
+      }
+
+      // Extract authentication context
+      this.userId = request.headers.get("X-User-Id") ?? undefined;
+      this.interviewId = request.headers.get("X-Interview-Id") ?? undefined;
+
+      // Validate authentication (except in debug mode)
+      if (!this.isDebug && (!this.userId || !this.interviewId)) {
+        throw new AuthenticationError("Missing authentication context");
+      }
+
+      // Set debug credentials if needed
+      if (this.isDebug) {
+        this.userId = "debug-user";
+        this.interviewId = `debug-interview-${Date.now()}`;
+      }
+
+      console.log(
+        `[GeminiSession] WebSocket connection request - User: ${this.userId}, Interview: ${this.interviewId}`
+      );
+
+      // Create WebSocket pair
+      const webSocketPair = new WebSocketPair();
+      const [client, server] = Object.values(webSocketPair);
+      server.accept();
+
+      // Fetch interview context (if not debug)
       if (!this.isDebug) {
         try {
-          await this.apiClient.updateStatus(this.interviewId!, "ERROR");
+          console.log(`[GeminiSession] Fetching context for interview ${this.interviewId}`);
+          this.interviewContext = await this.apiClient.getContext(this.interviewId!);
+          console.log(`[GeminiSession] Context fetched successfully`);
+        } catch (error) {
+          console.error(`[GeminiSession] Failed to fetch interview context:`, error);
+          // Continue with empty context
+        }
+      }
+
+      // Initialize Gemini connection
+      await this.initializeGemini(server);
+
+      // Update interview status
+      if (!this.isDebug) {
+        try {
+          await this.apiClient.updateStatus(this.interviewId!, "IN_PROGRESS");
+          console.log(`[GeminiSession] Status updated to IN_PROGRESS`);
+        } catch (error) {
+          throw new StatusUpdateError(
+            "Failed to update status to IN_PROGRESS",
+            error as Error
+          );
+        }
+      }
+
+      // Setup WebSocket event listeners
+      this.setupWebSocketListeners(server);
+
+      return new Response(null, {
+        status: 101,
+        webSocket: client,
+      });
+    } catch (error) {
+      console.error("[GeminiSession] Failed to establish session:", error);
+
+      // Update status to ERROR if we have interview ID
+      if (!this.isDebug && this.interviewId) {
+        try {
+          await this.apiClient.updateStatus(this.interviewId, "ERROR");
         } catch (apiError) {
-          console.error(
-            "[GeminiSession] Failed to update status to ERROR:",
-            apiError,
-          );
+          console.error("[GeminiSession] Failed to update status to ERROR:", apiError);
         }
       }
 
-      // In case of initialization error, we still need to handle messages
-      // but we'll send an error message and close the connection
+      return new Response(
+        error instanceof Error ? error.message : "Failed to establish session",
+        { status: 500 }
+      );
     }
+  }
 
-    // Handle messages
-    server.addEventListener("message", async (event: MessageEvent) => {
-      try {
-        if (event.data instanceof ArrayBuffer) {
-          // Log only non-audio binary messages or periodic audio logs if needed?
-          // For now, let handleBinaryMessage manage the noise.
-          await this.handleBinaryMessage(server, event.data);
-        } else {
-          console.warn(
-            `[GeminiSession] Received non-binary message, ignoring for interview ${this.interviewId}`,
-          );
-        }
-      } catch (error) {
-        console.error(
-          `[GeminiSession] Error handling message for interview ${this.interviewId}:`,
-          error,
-        );
-        const errorMsg = createErrorResponse(
-          5000,
-          "Internal error processing message",
-        );
-        this.safeSend(server, encodeServerMessage(errorMsg));
-      }
+  /**
+   * Setup WebSocket event listeners
+   */
+  private setupWebSocketListeners(ws: WebSocket): void {
+    ws.addEventListener("message", async (event: MessageEvent) => {
+      await this.handleWebSocketMessage(ws, event);
     });
 
-    server.addEventListener("close", () => {
-      console.log(
-        `[GeminiSession] WebSocket closed for interview ${this.interviewId}`,
-      );
-      this.cleanup();
+    ws.addEventListener("close", () => {
+      this.handleWebSocketClose();
     });
 
-    server.addEventListener("error", (event: ErrorEvent) => {
-      console.error(
-        `[GeminiSession] WebSocket error for interview ${this.interviewId}:`,
-        event,
-      );
-    });
-
-    return new Response(null, {
-      status: 101,
-      webSocket: client,
+    ws.addEventListener("error", (event: ErrorEvent) => {
+      this.handleWebSocketError(event);
     });
   }
 
-  private async handleBinaryMessage(
+  /**
+   * Initialize Gemini Live API connection
+   */
+  private async initializeGemini(ws: WebSocket): Promise<void> {
+    try {
+      console.log(`[GeminiSession] Connecting to Gemini Live API`);
+
+      const systemInstruction = `You are a professional interviewer. Your goal is to conduct a behavioral interview.
+Context:
+Job Description: ${this.interviewContext.jobDescription || "Not provided"}
+Candidate Resume: ${this.interviewContext.resume || "Not provided"}
+
+Start by introducing yourself and asking the candidate to introduce themselves.`;
+
+      await this.geminiClient.connect({
+        model: "gemini-2.5-flash-native-audio-preview-09-2025",
+        config: {
+          responseModalities: [Modality.AUDIO],
+          systemInstruction,
+          outputAudioTranscription: {},
+          inputAudioTranscription: {},
+        },
+        callbacks: {
+          onopen: () => this.handleGeminiOpen(),
+          onmessage: (message: GeminiMessage) => this.handleGeminiMessage(ws, message),
+          onerror: (error: Error) => this.handleGeminiError(ws, error),
+          onclose: () => this.handleGeminiClose(ws),
+        },
+      });
+
+      console.log(`[GeminiSession] Gemini connection established`);
+
+      // Send initial greeting to start the interview
+      this.geminiClient.sendClientContent({
+        turns: [
+          {
+            role: "user",
+            parts: [{ text: "Hello, let's start the interview." }],
+            turnComplete: true,
+          },
+        ],
+      });
+
+      console.log("[GeminiSession] Sent initial greeting to Gemini");
+    } catch (error) {
+      throw new GeminiConnectionError(
+        "Failed to initialize Gemini connection",
+        error as Error
+      );
+    }
+  }
+
+  /**
+   * Handle WebSocket message from client
+   */
+  private async handleWebSocketMessage(
     ws: WebSocket,
-    buffer: ArrayBuffer,
+    event: MessageEvent
   ): Promise<void> {
-    const message = decodeClientMessage(buffer);
+    try {
+      if (!(event.data instanceof ArrayBuffer)) {
+        console.warn(
+          `[GeminiSession] Received non-binary message, ignoring for interview ${this.interviewId}`
+        );
+        return;
+      }
 
-    if (message.audioChunk) {
-      // Increment counter before handling the chunk
-      this.audioChunksReceivedCount++;
-      await this.handleAudioChunk(ws, message.audioChunk);
-    } else if (message.endRequest) {
-      console.log(
-        `[GeminiSession] Handling end request for interview ${this.interviewId}`,
+      // Decode message
+      const message = this.wsMessageHandler.decodeMessage(event.data);
+      const messageType = this.wsMessageHandler.getMessageType(message);
+
+      // Route message
+      switch (messageType) {
+        case "audio":
+          this.audioChunksReceivedCount++;
+          await this.handleAudioChunk(ws, message.audioChunk!);
+          break;
+        case "end":
+          console.log(
+            `[GeminiSession] Handling end request for interview ${this.interviewId}`
+          );
+          await this.handleEndRequest(ws);
+          break;
+        default:
+          console.warn(
+            `[GeminiSession] Received unknown message type for interview ${this.interviewId}`
+          );
+      }
+    } catch (error) {
+      console.error(
+        `[GeminiSession] Error handling message for interview ${this.interviewId}:`,
+        error
       );
-      await this.handleEndRequest(ws);
-    } else {
-      console.warn(
-        `[GeminiSession] Received unknown message type for interview ${this.interviewId}`,
-      );
+      const errorMsg = createErrorResponse(5000, "Internal error processing message");
+      this.safeSend(ws, encodeServerMessage(errorMsg));
     }
   }
 
+  /**
+   * Handle audio chunk from client
+   */
   private async handleAudioChunk(
     ws: WebSocket,
-    audioChunk: preppal.IAudioChunk,
+    audioChunk: preppal.IAudioChunk
   ): Promise<void> {
-    // Don't process audio chunks if the session has ended
+    // Don't process if session ended
     if (this.sessionEnded) {
-      // console.warn(
-      //   `[GeminiSession] Received audio chunk after session ended for interview ${this.interviewId}`,
-      // );
       return;
     }
 
     const audioContent = audioChunk.audioContent;
     if (!audioContent || audioContent.length === 0) {
-      // Only log empty audio chunk warning once
       if (this.audioChunksReceivedCount === 1) {
         console.warn(
-          `[GeminiSession] Received empty audio chunk for interview ${this.interviewId}`,
+          `[GeminiSession] Received empty audio chunk for interview ${this.interviewId}`
         );
       }
       return;
     }
 
-    // Only log meaningful audio chunks (> 1000 bytes) to reduce noise
+    // Log meaningful chunks
     if (
       (this.audioChunksReceivedCount === 1 && audioContent.length > 1000) ||
       (this.audioChunksReceivedCount % 100 === 0 && audioContent.length > 1000)
     ) {
       console.log(
-        `[GeminiSession] Sending audio chunk #${this.audioChunksReceivedCount} to Gemini for interview ${this.interviewId} (size: ${audioContent.length} bytes)`,
+        `[GeminiSession] Sending audio chunk #${this.audioChunksReceivedCount} to Gemini (size: ${audioContent.length} bytes)`
       );
     }
 
-    // Convert binary audio to base64 for Gemini
-    const base64Audio = AudioConverter.binaryToBase64(
-      new Uint8Array(audioContent),
-    );
+    // Convert and send to Gemini
+    try {
+      const base64Audio = AudioConverter.binaryToBase64(
+        new Uint8Array(audioContent)
+      );
 
-    // Send to Gemini (will be implemented when we add Gemini connection)
-    if (this.geminiSession) {
       if (this.audioChunksReceivedCount === 1) {
         console.log(
-          `[GeminiSession] Sending first audio chunk to Gemini for interview ${this.interviewId}`,
+          `[GeminiSession] Sending first audio chunk to Gemini for interview ${this.interviewId}`
         );
       }
-      try {
-        this.geminiSession.sendRealtimeInput({
-          audio: {
-            data: base64Audio,
-            mimeType: "audio/pcm;rate=16000",
-          },
-        });
-      } catch (error) {
-        console.error(
-          `[GeminiSession] Failed to send audio chunk to Gemini for interview ${this.interviewId}:`,
-          error,
-        );
-      }
-    } else {
-      console.warn(
-        `[GeminiSession] Gemini session not initialized, audio chunk dropped for interview ${this.interviewId}`,
+
+      this.geminiClient.sendRealtimeInput({
+        audio: {
+          data: base64Audio,
+          mimeType: "audio/pcm;rate=16000",
+        },
+      });
+    } catch (error) {
+      console.error(
+        `[GeminiSession] Failed to send audio chunk to Gemini for interview ${this.interviewId}:`,
+        error
       );
     }
   }
 
+  /**
+   * Handle end request from client
+   */
   private async handleEndRequest(ws: WebSocket): Promise<void> {
     console.log(
-      `[GeminiSession] Received end request for interview ${this.interviewId}`,
+      `[GeminiSession] Received end request for interview ${this.interviewId}`
     );
 
-    // Mark as user-initiated close
     this.userInitiatedClose = true;
     this.sessionEnded = true;
 
-    // Close Gemini connection if exists
-    if (this.geminiSession) {
-      console.log(
-        `[GeminiSession] Closing Gemini connection for interview ${this.interviewId}`,
-      );
-      this.geminiSession.close();
-    }
-
-    // Send session ended message to client
-    const endedMsg = createSessionEnded(
-      preppal.SessionEnded.Reason.USER_INITIATED,
+    // Close Gemini connection
+    this.geminiClient.close();
+    console.log(
+      `[GeminiSession] Closed Gemini connection for interview ${this.interviewId}`
     );
-    this.safeSend(ws, encodeServerMessage(endedMsg));
 
-    // Close the WebSocket immediately to unblock the user
+    // Send session ended message and close WebSocket
+    const endedMsg = createSessionEnded(preppal.SessionEnded.Reason.USER_INITIATED);
+    this.safeSend(ws, encodeServerMessage(endedMsg));
     ws.close(1000, "Interview ended by user");
 
+    // Skip background processing in debug mode
     if (this.isDebug) return;
 
     // Background processing (Transcript + Feedback)
@@ -320,14 +391,14 @@ export class GeminiSession implements DurableObject {
 
       // Step 1: Save transcript - CRITICAL
       console.log(
-        `[GeminiSession] Submitting transcript for interview ${this.interviewId}`,
+        `[GeminiSession] Submitting transcript for interview ${this.interviewId} (${transcript.length} entries)`
       );
       await this.apiClient.submitTranscript(
         this.interviewId!,
         transcript,
-        endedAt,
+        endedAt
       );
-      console.log(`[GeminiSession] Transcript submitted successfully`);
+      console.log(`[GeminiSession] Transcript submitted for interview ${this.interviewId}`);
 
       // Step 2: Generate and submit feedback - BEST EFFORT
       try {
@@ -335,7 +406,7 @@ export class GeminiSession implements DurableObject {
         const feedback = await generateFeedback(
           transcript,
           this.interviewContext,
-          this.env.GEMINI_API_KEY,
+          this.env.GEMINI_API_KEY
         );
         console.log(`[GeminiSession] Feedback generated, submitting...`);
         await this.apiClient.submitFeedback(this.interviewId!, feedback);
@@ -343,229 +414,186 @@ export class GeminiSession implements DurableObject {
       } catch (feedbackError) {
         console.error(
           `[GeminiSession] Failed to generate/submit feedback:`,
-          feedbackError,
+          feedbackError
         );
-        // We still consider the interview COMPLETED since transcript is saved
+        // Continue - interview is still COMPLETED even if feedback fails
       }
 
       // Step 3: Update status to COMPLETED
       await this.apiClient.updateStatus(this.interviewId!, "COMPLETED");
+      console.log(
+        `[GeminiSession] Interview ${this.interviewId} status updated to COMPLETED`
+      );
     } catch (error) {
       console.error(
-        `[GeminiSession] Failed background processing for interview ${this.interviewId}:`,
-        error,
+        `[GeminiSession] Failed to submit transcript or update status for interview ${this.interviewId}:`,
+        error
       );
-      // If transcript failed, we might want to set to ERROR
+      // If transcript submission failed, mark as ERROR
       try {
         await this.apiClient.updateStatus(this.interviewId!, "ERROR");
       } catch (statusError) {
         console.error(
           `[GeminiSession] Failed to set ERROR status:`,
-          statusError,
+          statusError
         );
       }
     }
   }
 
-  private async initializeGemini(
-    clientSideWs: WebSocket,
-    serverSideWs: WebSocket,
-  ): Promise<void> {
+  /**
+   * Handle Gemini connection opened
+   */
+  private handleGeminiOpen(): void {
     console.log(
-      `[GeminiSession] Initializing Gemini with API key: ${this.env.GEMINI_API_KEY ? "PRESENT" : "MISSING"}`,
+      `[GeminiSession] Gemini Live connected for interview ${this.interviewId}`
     );
-
-    const ai = new GoogleGenAI({ apiKey: this.env.GEMINI_API_KEY });
-    const model = "gemini-2.5-flash-native-audio-preview-09-2025";
-
-    const config = {
-      // IMPORTANT: Use Modality.AUDIO OR Modality.TEXT, never both
-      responseModalities: [Modality.AUDIO],
-      systemInstruction: `You are a professional interviewer. Your goal is to conduct a behavioral interview.
-Context:
-Job Description: ${this.interviewContext.jobDescription || "Not provided"}
-Candidate Resume: ${this.interviewContext.resume || "Not provided"}
-
-Start by introducing yourself and asking the candidate to introduce themselves.`,
-      outputAudioTranscription: {},
-      inputAudioTranscription: {},
-    };
-
-    console.log(
-      `[GeminiSession] Connecting to Gemini Live API for interview ${this.interviewId}`,
-    );
-
-    this.geminiSession = await ai.live.connect({
-      model,
-      config,
-      callbacks: {
-        onopen: () => {
-          console.log(
-            `[GeminiSession] Gemini Live connected for interview ${this.interviewId}`,
-          );
-        },
-        onmessage: (message: any) => {
-          // Log simplified message type to reduce noise, unless it's a specific event
-          if (
-            message.serverContent?.modelTurn?.parts?.some(
-              (p: any) => p.inlineData,
-            )
-          ) {
-            // It's audio, suppressed in handleGeminiMessage usually, but good to know we got message
-          } else {
-            console.log(
-              `[GeminiSession] Received message from Gemini (type: ${Object.keys(message).join(",")})`,
-            );
-          }
-          this.handleGeminiMessage(serverSideWs, message);
-        },
-        onerror: async (error: any) => {
-          console.error(
-            `[GeminiSession] Gemini Live API error for interview ${this.interviewId}:`,
-            error,
-          );
-          if (!this.isDebug) {
-            // Update status to ERROR
-            try {
-              await this.apiClient.updateStatus(this.interviewId!, "ERROR");
-            } catch (apiError) {
-              console.error(
-                `[GeminiSession] Failed to update status to ERROR for interview ${this.interviewId}:`,
-                apiError,
-              );
-            }
-          }
-
-          const errorMsg = createErrorResponse(4002, "AI service error");
-          this.safeSend(serverSideWs, encodeServerMessage(errorMsg));
-        },
-        onclose: async () => {
-          console.log(
-            `[GeminiSession] Gemini connection closed for interview ${this.interviewId}`,
-          );
-
-          // Mark session as ended
-          this.sessionEnded = true;
-
-          // Only update status to ERROR if this was an unexpected close
-          if (!this.userInitiatedClose && !this.isDebug) {
-            try {
-              await this.apiClient.updateStatus(this.interviewId!, "ERROR");
-              console.log(
-                `[GeminiSession] Interview ${this.interviewId} status updated to ERROR (unexpected close)`,
-              );
-            } catch (apiError) {
-              console.error(
-                `[GeminiSession] Failed to update status to ERROR for interview ${this.interviewId}:`,
-                apiError,
-              );
-            }
-          }
-
-          if (!this.userInitiatedClose) {
-            const endMsg = createSessionEnded(
-              preppal.SessionEnded.Reason.GEMINI_ENDED,
-            );
-            this.safeSend(serverSideWs, encodeServerMessage(endMsg));
-            serverSideWs.close(1000, "AI ended session"); // Close serverSideWs
-          }
-        },
-      },
-    });
-
-    console.log(
-      `[GeminiSession] Gemini connection established for interview ${this.interviewId}`,
-    );
-
-    // Send initial greeting to trigger the AI to speak first
-    this.geminiSession.sendClientContent({
-      turns: [
-        {
-          role: "user",
-          parts: [{ text: "Hello, let's start the interview." }],
-          turnComplete: true,
-        },
-      ],
-    });
-    console.log("[GeminiSession] Sent initial greeting to Gemini");
   }
 
-  private handleGeminiMessage(serverSideWs: WebSocket, message: any): void {
-    // Don't process messages if the session has ended
+  /**
+   * Handle message from Gemini
+   */
+  private handleGeminiMessage(ws: WebSocket, message: GeminiMessage): void {
+    // Don't process if session ended
     if (this.sessionEnded) {
-      // console.warn(
-      //   `[GeminiSession] Received Gemini message after session ended for interview ${this.interviewId}`,
-      // );
       return;
     }
 
-    // Handle input transcription (user speech)
-    if (message.serverContent?.inputTranscription) {
-      const text = message.serverContent.inputTranscription.text;
+    // Process message through handler
+    const result = this.geminiMessageHandler.handleMessage(message);
+
+    // Send user transcript to client
+    if (result.userTranscript) {
       console.log(
-        `[GeminiSession] Received input transcription for interview ${this.interviewId}: ${text}`,
+        `[GeminiSession] Received input transcription for interview ${this.interviewId}: ${result.userTranscript.text}`
       );
-
-      // Save to transcript
-      this.transcriptManager.addUserTranscript(text);
-
-      // Send to client
-      const transcriptMsg = createTranscriptUpdate("USER", text, true);
-      this.safeSend(serverSideWs, encodeServerMessage(transcriptMsg));
+      this.safeSend(ws, result.userTranscript.message);
     }
 
-    // Handle output transcription (AI speech)
-    if (message.serverContent?.outputTranscription) {
-      const text = message.serverContent.outputTranscription.text;
+    // Send AI transcript to client
+    if (result.aiTranscript) {
       console.log(
-        `[GeminiSession] Received output transcription for interview ${this.interviewId}: ${text}`,
+        `[GeminiSession] Received output transcription for interview ${this.interviewId}: ${result.aiTranscript.text}`
       );
-
-      // Save to transcript
-      this.transcriptManager.addAITranscript(text);
-
-      // Send to client
-      const transcriptMsg = createTranscriptUpdate("AI", text, true);
-      this.safeSend(serverSideWs, encodeServerMessage(transcriptMsg));
+      this.safeSend(ws, result.aiTranscript.message);
     }
 
-    // Handle AI text response
-    // NOTE: Commented out to avoid SDK warning about non-text parts (inlineData)
-    // We're using AUDIO modality, so text transcription is handled via outputTranscription
-    // if (message.text) {
-    //   console.log(
-    //     `[GeminiSession] Received text response for interview ${this.interviewId}: ${message.text}`,
-    //   );
-    //   const transcriptMsg = createTranscriptUpdate("AI", message.text, true);
-    //   this.safeSend(serverSideWs, encodeServerMessage(transcriptMsg));
-    // }
-
-    // Handle AI audio response
-    if (message.data) {
+    // Send audio to client
+    if (result.audio) {
       this.audioResponsesReceivedCount++;
       if (this.audioResponsesReceivedCount === 1) {
         console.log(
-          `[GeminiSession] Received first audio response for interview ${this.interviewId} (length: ${message.data.length}). Subsequent logs suppressed.`,
+          `[GeminiSession] Received first audio response for interview ${this.interviewId}. Subsequent logs suppressed.`
         );
       }
-      // message.data is base64 encoded audio from Gemini
-      // Convert base64 to Uint8Array for protobuf
-      const audioData = AudioConverter.base64ToBinary(message.data);
-
-      const audioMsg = createAudioResponse(audioData);
-      this.safeSend(serverSideWs, encodeServerMessage(audioMsg));
+      this.safeSend(ws, result.audio.message);
     }
   }
 
-  private cleanup(): void {
-    console.log(
-      `[GeminiSession] Cleaning up session for interview ${this.interviewId}`,
+  /**
+   * Handle Gemini error
+   */
+  private async handleGeminiError(ws: WebSocket, error: Error): Promise<void> {
+    console.error(
+      `[GeminiSession] Gemini Live API error for interview ${this.interviewId}:`,
+      error
     );
-    // Mark session as ended
+
+    // Update status to ERROR
+    if (!this.isDebug) {
+      try {
+        await this.apiClient.updateStatus(this.interviewId!, "ERROR");
+      } catch (apiError) {
+        console.error(
+          `[GeminiSession] Failed to update status to ERROR for interview ${this.interviewId}:`,
+          apiError
+        );
+      }
+    }
+
+    // Send error to client
+    const errorMsg = createErrorResponse(4002, "AI service error");
+    this.safeSend(ws, encodeServerMessage(errorMsg));
+  }
+
+  /**
+   * Handle Gemini connection closed
+   */
+  private async handleGeminiClose(ws: WebSocket): Promise<void> {
+    console.log(
+      `[GeminiSession] Gemini connection closed for interview ${this.interviewId}`
+    );
+
     this.sessionEnded = true;
 
-    if (this.geminiSession) {
-      this.geminiSession.close();
+    // Only update status if unexpected close
+    if (!this.userInitiatedClose && !this.isDebug) {
+      try {
+        await this.apiClient.updateStatus(this.interviewId!, "ERROR");
+        console.log(
+          `[GeminiSession] Interview ${this.interviewId} status updated to ERROR (unexpected close)`
+        );
+      } catch (apiError) {
+        console.error(
+          `[GeminiSession] Failed to update status to ERROR for interview ${this.interviewId}:`,
+          apiError
+        );
+      }
+    }
+
+    // Send session ended message if not user-initiated
+    if (!this.userInitiatedClose) {
+      const endMsg = createSessionEnded(preppal.SessionEnded.Reason.GEMINI_ENDED);
+      this.safeSend(ws, encodeServerMessage(endMsg));
+      ws.close(1000, "AI ended session");
+    }
+  }
+
+  /**
+   * Handle WebSocket closed
+   */
+  private handleWebSocketClose(): void {
+    console.log(
+      `[GeminiSession] WebSocket closed for interview ${this.interviewId}`
+    );
+    this.cleanup();
+  }
+
+  /**
+   * Handle WebSocket error
+   */
+  private handleWebSocketError(event: ErrorEvent): void {
+    console.error(
+      `[GeminiSession] WebSocket error for interview ${this.interviewId}:`,
+      event
+    );
+  }
+
+  /**
+   * Cleanup session resources
+   */
+  private cleanup(): void {
+    console.log(
+      `[GeminiSession] Cleaning up session for interview ${this.interviewId}`
+    );
+    this.sessionEnded = true;
+    this.geminiClient.close();
+  }
+
+  /**
+   * Safely send data to WebSocket
+   * NOTE: Cloudflare Workers use WebSocket.READY_STATE_OPEN (not WebSocket.OPEN)
+   */
+  private safeSend(ws: WebSocket, data: ArrayBuffer | string | Uint8Array): void {
+    try {
+      if (ws.readyState === WebSocket.READY_STATE_OPEN) {
+        ws.send(data);
+      }
+    } catch (error) {
+      console.error(
+        `[GeminiSession] Failed to send message to WebSocket for interview ${this.interviewId}:`,
+        error
+      );
     }
   }
 }
