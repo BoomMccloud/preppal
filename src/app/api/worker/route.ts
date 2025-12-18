@@ -4,11 +4,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { preppal } from "~/lib/interview_pb";
 import { db } from "~/server/db";
-import {
-  type Prisma,
-  type SpeakerRole,
-  InterviewStatus,
-} from "@prisma/client";
+import { type Prisma, type SpeakerRole, InterviewStatus } from "@prisma/client";
 
 /**
  * Validates worker authentication via shared secret
