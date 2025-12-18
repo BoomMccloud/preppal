@@ -18,7 +18,11 @@ export default function FeedbackPolling({ interviewId }: FeedbackPollingProps) {
       includeFeedback: true,
     },
     {
-      refetchInterval: 3000, // Poll every 3 seconds
+      refetchInterval: (data) => {
+        // Stop polling if we have feedback or if there's an error
+        if (data?.feedback || error) return false;
+        return 3000; // Poll every 3 seconds
+      },
     },
   );
 

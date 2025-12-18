@@ -464,6 +464,30 @@ export const interviewRouter = createTRPCRouter({
       return updatedInterview;
     }),
 
+  getContext: workerProcedure
+    .input(z.object({ interviewId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const interview = await ctx.db.interview.findUnique({
+        where: { id: input.interviewId },
+        select: {
+          jobDescriptionSnapshot: true,
+          resumeSnapshot: true,
+        },
+      });
+
+      if (!interview) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Interview not found",
+        });
+      }
+
+      return {
+        jobDescription: interview.jobDescriptionSnapshot ?? "",
+        resume: interview.resumeSnapshot ?? "",
+      };
+    }),
+
   submitTranscript: workerProcedure
     .input(
       z.object({
@@ -499,5 +523,44 @@ export const interviewRouter = createTRPCRouter({
       ]);
 
       return { success: true };
+    }),
+
+  submitFeedback: workerProcedure
+    .input(
+      z.object({
+        interviewId: z.string(),
+        summary: z.string(),
+        strengths: z.string(),
+        contentAndStructure: z.string(),
+        communicationAndDelivery: z.string(),
+        presentation: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { interviewId, ...feedbackData } = input;
+
+      // Check if interview exists
+      const interview = await ctx.db.interview.findUnique({
+        where: { id: interviewId },
+      });
+
+      if (!interview) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Interview not found",
+        });
+      }
+
+      // Create or update feedback (idempotent)
+      const feedback = await ctx.db.interviewFeedback.upsert({
+        where: { interviewId },
+        update: feedbackData,
+        create: {
+          interviewId,
+          ...feedbackData,
+        },
+      });
+
+      return feedback;
     }),
 });

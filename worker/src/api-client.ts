@@ -191,4 +191,87 @@ export class ApiClient {
       `[API] Successfully submitted transcript for interview ${interviewId} with ${transcript.length} entries`,
     );
   }
+
+  async submitFeedback(
+    interviewId: string,
+    feedback: any,
+  ): Promise<void> {
+    const url = `${this.apiUrl}/api/trpc/interview.submitFeedback`;
+
+    console.log(`[API] Calling submitFeedback for interview ${interviewId}: ${url}`);
+
+    const requestBody = {
+      json: {
+        interviewId,
+        ...feedback,
+      },
+    };
+
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.workerSecret}`,
+        },
+        body: JSON.stringify(requestBody),
+      });
+    } catch (error) {
+      console.error(`[API] Network error calling submitFeedback:`, error);
+      throw error;
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[API] submitFeedback HTTP error:`, errorText);
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    const jsonResponse: any = await response.json();
+    if (jsonResponse.error) {
+      throw new Error(`tRPC error: ${jsonResponse.error.json?.message || "Unknown error"}`);
+    }
+
+    console.log(`[API] Successfully submitted feedback for interview ${interviewId}`);
+  }
+
+  async getContext(
+    interviewId: string,
+  ): Promise<{ jobDescription: string; resume: string }> {
+    const url = `${this.apiUrl}/api/trpc/interview.getContext?batch=1&input=${encodeURIComponent(
+      JSON.stringify({ "0": { json: { interviewId } } }),
+    )}`;
+
+    console.log(`[API] Calling getContext for interview ${interviewId}: ${url}`);
+
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${this.workerSecret}`,
+        },
+      });
+    } catch (error) {
+      console.error(`[API] Network error calling getContext:`, error);
+      throw error;
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
+
+    const jsonResponse: any = await response.json();
+    const result = jsonResponse[0];
+
+    if (result.error) {
+      throw new Error(
+        `tRPC error: ${result.error.json?.message || "Unknown error"}`,
+      );
+    }
+
+    return result.result.data;
+  }
 }

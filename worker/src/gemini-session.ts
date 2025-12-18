@@ -15,6 +15,7 @@ import { AudioConverter } from "./audio-converter";
 import { TranscriptManager } from "./transcript-manager";
 import { GoogleGenAI, Modality } from "@google/genai";
 import { ApiClient } from "./api-client";
+import { generateFeedback } from "./utils/feedback";
 
 export class GeminiSession implements DurableObject {
   private userId?: string;
@@ -27,6 +28,10 @@ export class GeminiSession implements DurableObject {
   private audioResponsesReceivedCount = 0;
   private sessionEnded = false;
   private isDebug = false;
+  private interviewContext: { jobDescription: string; resume: string } = {
+    jobDescription: "",
+    resume: "",
+  };
 
   constructor(
     private state: DurableObjectState,
@@ -91,9 +96,24 @@ export class GeminiSession implements DurableObject {
 
     // Accept the WebSocket connection
     server.accept();
-    console.log(`[GeminiSession] Step 2: WebSocket connection accepted.`);
+    console.log(
+      `[GeminiSession] Step 2: WebSocket connection accepted.`,
+    );
+
+    // Fetch interview context
+    if (!this.isDebug) {
+      try {
+        console.log(`[GeminiSession] Fetching context for interview ${this.interviewId}`);
+        this.interviewContext = await this.apiClient.getContext(this.interviewId!);
+        console.log(`[GeminiSession] Context fetched successfully`);
+      } catch (error) {
+        console.error(`[GeminiSession] Failed to fetch interview context:`, error);
+        // Continue with empty context
+      }
+    }
 
     // Initialize Gemini connection
+
     try {
       console.log(
         `[GeminiSession] Step 3: Attempting to initialize Gemini connection for interview ${this.interviewId}`,
@@ -276,56 +296,64 @@ export class GeminiSession implements DurableObject {
       );
       this.geminiSession.close();
     }
-    if (!this.isDebug) {
-      // Submit transcript to Next.js API
-      try {
-        const transcript = this.transcriptManager.getTranscript();
-        const endedAt = new Date().toISOString();
 
-        console.log(
-          `[GeminiSession] Submitting transcript for interview ${this.interviewId} (${transcript.length} entries)`,
-        );
-        await this.apiClient.submitTranscript(
-          this.interviewId!,
-          transcript,
-          endedAt,
-        );
-        console.log(
-          `[GeminiSession] Transcript submitted for interview ${this.interviewId} (${transcript.length} entries)`,
-        );
-      } catch (error) {
-        console.error(
-          `[GeminiSession] Failed to submit transcript for interview ${this.interviewId}:`,
-          error,
-        );
-      }
-
-      // Update status to COMPLETED
-      try {
-        console.log(
-          `[GeminiSession] Updating status to COMPLETED for interview ${this.interviewId}`,
-        );
-        await this.apiClient.updateStatus(this.interviewId!, "COMPLETED");
-        console.log(
-          `[GeminiSession] Interview ${this.interviewId} status updated to COMPLETED`,
-        );
-      } catch (error) {
-        console.error(
-          `[GeminiSession] Failed to update status to COMPLETED for interview ${this.interviewId}:`,
-          error,
-        );
-      }
-    }
-
-    // Send session ended message
+    // Send session ended message to client
     const endedMsg = createSessionEnded(
       preppal.SessionEnded.Reason.USER_INITIATED,
     );
-
     this.safeSend(ws, encodeServerMessage(endedMsg));
 
-    // Close the WebSocket
+    // Close the WebSocket immediately to unblock the user
     ws.close(1000, "Interview ended by user");
+
+    if (this.isDebug) return;
+
+    // Background processing (Transcript + Feedback)
+    try {
+      const transcript = this.transcriptManager.getTranscript();
+      const endedAt = new Date().toISOString();
+
+      // Step 1: Save transcript - CRITICAL
+      console.log(
+        `[GeminiSession] Submitting transcript for interview ${this.interviewId}`,
+      );
+      await this.apiClient.submitTranscript(
+        this.interviewId!,
+        transcript,
+        endedAt,
+      );
+      console.log(`[GeminiSession] Transcript submitted successfully`);
+
+      // Step 2: Generate and submit feedback - BEST EFFORT
+      try {
+        console.log(`[GeminiSession] Generating feedback...`);
+        const feedback = await generateFeedback(
+          transcript,
+          this.interviewContext,
+          this.env.GEMINI_API_KEY,
+        );
+        console.log(`[GeminiSession] Feedback generated, submitting...`);
+        await this.apiClient.submitFeedback(this.interviewId!, feedback);
+        console.log(`[GeminiSession] Feedback submitted successfully`);
+      } catch (feedbackError) {
+        console.error(`[GeminiSession] Failed to generate/submit feedback:`, feedbackError);
+        // We still consider the interview COMPLETED since transcript is saved
+      }
+
+      // Step 3: Update status to COMPLETED
+      await this.apiClient.updateStatus(this.interviewId!, "COMPLETED");
+    } catch (error) {
+      console.error(
+        `[GeminiSession] Failed background processing for interview ${this.interviewId}:`,
+        error,
+      );
+      // If transcript failed, we might want to set to ERROR
+      try {
+        await this.apiClient.updateStatus(this.interviewId!, "ERROR");
+      } catch (statusError) {
+        console.error(`[GeminiSession] Failed to set ERROR status:`, statusError);
+      }
+    }
   }
 
   private async initializeGemini(
@@ -342,8 +370,12 @@ export class GeminiSession implements DurableObject {
     const config = {
       // IMPORTANT: Use Modality.AUDIO OR Modality.TEXT, never both
       responseModalities: [Modality.AUDIO],
-      systemInstruction:
-        "You are a professional interviewer. Your goal is to conduct a behavioral interview. Start by introducing yourself and asking the candidate to introduce themselves.",
+      systemInstruction: `You are a professional interviewer. Your goal is to conduct a behavioral interview.
+Context:
+Job Description: ${this.interviewContext.jobDescription || "Not provided"}
+Candidate Resume: ${this.interviewContext.resume || "Not provided"}
+
+Start by introducing yourself and asking the candidate to introduce themselves.`,
       outputAudioTranscription: {},
       inputAudioTranscription: {},
     };

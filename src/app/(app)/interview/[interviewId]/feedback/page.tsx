@@ -19,15 +19,17 @@ export default async function InterviewFeedbackPage({ params }: PageProps) {
       includeFeedback: true,
     });
 
-    // Handle non-COMPLETED status with redirect
-    if (interview.status !== "COMPLETED") {
+    // Handle non-COMPLETED status: 
+    // If it's still IN_PROGRESS, the worker might be currently saving the transcript.
+    // Show polling state instead of redirecting immediately.
+    if (interview.status !== "COMPLETED" && interview.status !== "IN_PROGRESS") {
       console.warn(
-        `[Feedback Page] User attempted to access feedback for non-COMPLETED interview - interviewId: ${interviewId}, status: ${interview.status}`,
+        `[Feedback Page] User attempted to access feedback for non-relevant status - interviewId: ${interviewId}, status: ${interview.status}`,
       );
       redirect(`/interview/${interviewId}/lobby`);
     }
 
-    // Handle COMPLETED but feedback still processing
+    // Handle COMPLETED but feedback still processing, or still IN_PROGRESS (transitioning)
     if (interview.feedback === null) {
       return <FeedbackPolling interviewId={interviewId} />;
     }

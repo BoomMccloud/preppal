@@ -19,6 +19,10 @@ vi.mock("~/server/db", () => ({
       findFirst: vi.fn(),
       update: vi.fn(),
     },
+    interviewFeedback: {
+      create: vi.fn(),
+      upsert: vi.fn(),
+    },
     transcriptEntry: {
       createMany: vi.fn(),
     },
@@ -1177,5 +1181,88 @@ describe("interview.submitTranscript", () => {
         endedAt: "2024-01-01T10:05:00Z",
       }),
     ).resolves.toBeDefined();
+  });
+
+  describe("submitFeedback (P0)", () => {
+    const mockFeedback = {
+      interviewId: "target-interview-id",
+      summary: "Excellent performance in the behavioral interview.",
+      strengths: "- Clear communication\n- Strong examples of leadership",
+      contentAndStructure: "Markdown content about structure...",
+      communicationAndDelivery: "Markdown content about delivery...",
+      presentation: "Markdown content about presentation...",
+    };
+
+    it("should create an InterviewFeedback record with valid input", async () => {
+      const { db } = await import("~/server/db");
+      const { createCaller } = await import("~/server/api/root");
+
+      const headers = new Headers();
+      headers.set("Authorization", `Bearer ${process.env.WORKER_SHARED_SECRET}`);
+
+      const caller = createCaller({ db, session: null, headers });
+
+      // Mock finding the interview
+      vi.mocked(db.interview.findUnique).mockResolvedValue({ id: "target-interview-id" } as any);
+
+      // Mock the db.interviewFeedback.upsert call
+      vi.mocked(db.interviewFeedback.upsert).mockResolvedValue({
+        id: "feedback-id",
+        ...mockFeedback,
+        createdAt: new Date(),
+      } as any);
+
+      const result = await (caller.interview as any).submitFeedback(mockFeedback);
+
+      expect(result).toBeDefined();
+      expect(db.interviewFeedback.upsert).toHaveBeenCalledWith({
+        where: { interviewId: mockFeedback.interviewId },
+        update: {
+          summary: mockFeedback.summary,
+          strengths: mockFeedback.strengths,
+          contentAndStructure: mockFeedback.contentAndStructure,
+          communicationAndDelivery: mockFeedback.communicationAndDelivery,
+          presentation: mockFeedback.presentation,
+        },
+        create: mockFeedback,
+      });
+    });
+
+    it("should throw UNAUTHORIZED if the shared secret is missing", async () => {
+      const { db } = await import("~/server/db");
+      const { createCaller } = await import("~/server/api/root");
+
+      const caller = createCaller({ db, session: null, headers: new Headers() });
+
+      await expect((caller.interview as any).submitFeedback(mockFeedback)).rejects.toThrow("UNAUTHORIZED");
+    });
+
+    it("should throw NOT_FOUND if the interview does not exist", async () => {
+      const { db } = await import("~/server/db");
+      const { createCaller } = await import("~/server/api/root");
+
+      const headers = new Headers();
+      headers.set("Authorization", `Bearer ${process.env.WORKER_SHARED_SECRET}`);
+
+      const caller = createCaller({ db, session: null, headers });
+
+      // Mock interview not found
+      vi.mocked(db.interview.findUnique).mockResolvedValue(null);
+
+      await expect((caller.interview as any).submitFeedback(mockFeedback)).rejects.toThrow("Interview not found");
+    });
+
+    it("should validate the feedback schema using Zod", async () => {
+      const { db } = await import("~/server/db");
+      const { createCaller } = await import("~/server/api/root");
+
+      const headers = new Headers();
+      headers.set("Authorization", `Bearer ${process.env.WORKER_SHARED_SECRET}`);
+
+      const caller = createCaller({ db, session: null, headers });
+
+      // @ts-expect-error - testing invalid input
+      await expect((caller.interview as any).submitFeedback({ interviewId: "test" })).rejects.toThrow();
+    });
   });
 });

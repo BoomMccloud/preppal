@@ -16,12 +16,16 @@ export function SessionContent({ interviewId }: SessionContentProps) {
   const [debugInfo, setDebugInfo] = useState<string>("");
 
   // Check interview status - block if not PENDING
-  const { data: interview, isLoading } = api.interview.getById.useQuery(
+  const { data: interview, isLoading, error: interviewError } = api.interview.getById.useQuery(
     {
       id: interviewId,
     },
     {
-      refetchInterval: 1000,
+      refetchInterval: (data) => {
+        // Stop polling if interview is completed or if there's an error
+        if (data?.status === "COMPLETED" || interviewError) return false;
+        return 1000;
+      },
     },
   );
 
