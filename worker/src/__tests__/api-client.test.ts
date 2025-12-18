@@ -1,12 +1,52 @@
-// ABOUTME: Tests for Next.js API client that communicates with backend tRPC endpoints
-// ABOUTME: Validates status updates and transcript submission with proper authentication
+// ABOUTME: Tests for protobuf-based API client that communicates with Next.js backend
+// ABOUTME: Validates binary protobuf encoding/decoding and proper authentication
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { ApiClient } from "../api-client";
+import { preppal } from "../lib/interview_pb.js";
 
 // Mock global fetch
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
+
+/**
+ * Helper to create a mock protobuf response
+ */
+function createMockProtobufResponse(response: preppal.IWorkerApiResponse): {
+  ok: boolean;
+  status: number;
+  arrayBuffer: () => Promise<ArrayBuffer>;
+} {
+  const encoded = preppal.WorkerApiResponse.encode(response).finish();
+  return {
+    ok: true,
+    status: 200,
+    arrayBuffer: vi
+      .fn()
+      .mockResolvedValue(
+        encoded.buffer.slice(
+          encoded.byteOffset,
+          encoded.byteOffset + encoded.byteLength,
+        ),
+      ),
+  };
+}
+
+/**
+ * Helper to create a mock error response
+ */
+function createMockErrorResponse(
+  code: number,
+  message: string,
+): {
+  ok: boolean;
+  status: number;
+  arrayBuffer: () => Promise<ArrayBuffer>;
+} {
+  return createMockProtobufResponse({
+    error: { code, message },
+  });
+}
 
 describe("ApiClient", () => {
   let apiClient: ApiClient;
@@ -19,79 +59,68 @@ describe("ApiClient", () => {
   });
 
   describe("updateStatus", () => {
-    it("should send POST request to update interview status", async () => {
+    it("should send POST request to protobuf endpoint", async () => {
       const interviewId = "interview-123";
       const status = "IN_PROGRESS";
 
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        statusText: "OK",
-        headers: new Map([["content-type", "application/json"]]),
-        text: vi
-          .fn()
-          .mockResolvedValue(JSON.stringify({ result: { data: {} } })),
-      });
+      mockFetch.mockResolvedValueOnce(
+        createMockProtobufResponse({
+          updateStatus: { success: true },
+        }),
+      );
 
       await apiClient.updateStatus(interviewId, status);
 
       expect(mockFetch).toHaveBeenCalledTimes(1);
       expect(mockFetch).toHaveBeenCalledWith(
-        "https://api.example.com/api/trpc/interview.updateStatus",
-        {
+        "https://api.example.com/api/worker",
+        expect.objectContaining({
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type": "application/x-protobuf",
             Authorization: `Bearer ${mockWorkerSecret}`,
           },
-          body: JSON.stringify({
-            json: { interviewId, status },
-          }),
-        },
+        }),
       );
     });
 
-    it("should include worker secret in request headers", async () => {
+    it("should encode request as protobuf", async () => {
       const interviewId = "interview-123";
       const status = "COMPLETED";
 
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        statusText: "OK",
-        headers: new Map([["content-type", "application/json"]]),
-        text: vi
-          .fn()
-          .mockResolvedValue(JSON.stringify({ result: { data: {} } })),
-      });
+      mockFetch.mockResolvedValueOnce(
+        createMockProtobufResponse({
+          updateStatus: { success: true },
+        }),
+      );
 
       await apiClient.updateStatus(interviewId, status);
 
+      // Verify the body can be decoded as protobuf
       const callArgs = mockFetch.mock.calls?.[0]?.[1];
-      expect(callArgs?.headers["Authorization"]).toBe(
-        `Bearer ${mockWorkerSecret}`,
+      const requestBuffer = callArgs?.body as ArrayBuffer;
+      const decoded = preppal.WorkerApiRequest.decode(
+        new Uint8Array(requestBuffer),
+      );
+      expect(decoded.updateStatus?.interviewId).toBe(interviewId);
+      expect(decoded.updateStatus?.status).toBe(
+        preppal.InterviewStatus.COMPLETED,
       );
     });
 
-    it("should throw error when API request fails", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 500,
-        statusText: "Internal Server Error",
-        headers: new Map([["content-type", "application/json"]]),
-        text: vi.fn().mockResolvedValue("Database connection failed"),
-      });
+    it("should throw error when API returns error response", async () => {
+      mockFetch.mockResolvedValueOnce(
+        createMockErrorResponse(404, "Interview not found"),
+      );
 
       await expect(
         apiClient.updateStatus("interview-123", "IN_PROGRESS"),
-      ).rejects.toThrow(
-        "HTTP error calling updateStatus: 500 Internal Server Error - Database connection failed",
-      );
+      ).rejects.toThrow("API Error (404): Interview not found");
     });
   });
 
   describe("submitTranscript", () => {
-    it("should send POST request to submit transcript", async () => {
+    it("should send POST request with transcript entries", async () => {
       const interviewId = "interview-123";
       const transcript = [
         {
@@ -107,58 +136,31 @@ describe("ApiClient", () => {
       ];
       const endedAt = "2024-01-01T00:00:02Z";
 
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        statusText: "OK",
-        json: vi.fn().mockResolvedValue({ result: { data: {} } }),
-      });
+      mockFetch.mockResolvedValueOnce(
+        createMockProtobufResponse({
+          submitTranscript: { success: true },
+        }),
+      );
 
       await apiClient.submitTranscript(interviewId, transcript, endedAt);
 
       expect(mockFetch).toHaveBeenCalledTimes(1);
-      expect(mockFetch).toHaveBeenCalledWith(
-        "https://api.example.com/api/trpc/interview.submitTranscript",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${mockWorkerSecret}`,
-          },
-          body: JSON.stringify({
-            json: { interviewId, transcript, endedAt },
-          }),
-        },
-      );
-    });
 
-    it("should include worker secret in request headers", async () => {
-      const interviewId = "interview-123";
-      const transcript = [
-        {
-          speaker: "USER" as const,
-          content: "Test",
-          timestamp: "2024-01-01T00:00:00Z",
-        },
-      ];
-      const endedAt = "2024-01-01T00:00:01Z";
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        statusText: "OK",
-        json: vi.fn().mockResolvedValue({ result: { data: {} } }),
-      });
-
-      await apiClient.submitTranscript(interviewId, transcript, endedAt);
-
+      // Verify the request body contains transcript entries
       const callArgs = mockFetch.mock.calls?.[0]?.[1];
-      expect(callArgs?.headers["Authorization"]).toBe(
-        `Bearer ${mockWorkerSecret}`,
+      const requestBuffer = callArgs?.body as ArrayBuffer;
+      const decoded = preppal.WorkerApiRequest.decode(
+        new Uint8Array(requestBuffer),
       );
+
+      expect(decoded.submitTranscript?.interviewId).toBe(interviewId);
+      expect(decoded.submitTranscript?.entries).toHaveLength(2);
+      expect(decoded.submitTranscript?.entries?.[0]?.speaker).toBe("USER");
+      expect(decoded.submitTranscript?.entries?.[0]?.content).toBe("Hello");
+      expect(decoded.submitTranscript?.endedAt).toBe(endedAt);
     });
 
-    it("should throw error when API request fails", async () => {
+    it("should throw error when API returns error response", async () => {
       const transcript = [
         {
           speaker: "USER" as const,
@@ -166,25 +168,23 @@ describe("ApiClient", () => {
           timestamp: "2024-01-01T00:00:00Z",
         },
       ];
-      const endedAt = "2024-01-01T00:00:01Z";
 
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 404,
-        statusText: "Not Found",
-        text: vi.fn().mockResolvedValue("Interview not found"),
-      });
+      mockFetch.mockResolvedValueOnce(
+        createMockErrorResponse(404, "Interview not found"),
+      );
 
       await expect(
-        apiClient.submitTranscript("interview-123", transcript, endedAt),
-      ).rejects.toThrow(
-        "HTTP error calling submitTranscript: 404 Not Found - Interview not found",
-      );
+        apiClient.submitTranscript(
+          "interview-123",
+          transcript,
+          "2024-01-01T00:00:01Z",
+        ),
+      ).rejects.toThrow("API Error (404): Interview not found");
     });
   });
 
   describe("getContext", () => {
-    it("should send GET request to fetch interview context", async () => {
+    it("should send POST request and return context", async () => {
       const interviewId = "interview-123";
       const mockContext = {
         jobDescription: "Software Engineer at Acme Corp",
@@ -192,80 +192,59 @@ describe("ApiClient", () => {
         persona: "Senior Technical Interviewer",
       };
 
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: vi.fn().mockResolvedValue([
-          {
-            result: {
-              data: mockContext,
-            },
-          },
-        ]),
-      });
+      mockFetch.mockResolvedValueOnce(
+        createMockProtobufResponse({
+          getContext: mockContext,
+        }),
+      );
 
       const result = await apiClient.getContext(interviewId);
 
       expect(mockFetch).toHaveBeenCalledTimes(1);
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining(
-          "https://api.example.com/api/trpc/interview.getContext",
-        ),
+        "https://api.example.com/api/worker",
         expect.objectContaining({
-          method: "GET",
+          method: "POST",
           headers: {
+            "Content-Type": "application/x-protobuf",
             Authorization: `Bearer ${mockWorkerSecret}`,
           },
         }),
       );
+
+      expect(result).toEqual(mockContext);
     });
 
     it("should return context with persona field", async () => {
-      const interviewId = "interview-123";
       const mockContext = {
         jobDescription: "Frontend Developer",
         resume: "React expert",
         persona: "HR Manager",
       };
 
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: vi.fn().mockResolvedValue([
-          {
-            result: {
-              data: mockContext,
-            },
-          },
-        ]),
-      });
+      mockFetch.mockResolvedValueOnce(
+        createMockProtobufResponse({
+          getContext: mockContext,
+        }),
+      );
 
-      const result = await apiClient.getContext(interviewId);
+      const result = await apiClient.getContext("interview-123");
 
-      expect(result).toEqual(mockContext);
       expect(result.persona).toBe("HR Manager");
       expect(result.jobDescription).toBe("Frontend Developer");
       expect(result.resume).toBe("React expert");
     });
 
     it("should include worker secret in request headers", async () => {
-      const mockContext = {
-        jobDescription: "",
-        resume: "",
-        persona: "professional interviewer",
-      };
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: vi.fn().mockResolvedValue([
-          {
-            result: {
-              data: mockContext,
-            },
+      mockFetch.mockResolvedValueOnce(
+        createMockProtobufResponse({
+          getContext: {
+            jobDescription: "",
+            resume: "",
+            persona: "professional interviewer",
           },
-        ]),
-      });
+        }),
+      );
 
       await apiClient.getContext("interview-123");
 
@@ -275,36 +254,66 @@ describe("ApiClient", () => {
       );
     });
 
-    it("should throw error when API request fails", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 404,
-        text: vi.fn().mockResolvedValue("Interview not found"),
-      });
+    it("should throw error when API returns error response", async () => {
+      mockFetch.mockResolvedValueOnce(
+        createMockErrorResponse(404, "Interview not found"),
+      );
 
       await expect(apiClient.getContext("interview-123")).rejects.toThrow(
-        "HTTP 404: Interview not found",
+        "API Error (404): Interview not found",
       );
     });
+  });
 
-    it("should throw error when tRPC returns error", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: vi.fn().mockResolvedValue([
-          {
-            error: {
-              json: {
-                message: "Interview not found",
-              },
-            },
-          },
-        ]),
-      });
+  describe("submitFeedback", () => {
+    it("should send POST request with feedback data", async () => {
+      const interviewId = "interview-123";
+      const feedback = {
+        summary: "Good interview",
+        strengths: "Strong communication",
+        contentAndStructure: "Well organized",
+        communicationAndDelivery: "Clear and concise",
+        presentation: "Professional",
+      };
 
-      await expect(apiClient.getContext("interview-123")).rejects.toThrow(
-        "tRPC error: Interview not found",
+      mockFetch.mockResolvedValueOnce(
+        createMockProtobufResponse({
+          submitFeedback: { success: true },
+        }),
       );
+
+      await apiClient.submitFeedback(interviewId, feedback);
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+
+      // Verify the request body contains feedback
+      const callArgs = mockFetch.mock.calls?.[0]?.[1];
+      const requestBuffer = callArgs?.body as ArrayBuffer;
+      const decoded = preppal.WorkerApiRequest.decode(
+        new Uint8Array(requestBuffer),
+      );
+
+      expect(decoded.submitFeedback?.interviewId).toBe(interviewId);
+      expect(decoded.submitFeedback?.summary).toBe(feedback.summary);
+      expect(decoded.submitFeedback?.strengths).toBe(feedback.strengths);
+    });
+
+    it("should throw error when API returns error response", async () => {
+      const feedback = {
+        summary: "Good",
+        strengths: "Strong",
+        contentAndStructure: "Organized",
+        communicationAndDelivery: "Clear",
+        presentation: "Professional",
+      };
+
+      mockFetch.mockResolvedValueOnce(
+        createMockErrorResponse(404, "Interview not found"),
+      );
+
+      await expect(
+        apiClient.submitFeedback("interview-123", feedback),
+      ).rejects.toThrow("API Error (404): Interview not found");
     });
   });
 });

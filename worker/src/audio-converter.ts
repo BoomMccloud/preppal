@@ -18,7 +18,7 @@ export class AudioConverter implements IAudioConverter {
     // Convert Uint8Array to binary string
     let binaryString = "";
     for (let i = 0; i < binary.length; i++) {
-      binaryString += String.fromCharCode(binary[i]);
+      binaryString += String.fromCharCode(binary[i]!);
     }
 
     // Encode to base64

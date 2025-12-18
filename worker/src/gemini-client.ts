@@ -33,8 +33,8 @@ export class GeminiClient implements IGeminiClient {
 
     this.session = await ai.live.connect({
       model: config.model,
-      config: config.config,
-      callbacks: config.callbacks,
+      config: config.config as any,
+      callbacks: config.callbacks as any,
     });
 
     this.connected = true;

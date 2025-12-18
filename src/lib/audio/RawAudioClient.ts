@@ -7,7 +7,7 @@ import { AudioRecorder } from "./AudioRecorder";
 import { preppal } from "../interview_pb.js";
 
 type ConnectionState = "disconnected" | "connecting" | "connected";
-type TranscriptUpdate = preppal.TranscriptUpdate;
+type TranscriptUpdate = preppal.ITranscriptUpdate;
 
 interface RawClientCallbacks {
   onConnectionStateChange?: (state: ConnectionState) => void;

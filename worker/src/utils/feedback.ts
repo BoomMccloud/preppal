@@ -45,7 +45,7 @@ Output JSON only.
 `;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await (ai.models as any).generateContent({
       model,
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: {

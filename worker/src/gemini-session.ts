@@ -94,7 +94,8 @@ export class GeminiSession implements DurableObject {
       );
 
       const webSocketPair = new WebSocketPair();
-      const [client, server] = Object.values(webSocketPair);
+      const client = webSocketPair[0];
+      const server = webSocketPair[1];
       server.accept();
 
       await this.initializeSession(server);
@@ -188,7 +189,7 @@ export class GeminiSession implements DurableObject {
       this.handleWebSocketClose();
     });
 
-    ws.addEventListener("error", (event: ErrorEvent) => {
+    ws.addEventListener("error", (event: Event) => {
       this.handleWebSocketError(event);
     });
   }
@@ -328,7 +329,7 @@ export class GeminiSession implements DurableObject {
   /**
    * Handle WebSocket error
    */
-  private handleWebSocketError(event: ErrorEvent): void {
+  private handleWebSocketError(event: Event): void {
     console.error(
       `[GeminiSession] WebSocket error for interview ${this.interviewId}:`,
       event,
@@ -357,7 +358,8 @@ export class GeminiSession implements DurableObject {
     data: ArrayBuffer | string | Uint8Array,
   ): void {
     try {
-      if (ws.readyState === WebSocket.READY_STATE_OPEN) {
+      if (ws.readyState === 1) {
+        // 1 is OPEN
         ws.send(data);
       }
     } catch (error) {
