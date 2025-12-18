@@ -29,9 +29,7 @@ export class TranscriptManager {
     const { speaker, text, turnComplete } = update;
 
     // Ensure the buffer exists for this speaker
-    if (this.transcriptBuffers[speaker] === undefined) {
-      this.transcriptBuffers[speaker] = "";
-    }
+    this.transcriptBuffers[speaker] ??= "";
 
     this.transcriptBuffers[speaker] += text;
 
