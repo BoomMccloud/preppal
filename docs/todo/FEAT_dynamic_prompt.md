@@ -53,8 +53,8 @@ export const interviewRouter = createTRPCRouter({
 });
 ```
 
-### Step 3: Update `IApiClient` Interface
-Modify the `IApiClient` interface in `worker/src/interfaces/index.ts` to include the `getInterviewContext` method.
+### Step 3: Update `InterviewContext` Interface
+Modify the `InterviewContext` interface in `worker/src/interfaces/index.ts` to include the `persona` field. The `IApiClient.getContext()` method already exists and returns `InterviewContext`.
 
 ```typescript
 // File: worker/src/interfaces/index.ts
@@ -62,27 +62,17 @@ Modify the `IApiClient` interface in `worker/src/interfaces/index.ts` to include
 // ... existing interfaces ...
 
 /**
- * Interface for API communication with Next.js backend
+ * Interview context containing job description, resume, and persona
+ * Used for personalized interview questions and feedback generation
  */
-export interface IApiClient {
-  updateStatus(interviewId: string, status: string): Promise<void>;
-  submitTranscript(
-    interviewId: string,
-    transcript: Array<{
-      speaker: "USER" | "AI";
-      content: string;
-      timestamp: string;
-    }>,
-    endedAt: string
-  ): Promise<void>;
-  getInterviewContext(interviewId: string): Promise<{
-    jobDescription: string;
-    resume: string;
-    persona: string;
-  }>; // New method
+export interface InterviewContext {
+  jobDescription: string;
+  resume: string;
+  persona: string; // New field for interviewer persona
 }
 
-// ... rest of interfaces ...
+// IApiClient already has getContext() which returns InterviewContext
+// No changes needed to IApiClient interface
 ```
 
 > **Note**: We intentionally avoid creating an `IPromptBuilder` interface here. The prompt building logic is simple string concatenation that doesn't warrant abstraction. A plain function is sufficient (see Step 4).
@@ -90,15 +80,13 @@ export interface IApiClient {
 ### Step 4: Create `buildSystemPrompt` Utility Function
 Create a new file `worker/src/utils/build-system-prompt.ts` with a simple function for constructing the dynamic system instruction. Following KISS principles, we use a plain function instead of a class with interface.
 
+This function will be called from `GeminiStreamHandler.connect()` (see Step 6).
+
 ```typescript
 // File: worker/src/utils/build-system-prompt.ts
 // ABOUTME: Utility function for dynamically building the Gemini Live API system instruction.
 
-export interface InterviewContext {
-  jobDescription: string;
-  resume: string;
-  persona: string;
-}
+import type { InterviewContext } from "../interfaces";
 
 /**
  * Builds the system instruction string for the Gemini Live API.
@@ -125,79 +113,19 @@ Start by introducing yourself and asking the candidate to introduce themselves.`
 > - Reduces boilerplate and cognitive overhead
 
 ### Step 5: Update `ApiClient` Implementation
-Modify the `ApiClient` class in `worker/src/api-client.ts` to implement the `getInterviewContext` method.
+The `ApiClient` class in `worker/src/api-client.ts` already has a `getContext()` method that calls `interview.getContext`. No code changes needed here - the tRPC endpoint (Step 2) will be updated to return the `persona` field, and the `InterviewContext` type (Step 3) will include it.
 
 ```typescript
 // File: worker/src/api-client.ts
-// ... existing imports ...
-import type { IApiClient } from "./interfaces"; // Ensure IApiClient is imported
+// The existing getContext() method already handles this:
 
-// ... TranscriptEntry interface ...
-
-export class ApiClient implements IApiClient { // Ensure it implements IApiClient
-  // ... constructor and existing methods ...
-
-  async getInterviewContext(
-    interviewId: string
-  ): Promise<{ jobDescription: string; resume: string; persona: string }> {
-    const url = `${this.apiUrl}/api/trpc/interview.getWorkerContext`;
-
-    const requestBody = {
-      json: { interviewId },
-    };
-
-    let response: Response;
-    try {
-      response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.workerSecret}`,
-        },
-        body: JSON.stringify(requestBody),
-      });
-    } catch (error) {
-      console.error(
-        `[API] Network error calling getWorkerContext for interview ${interviewId}:`,
-        error
-      );
-      throw new Error(
-        `Network error calling getWorkerContext: ${error instanceof Error ? error.message : "Unknown error"}`
-      );
-    }
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(
-        `[API] getWorkerContext HTTP error details for interview ${interviewId}:`,
-        errorText
-      );
-      throw new Error(
-        `HTTP error calling getWorkerContext: ${response.status} ${response.statusText} - ${errorText}`
-      );
-    }
-
-    const jsonResponse = await response.json();
-    if (jsonResponse.error) {
-      const error = jsonResponse.error;
-      console.error(
-        `[API] getWorkerContext tRPC error for interview ${interviewId}:`,
-        error
-      );
-      throw new Error(
-        `tRPC error in getWorkerContext: ${error.json?.message || "Unknown tRPC error"}`
-      );
-    }
-
-    const result = jsonResponse.result.data;
-    console.log(
-      `[API] Successfully fetched worker context for interview ${interviewId}:`,
-      result
-    );
-    return result;
-  }
+async getContext(interviewId: string): Promise<InterviewContext> {
+  // ... existing implementation ...
+  // Will automatically include persona once tRPC endpoint is updated
 }
 ```
+
+> **Note**: If the existing `getContext` method doesn't exist yet, create it following the same pattern as `updateStatus` and `submitTranscript`.
 
 ### Step 6: Update `GeminiSession`
 Modify `worker/src/gemini-session.ts` to import and use the `buildSystemPrompt` function when connecting to Gemini. No class instantiation or dependency injection needed.
@@ -277,7 +205,115 @@ export class GeminiSession implements DurableObject {
 >
 > The function is simply imported and called where needed.
 
-### Step 7: Testing
+### Step 7: Minimal E2E Verification via Raw Worker Test Page
+
+Before integrating into the production app, verify the dynamic prompt works end-to-end using the existing debug page at `src/app/(app)/raw-worker-test/page.tsx`. This provides a minimal, isolated test environment.
+
+**Modifications to raw-worker-test page:**
+1. Add textarea inputs for Job Description and Resume
+2. Add a text input for Persona (with default value)
+3. Pass these values to the worker via query params or WebSocket message
+4. Worker uses these to build the system prompt via `buildSystemPrompt`
+
+```typescript
+// File: src/app/(app)/raw-worker-test/page.tsx
+// Add state for the dynamic prompt inputs
+const [jobDescription, setJobDescription] = useState("");
+const [resume, setResume] = useState("");
+const [persona, setPersona] = useState("professional interviewer");
+
+// Modify connect to pass context via query params
+const connect = useCallback(() => {
+  setError(null);
+  const workerUrl = (
+    process.env.NEXT_PUBLIC_WORKER_URL ?? "ws://localhost:8787"
+  ).replace(/^http/, "ws");
+
+  // Encode context as query params for debug endpoint
+  const params = new URLSearchParams({
+    jobDescription,
+    resume,
+    persona,
+  });
+  const wsUrl = `${workerUrl}/debug/live-audio?${params.toString()}`;
+
+  console.log(`Connecting to raw endpoint: ${wsUrl}`);
+  void clientRef.current?.connect(wsUrl);
+}, [jobDescription, resume, persona]);
+
+// Add UI inputs (before the connect button)
+<div className="space-y-4">
+  <div>
+    <label className="block font-medium">Persona</label>
+    <input
+      type="text"
+      value={persona}
+      onChange={(e) => setPersona(e.target.value)}
+      className="w-full rounded border p-2"
+      placeholder="e.g., Senior Technical Interviewer"
+    />
+  </div>
+  <div>
+    <label className="block font-medium">Job Description</label>
+    <textarea
+      value={jobDescription}
+      onChange={(e) => setJobDescription(e.target.value)}
+      className="w-full rounded border p-2"
+      rows={4}
+      placeholder="Paste job description here..."
+    />
+  </div>
+  <div>
+    <label className="block font-medium">Resume</label>
+    <textarea
+      value={resume}
+      onChange={(e) => setResume(e.target.value)}
+      className="w-full rounded border p-2"
+      rows={4}
+      placeholder="Paste resume here..."
+    />
+  </div>
+</div>
+```
+
+**Worker debug endpoint modification** (`worker/src/index.ts`):
+Update the `/debug/live-audio` endpoint to read query params and pass them to GeminiSession.
+
+```typescript
+// In the debug endpoint handler
+const url = new URL(request.url);
+const context = {
+  jobDescription: url.searchParams.get("jobDescription") ?? "",
+  resume: url.searchParams.get("resume") ?? "",
+  persona: url.searchParams.get("persona") ?? "professional interviewer",
+};
+
+// Pass context to the Durable Object (via query params or separate method)
+```
+
+**Verification checklist:**
+- [ ] Enter a job description and resume in the test page
+- [ ] Connect to the worker
+- [ ] Verify in worker logs that `buildSystemPrompt` receives the correct context
+- [ ] Verify the AI interviewer's behavior reflects the provided JD/resume
+
+### Step 8: Integrate into Production App
+
+Once Step 7 verification passes, integrate the dynamic prompt into the production interview flow.
+
+**Files to update:**
+1. **Interview start flow** - Ensure `persona` is set when creating an interview
+2. **Worker session endpoint** - The production `/session` endpoint should use `getInterviewContext` (already covered in Step 6)
+3. **Frontend interview page** - No changes needed if context is fetched server-side by worker
+
+The production flow is:
+1. User starts interview → Interview record created with JD/resume snapshots
+2. Frontend connects to worker with `interviewId`
+3. Worker calls `apiClient.getInterviewContext(interviewId)`
+4. Worker uses `buildSystemPrompt(context)` to generate system instruction
+5. Gemini session starts with dynamic prompt
+
+### Step 9: Testing
 
 **Unit Tests for `buildSystemPrompt`** (`worker/src/__tests__/utils/build-system-prompt.test.ts`):
 Testing a pure function is straightforward - no mocking required.
@@ -331,4 +367,20 @@ describe("buildSystemPrompt", () => {
 
 ---
 
-This document provides a simplified implementation plan for the dynamic prompt feature, following KISS principles by avoiding unnecessary abstraction layers.
+## Summary
+
+This document provides a 9-step implementation plan for the dynamic prompt feature:
+
+| Step | Description | Scope |
+|------|-------------|-------|
+| 1 | Database schema update | Backend |
+| 2 | tRPC `getWorkerContext` procedure | Backend |
+| 3 | Update `IApiClient` interface | Worker |
+| 4 | Create `buildSystemPrompt` function | Worker |
+| 5 | Update `ApiClient` implementation | Worker |
+| 6 | Update `GeminiSession` | Worker |
+| 7 | **Minimal E2E verification** (raw-worker-test) | Frontend + Worker |
+| 8 | Integrate into production app | Frontend |
+| 9 | Unit and integration tests | All |
+
+The plan follows KISS principles by avoiding unnecessary abstraction layers (no `IPromptBuilder` interface, just a simple function).
