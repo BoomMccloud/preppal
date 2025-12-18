@@ -10,10 +10,11 @@ Preppal is an application that uses the Gemini Live API to help users practice i
 - **API**: [tRPC](https://trpc.io/) (v11)
 - **ORM**: [Prisma](https://prisma.io/)
 - **Authentication**: [NextAuth.js](https://next-auth.js.org/) (v5 Beta)
-- **Database**: SQLite for now
+- **Database**: SQLite (for development/local)
 - **Styling**: [Tailwind CSS](https://tailwindcss.com/)
 - **Language**: [TypeScript](https://www.typescriptlang.org/)
 - **Package Manager**: [pnpm](https://pnpm.io/)
+- **Testing**: [Vitest](https://vitest.dev/) (Unit/Integration), Playwright (E2E)
 - **Linting**: [ESLint](https://eslint.org/)
 - **Formatting**: [Prettier](https://prettier.io/)
 
@@ -21,22 +22,28 @@ Preppal is an application that uses the Gemini Live API to help users practice i
 
 This project is divided into several key architectural components. For more detailed information, please refer to the specific `agent.md` file in each directory.
 
-- **[Frontend (`src/app`)](./src/app/agent.md)**: The frontend is built with Next.js and React Server Components. It handles the user interface and client-side interactions.
+- **[Frontend (`src/app`)](./src/app/agent.md)**: Built with Next.js and React Server Components.
+- **[Backend (`src/server/api`)](./src/server/api/agent.md)**: Built with tRPC for a typesafe API.
+- **[Database (`prisma`)](./prisma/README.md)**: Schema managed with Prisma.
+- **[Protocols (`proto`)](./proto/README.md)**: Protobuf definitions for real-time communication.
+- **[Cloudflare Worker (`worker/`)](./worker/README.md)**: Handles real-time communication with the Gemini Live API.
 
-- **[Backend (`src/server/api`)](./src/server/api/agent.md)**: The backend is built with tRPC and provides a typesafe API for the frontend.
+## Important Commands
 
-- **[Database (`prisma`)](./prisma/agent.md)**: The database schema is defined and managed with Prisma.
-
-- **[Protocols (`proto`)](./proto/agent.md)**: This directory contains the protobuf definitions for the real-time communication between the client and server.
-
-- **[Cloudflare Worker (`worker/`)](./worker/agent.md)**: The Cloudflare Worker handles real-time communication with the Gemini Live API and manages interview sessions.
+- `pnpm dev`: Start the development server.
+- `pnpm test`: Run unit and integration tests with Vitest.
+- `pnpm check`: Run linting and type checking.
+- `pnpm format:write`: Format code using Prettier.
+- `pnpm db:push`: Push Prisma schema changes to the database.
 
 ## Agent Instructions
 
-- Address the user as Mr. User
-- Reload all files for the latest context
-- Use /docs/05_current_task.md file document the current task
-- Add descriptions at the beginning of each file
-- Keep files to 300 lines of code or less, refactor if needed
-- Use boiler plates or reference implementation whenever possible, minize the amount of new code
-- when finishing a task, update the documentation
+- **Address the user as Mr. User.**
+- **Always reload relevant files** for the latest context before starting a task.
+- **Use `/docs/05_current_task.md`** to document and track the current task progress.
+- **Add descriptions** at the beginning of each new or modified file.
+- **Maintain small files**: Keep files to 300 lines of code or less; refactor if they grow larger.
+- **Minimize new code**: Prefer boilerplates or reference implementations from within the project.
+- **Ensure code quality**: Run `pnpm format:write && pnpm check` before submitting changes.
+- **Update documentation** (including this file and `docs/`) upon completing a task.
+- **Be concise and direct** in all communications.
