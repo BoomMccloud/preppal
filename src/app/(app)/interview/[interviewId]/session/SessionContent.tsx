@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { api } from "~/trpc/react";
 import { useInterviewSocket } from "./useInterviewSocket";
 import { StatusIndicator } from "~/app/_components/StatusIndicator";
+import { AIAvatar } from "~/app/_components/AIAvatar";
 
 interface SessionContentProps {
   interviewId: string;
@@ -188,40 +189,46 @@ export function SessionContent({ interviewId }: SessionContentProps) {
         )}
       </div>
 
-      {/* Transcript area */}
+      {/* Main content area */}
       <div className="flex-1 overflow-y-auto bg-gray-50 p-6">
-        <div className="mx-auto max-w-3xl space-y-4">
-          {transcript.length === 0 ? (
-            <div className="text-center text-gray-500">
-              <p>Waiting for the interview to begin...</p>
-              <p className="mt-2 text-sm">
-                Current interview status: {interview?.status ?? "Unknown"}
-              </p>
-            </div>
-          ) : (
-            transcript.map((entry, index) => (
-              <div
-                key={index}
-                className={`flex ${entry.speaker === "USER" ? "justify-end" : "justify-start"}`}
-              >
+        <div className="mx-auto max-w-4xl space-y-6">
+          {/* AI Avatar / Video Feed Placeholder */}
+          <AIAvatar status={isAiSpeaking ? "Speaking..." : "Listening..."} />
+
+          {/* Transcript */}
+          <div className="mx-auto max-w-3xl space-y-4">
+            {transcript.length === 0 ? (
+              <div className="text-center text-gray-500">
+                <p>Waiting for the interview to begin...</p>
+                <p className="mt-2 text-sm">
+                  Current interview status: {interview?.status ?? "Unknown"}
+                </p>
+              </div>
+            ) : (
+              transcript.map((entry, index) => (
                 <div
-                  className={`max-w-[80%] rounded-lg px-4 py-3 ${
-                    entry.speaker === "AI"
-                      ? "bg-gray-200 text-gray-900"
-                      : "bg-blue-500 text-white"
-                  }`}
+                  key={index}
+                  className={`flex ${entry.speaker === "USER" ? "justify-end" : "justify-start"}`}
                 >
-                  <div className="mb-1 text-xs font-semibold">
-                    {entry.speaker === "AI" ? "AI Interviewer" : "You"}
-                  </div>
-                  <div className="text-sm whitespace-pre-wrap">
-                    {entry.text}
+                  <div
+                    className={`max-w-[80%] rounded-lg px-4 py-3 ${
+                      entry.speaker === "AI"
+                        ? "bg-gray-200 text-gray-900"
+                        : "bg-blue-500 text-white"
+                    }`}
+                  >
+                    <div className="mb-1 text-xs font-semibold">
+                      {entry.speaker === "AI" ? "AI Interviewer" : "You"}
+                    </div>
+                    <div className="text-sm whitespace-pre-wrap">
+                      {entry.text}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
-          )}
-          <div ref={transcriptEndRef} />
+              ))
+            )}
+            <div ref={transcriptEndRef} />
+          </div>
         </div>
       </div>
 

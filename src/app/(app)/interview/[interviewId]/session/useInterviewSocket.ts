@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "~/trpc/react";
 import { AudioRecorder } from "~/lib/audio/AudioRecorder";
 import { AudioPlayer } from "~/lib/audio/AudioPlayer";
@@ -46,7 +46,10 @@ export function useInterviewSocket({
   const [error, setError] = useState<string | null>(null);
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
 
-  const transcript = [...committedTranscript, ...pendingTranscript];
+  const transcript = useMemo(
+    () => [...committedTranscript, ...pendingTranscript],
+    [committedTranscript, pendingTranscript],
+  );
 
   const stateRef = useRef(state);
   useEffect(() => {
@@ -63,20 +66,18 @@ export function useInterviewSocket({
   const transcriptManagerRef = useRef<TranscriptManager | null>(null);
 
   // Initialize TranscriptManager
-  if (!transcriptManagerRef.current) {
-    transcriptManagerRef.current = new TranscriptManager({
-      onSentence: (speaker, text) => {
-        setCommittedTranscript((prev) => [
-          ...prev,
-          {
-            text,
-            speaker: speaker === "USER" ? "USER" : "AI",
-            is_final: true,
-          },
-        ]);
-      },
-    });
-  }
+  transcriptManagerRef.current ??= new TranscriptManager({
+    onSentence: (speaker, text) => {
+      setCommittedTranscript((prev) => [
+        ...prev,
+        {
+          text,
+          speaker: speaker === "USER" ? "USER" : "AI",
+          is_final: true,
+        },
+      ]);
+    },
+  });
 
   // Effect to handle user interruption (barge-in)
   useEffect(() => {

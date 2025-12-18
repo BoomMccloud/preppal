@@ -2,7 +2,9 @@ export class AudioPlayer {
   private audioContext: AudioContext | null = null;
   private isPlaying = false;
   private sampleRate: number;
-  public onPlaybackStateChange: (isPlaying: boolean) => void = () => {};
+  public onPlaybackStateChange: (isPlaying: boolean) => void = () => {
+    /* No-op by default */
+  };
   private leftoverBuffer: Uint8Array | null = null;
   private nextPlayTime = 0; // Time at which the next buffer should start playing
   private sources = new Set<AudioBufferSourceNode>();
