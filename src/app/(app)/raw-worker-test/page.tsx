@@ -16,6 +16,7 @@ export default function RawWorkerTestPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
+  const [debugInfo, setDebugInfo] = useState({ connectAttempts: 0, activeConnections: 0 });
   const clientRef = useRef<RawAudioClient | null>(null);
   const transcriptManagerRef = useRef<TranscriptManager | null>(null);
 
@@ -38,6 +39,7 @@ export default function RawWorkerTestPage() {
       onTranscriptUpdate: (update) => {
         transcriptManagerRef.current?.process(update);
       },
+      onDebugInfo: setDebugInfo,
     });
 
     // Cleanup on unmount
@@ -108,6 +110,26 @@ export default function RawWorkerTestPage() {
           )}
         </p>
         {error && <p className="text-red-600">Error: {error}</p>}
+      </div>
+
+      <div className="mt-4">
+        <h3>Debug Info</h3>
+        <p>
+          WebSocket Attempts: <strong>{debugInfo.connectAttempts}</strong>
+        </p>
+        <p>
+          Active Connections:{" "}
+          <strong
+            className={
+              debugInfo.activeConnections > 1 ? "text-red-600" : "text-green-600"
+            }
+          >
+            {debugInfo.activeConnections}
+          </strong>
+          {debugInfo.activeConnections > 1 && (
+            <span className="ml-2 text-red-600">⚠️ Multiple connections detected!</span>
+          )}
+        </p>
       </div>
     </main>
   );

@@ -62,6 +62,7 @@ export class AudioPlayer {
   // Receives raw 16-bit PCM data as a Uint8Array and adds it to the queue.
   public async enqueue(pcm16Data: Uint8Array) {
     if (!this.audioContext) return;
+    if (pcm16Data.length === 0) return; // Skip empty buffers
 
     // 0. Resume context if needed
     await this.resume();

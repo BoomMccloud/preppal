@@ -15,6 +15,7 @@ interface RawClientCallbacks {
   onSpeakingStateChange?: (isSpeaking: boolean) => void;
   onTranscriptUpdate?: (transcript: TranscriptUpdate) => void;
   onError?: (error: string) => void;
+  onDebugInfo?: (info: { connectAttempts: number; activeConnections: number }) => void;
 }
 
 export class RawAudioClient {
@@ -22,6 +23,8 @@ export class RawAudioClient {
   private player: AudioPlayer;
   private recorder: AudioRecorder;
   private callbacks: RawClientCallbacks;
+  private connectAttempts = 0;
+  private activeConnections = 0;
 
   constructor(callbacks: RawClientCallbacks = {}) {
     this.callbacks = callbacks;
@@ -33,7 +36,16 @@ export class RawAudioClient {
     };
   }
 
+  private updateDebugInfo() {
+    this.callbacks.onDebugInfo?.({
+      connectAttempts: this.connectAttempts,
+      activeConnections: this.activeConnections,
+    });
+  }
+
   async connect(url: string) {
+    this.connectAttempts++;
+    this.updateDebugInfo();
     this.callbacks.onConnectionStateChange?.("connecting");
 
     try {
@@ -50,7 +62,9 @@ export class RawAudioClient {
     this.ws.binaryType = "arraybuffer";
 
     this.ws.onopen = async () => {
-      console.log("Raw WebSocket connected.");
+      this.activeConnections++;
+      this.updateDebugInfo();
+      console.log(`Raw WebSocket connected. (Active: ${this.activeConnections})`);
       this.callbacks.onConnectionStateChange?.("connected");
       try {
         await this.recorder.start(this.handleAudioData);
@@ -75,7 +89,9 @@ export class RawAudioClient {
     };
 
     this.ws.onclose = () => {
-      console.log("Raw WebSocket disconnected.");
+      this.activeConnections = Math.max(0, this.activeConnections - 1);
+      this.updateDebugInfo();
+      console.log(`Raw WebSocket disconnected. (Active: ${this.activeConnections})`);
       void this.cleanup();
     };
   }
@@ -110,7 +126,10 @@ export class RawAudioClient {
         new Uint8Array(data),
       );
 
-      if (message.audioResponse?.audioContent) {
+      if (
+        message.audioResponse?.audioContent &&
+        message.audioResponse.audioContent.length > 0
+      ) {
         void this.player.enqueue(message.audioResponse.audioContent);
       } else if (message.transcriptUpdate) {
         this.callbacks.onTranscriptUpdate?.(message.transcriptUpdate);

@@ -55,13 +55,20 @@ export function SessionContent({ interviewId }: SessionContentProps) {
   }, [interview, isLoading, router, interviewId]);
 
   // WebSocket connection and state management
-  const { state, transcript, elapsedTime, error, endInterview, isAiSpeaking } =
-    useInterviewSocket({
-      interviewId,
-      onSessionEnded: () => {
-        router.push(`/interview/${interviewId}/feedback`);
-      },
-    });
+  const {
+    state,
+    transcript,
+    elapsedTime,
+    error,
+    endInterview,
+    isAiSpeaking,
+    debugInfo: wsDebugInfo,
+  } = useInterviewSocket({
+    interviewId,
+    onSessionEnded: () => {
+      router.push(`/interview/${interviewId}/feedback`);
+    },
+  });
 
   // Auto-scroll to latest transcript
   useEffect(() => {
@@ -145,7 +152,23 @@ export function SessionContent({ interviewId }: SessionContentProps) {
             >
               Check Status
             </button>
-            <StatusIndicator status={isAiSpeaking ? "speaking" : "listening"} />
+            <div className="flex flex-col items-end gap-1">
+              <div className="text-xs text-gray-600">
+                WS: {wsDebugInfo.connectAttempts} attempts |{" "}
+                <span
+                  className={
+                    wsDebugInfo.activeConnections > 1
+                      ? "font-bold text-red-600"
+                      : "text-green-600"
+                  }
+                >
+                  {wsDebugInfo.activeConnections} active
+                </span>
+              </div>
+              <StatusIndicator
+                status={isAiSpeaking ? "speaking" : "listening"}
+              />
+            </div>
             <div className="font-mono text-lg">{formatTime(elapsedTime)}</div>
           </div>
         </div>

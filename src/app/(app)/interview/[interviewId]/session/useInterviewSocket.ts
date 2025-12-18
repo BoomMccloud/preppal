@@ -24,6 +24,10 @@ interface UseInterviewSocketReturn {
   error: string | null;
   endInterview: () => void;
   isAiSpeaking: boolean;
+  debugInfo: {
+    connectAttempts: number;
+    activeConnections: number;
+  };
 }
 
 export function useInterviewSocket({
@@ -44,6 +48,9 @@ export function useInterviewSocket({
   const wsRef = useRef<WebSocket | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const audioPlayerRef = useRef<AudioPlayer | null>(null);
+  const hasInitiatedConnection = useRef(false);
+  const [connectAttempts, setConnectAttempts] = useState(0);
+  const [activeConnections, setActiveConnections] = useState(0);
 
   // Effect to handle user interruption (barge-in)
   useEffect(() => {
@@ -53,8 +60,7 @@ export function useInterviewSocket({
         console.log(
           "[Barge-in] User started speaking, clearing AI audio queue.",
         );
-        audioPlayerRef.current.clear();
-        setIsAiSpeaking(false);
+        audioPlayerRef.current.clear(); // This will trigger onPlaybackStateChange(false)
       }
     }
   }, [transcript, isAiSpeaking]);
@@ -92,6 +98,9 @@ export function useInterviewSocket({
       if (state === "live") {
         console.log("State is LIVE, setting up audio...");
         audioPlayerRef.current = new AudioPlayer(24000);
+        audioPlayerRef.current.onPlaybackStateChange = (isPlaying) => {
+          setIsAiSpeaking(isPlaying);
+        };
         await audioPlayerRef.current.start();
 
         audioRecorder = new AudioRecorder();
@@ -130,18 +139,27 @@ export function useInterviewSocket({
   }, [state]);
 
   const connectWebSocket = (token: string) => {
+    // Close any existing connection before creating a new one
+    if (wsRef.current) {
+      console.log("[WebSocket] Closing existing connection before reconnecting");
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+
+    setConnectAttempts((prev) => prev + 1);
     setState("connecting");
     const workerUrl =
       process.env.NEXT_PUBLIC_WORKER_URL ?? "http://localhost:8787";
     const wsUrl = `${workerUrl}/${interviewId}?token=${encodeURIComponent(token)}`;
-    console.log(`[WebSocket] Connecting to: ${wsUrl}`);
+    console.log(`[WebSocket] Connecting to: ${wsUrl} (Attempt #${connectAttempts + 1})`);
 
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
     ws.binaryType = "arraybuffer";
 
     ws.onopen = () => {
-      console.log(`[WebSocket] Connected successfully`);
+      setActiveConnections((prev) => prev + 1);
+      console.log(`[WebSocket] Connected successfully (Active: ${activeConnections + 1})`);
       setState("live");
     };
 
@@ -151,7 +169,6 @@ export function useInterviewSocket({
       const message = preppal.ServerToClientMessage.decode(
         new Uint8Array(event.data),
       );
-      console.log(`[WebSocket] Received message:`, message);
 
       if (message.transcriptUpdate) {
         setTranscript((prev) => [
@@ -164,16 +181,12 @@ export function useInterviewSocket({
           },
         ]);
       } else if (message.audioResponse) {
-        if (!isAiSpeaking) {
-          setIsAiSpeaking(true);
-        }
         if (audioPlayerRef.current) {
           const audioData = message.audioResponse.audioContent;
-          void audioPlayerRef.current.enqueue(audioData.slice().buffer);
+          if (audioData && audioData.length > 0) {
+            void audioPlayerRef.current.enqueue(audioData);
+          }
         }
-      } else if (message.turnComplete) {
-        console.log("[WebSocket] Turn complete.");
-        setIsAiSpeaking(false);
       } else if (message.sessionEnded) {
         console.log(`[WebSocket] Session ended`);
         setState("ending");
@@ -192,7 +205,8 @@ export function useInterviewSocket({
     };
 
     ws.onclose = (event) => {
-      console.log(`[WebSocket] Closed:`, event);
+      setActiveConnections((prev) => Math.max(0, prev - 1));
+      console.log(`[WebSocket] Closed: (Active: ${activeConnections - 1})`, event);
       if (["live", "connecting"].includes(stateRef.current)) {
         setError("Connection lost.");
         setState("error");
@@ -217,15 +231,33 @@ export function useInterviewSocket({
   };
 
   useEffect(() => {
-    generateToken({ interviewId });
+    // Only initiate connection once per interviewId
+    if (!hasInitiatedConnection.current) {
+      hasInitiatedConnection.current = true;
+      generateToken({ interviewId });
+    }
 
     return () => {
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
       }
+      // DO NOT reset hasInitiatedConnection.current here!
+      // This would allow React Strict Mode to trigger a second connection
     };
-  }, [interviewId, generateToken]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [interviewId]);
 
-  return { state, transcript, elapsedTime, error, endInterview, isAiSpeaking };
+  return {
+    state,
+    transcript,
+    elapsedTime,
+    error,
+    endInterview,
+    isAiSpeaking,
+    debugInfo: {
+      connectAttempts,
+      activeConnections,
+    },
+  };
 }
