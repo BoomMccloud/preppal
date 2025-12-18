@@ -1,6 +1,6 @@
 name = "preppal-worker"
 main = "src/index.ts"
-compatibility_date = "2023-11-21"
+compatibility_date = "2025-12-18"
 durable_objects.bindings = [{ name = "GEMINI_SESSION", class_name = "GeminiSession" }]
 
 [vars]
@@ -8,4 +8,4 @@ DEV_MODE = "false"
 
 [[migrations]]
 tag = "v1"
-new_classes = ["GeminiSession"]
+new_sqlite_classes = ["GeminiSession"]
