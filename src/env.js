@@ -45,7 +45,6 @@ export const env = createEnv({
     WSS_PORT: process.env.WSS_PORT,
     JWT_SECRET: process.env.JWT_SECRET,
     WORKER_SHARED_SECRET: process.env.WORKER_SHARED_SECRET,
-    NEXT_PUBLIC_WS_URL: process.env.NEXT_PUBLIC_WS_URL,
     NEXT_PUBLIC_WORKER_URL: process.env.NEXT_PUBLIC_WORKER_URL,
   },
   /**
