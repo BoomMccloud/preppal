@@ -82,63 +82,47 @@ export interface IApiClient {
   }>; // New method
 }
 
-/**
- * Interface for building the Gemini system prompt
- */
-export interface IPromptBuilder {
-  build(context: {
-    jobDescription: string;
-    resume: string;
-    persona: string;
-  }): string;
-}
-
 // ... rest of interfaces ...
 ```
 
-### Step 4: Implement `PromptBuilder`
-Create a new file `worker/src/prompt-builder.ts` and implement the `IPromptBuilder` interface. This class will encapsulate the logic for constructing the dynamic system instruction.
+> **Note**: We intentionally avoid creating an `IPromptBuilder` interface here. The prompt building logic is simple string concatenation that doesn't warrant abstraction. A plain function is sufficient (see Step 4).
+
+### Step 4: Create `buildSystemPrompt` Utility Function
+Create a new file `worker/src/utils/build-system-prompt.ts` with a simple function for constructing the dynamic system instruction. Following KISS principles, we use a plain function instead of a class with interface.
 
 ```typescript
-// File: worker/src/prompt-builder.ts
-// ABOUTME: Service for dynamically building the Gemini Live API system instruction.
+// File: worker/src/utils/build-system-prompt.ts
+// ABOUTME: Utility function for dynamically building the Gemini Live API system instruction.
 
-import type { IPromptBuilder } from "./interfaces";
+export interface InterviewContext {
+  jobDescription: string;
+  resume: string;
+  persona: string;
+}
 
 /**
- * Service for dynamically building the Gemini Live API system instruction.
- * Constructs the prompt using job description, resume, and interviewer persona.
+ * Builds the system instruction string for the Gemini Live API.
  */
-export class PromptBuilder implements IPromptBuilder {
-  /**
-   * Builds the system instruction string for the Gemini Live API.
-   * @param context An object containing the job description, candidate resume, and interviewer persona.
-   * @returns The dynamically generated system instruction string.
-   */
-  build(context: { jobDescription: string; resume: string; persona: string }): string {
-    const jdSection = context.jobDescription
-      ? `
+export function buildSystemPrompt(context: InterviewContext): string {
+  const jdSection = context.jobDescription
+    ? `\n\nJOB DESCRIPTION:\n${context.jobDescription}`
+    : "";
+  const resumeSection = context.resume
+    ? `\n\nCANDIDATE RESUME:\n${context.resume}`
+    : "";
 
-JOB DESCRIPTION:
-${context.jobDescription}`
-      : "";
-    const resumeSection = context.resume
-      ? `
+  return `You are a ${context.persona}.
+Your goal is to conduct a behavioral interview.${jdSection}${resumeSection}
 
-CANDIDATE RESUME:
-${context.resume}`
-      : "";
-
-    return `
-      You are a ${context.persona}.
-      Your goal is to conduct a behavioral interview.
-      ${jdSection}
-      ${resumeSection}
-      Start by introducing yourself and asking the candidate to introduce themselves.
-    `.trim();
-  }
+Start by introducing yourself and asking the candidate to introduce themselves.`;
 }
 ```
+
+> **Design Decision**: A simple exported function is preferred over a class because:
+> - The logic is pure string concatenation with no state
+> - No dependency injection is needed for this simple operation
+> - Easier to test (just call the function with inputs)
+> - Reduces boilerplate and cognitive overhead
 
 ### Step 5: Update `ApiClient` Implementation
 Modify the `ApiClient` class in `worker/src/api-client.ts` to implement the `getInterviewContext` method.
@@ -216,56 +200,20 @@ export class ApiClient implements IApiClient { // Ensure it implements IApiClien
 ```
 
 ### Step 6: Update `GeminiSession`
-Modify `worker/src/gemini-session.ts` to inject the `IPromptBuilder` and use it to dynamically generate the `systemInstruction` when connecting to Gemini.
+Modify `worker/src/gemini-session.ts` to import and use the `buildSystemPrompt` function when connecting to Gemini. No class instantiation or dependency injection needed.
 
 ```typescript
 // File: worker/src/gemini-session.ts
 
 // ... existing imports ...
-import { PromptBuilder } from "./prompt-builder"; // Import the concrete implementation
-
-// Import new interfaces
-import type {
-  IPromptBuilder, // Import the new IPromptBuilder interface
-} from "./interfaces";
+import { buildSystemPrompt } from "./utils/build-system-prompt";
 
 /**
  * Durable Object managing individual Gemini Live API WebSocket sessions
  * Coordinates WebSocket connections, Gemini API interactions, and transcript management
  */
 export class GeminiSession implements DurableObject {
-  // ... existing properties ...
-
-  // Dependencies
-  private transcriptManager: ITranscriptManager;
-  private audioConverter: IAudioConverter;
-  private apiClient: IApiClient;
-  private geminiClient: IGeminiClient;
-  private wsMessageHandler: WebSocketMessageHandler;
-  private geminiMessageHandler: GeminiMessageHandler;
-  private promptBuilder: IPromptBuilder; // New dependency
-
-  constructor(
-    private state: DurableObjectState,
-    private env: Env
-  ) {
-    // ... existing service initializations ...
-    this.apiClient = new ApiClient(
-      env.NEXT_PUBLIC_API_URL,
-      env.WORKER_SHARED_SECRET
-    );
-    this.geminiClient = new GeminiClient(env.GEMINI_API_KEY);
-
-    // Initialize handlers
-    this.wsMessageHandler = new WebSocketMessageHandler();
-    this.geminiMessageHandler = new GeminiMessageHandler(
-      this.transcriptManager,
-      this.audioConverter
-    );
-    this.promptBuilder = new PromptBuilder(); // Initialize PromptBuilder
-  }
-
-  // ... existing fetch method ...
+  // ... existing properties and constructor (no changes needed) ...
 
   /**
    * Initialize Gemini Live API connection with dynamic system instruction
@@ -277,14 +225,14 @@ export class GeminiSession implements DurableObject {
       // Fetch interview context from the backend
       const interviewContext = await this.apiClient.getInterviewContext(this.interviewId!);
 
-      // Build the dynamic system instruction
-      const systemInstruction = this.promptBuilder.build(interviewContext);
+      // Build the dynamic system instruction using simple utility function
+      const systemInstruction = buildSystemPrompt(interviewContext);
 
       await this.geminiClient.connect({
         model: "gemini-2.5-flash-native-audio-preview-09-2025",
         config: {
           responseModalities: [Modality.AUDIO],
-          systemInstruction: systemInstruction, // Use the dynamically generated instruction
+          systemInstruction: systemInstruction,
           outputAudioTranscription: {},
           inputAudioTranscription: {},
         },
@@ -322,9 +270,65 @@ export class GeminiSession implements DurableObject {
 }
 ```
 
-### Step 7: Testing
-*   **Unit Tests for `PromptBuilder`**: Verify that the `PromptBuilder` correctly constructs the system instruction based on various inputs (JD, resume, persona, or missing fields).
-*   **Integration Tests for `ApiClient` (`getInterviewContext`)**: Test that the `ApiClient` can successfully call the new tRPC endpoint and retrieve the interview context.
-*   **Integration Tests for `GeminiSession`**: (Requires mocking the `IApiClient` and `IPromptBuilder` dependencies) Verify that `GeminiSession` calls `getInterviewContext` and passes the resulting data to `IPromptBuilder`, and then uses the generated instruction in `geminiClient.connect`.
+> **Simplification**: Note that we no longer need to:
+> - Add a `promptBuilder` property to the class
+> - Initialize a `PromptBuilder` instance in the constructor
+> - Import any interface for the prompt builder
+>
+> The function is simply imported and called where needed.
 
-This new file provides a detailed breakdown for implementing the dynamic prompt feature, aligning with the architectural improvements from the ongoing refactoring.
+### Step 7: Testing
+
+**Unit Tests for `buildSystemPrompt`** (`worker/src/__tests__/utils/build-system-prompt.test.ts`):
+Testing a pure function is straightforward - no mocking required.
+
+```typescript
+import { describe, it, expect } from "vitest";
+import { buildSystemPrompt } from "../../utils/build-system-prompt";
+
+describe("buildSystemPrompt", () => {
+  it("builds prompt with all fields populated", () => {
+    const result = buildSystemPrompt({
+      jobDescription: "Software Engineer at Acme",
+      resume: "5 years experience...",
+      persona: "Senior Technical Interviewer",
+    });
+
+    expect(result).toContain("Senior Technical Interviewer");
+    expect(result).toContain("JOB DESCRIPTION:");
+    expect(result).toContain("Software Engineer at Acme");
+    expect(result).toContain("CANDIDATE RESUME:");
+    expect(result).toContain("5 years experience");
+  });
+
+  it("omits job description section when empty", () => {
+    const result = buildSystemPrompt({
+      jobDescription: "",
+      resume: "Some resume",
+      persona: "HR Manager",
+    });
+
+    expect(result).not.toContain("JOB DESCRIPTION:");
+    expect(result).toContain("CANDIDATE RESUME:");
+  });
+
+  it("omits resume section when empty", () => {
+    const result = buildSystemPrompt({
+      jobDescription: "Some JD",
+      resume: "",
+      persona: "HR Manager",
+    });
+
+    expect(result).toContain("JOB DESCRIPTION:");
+    expect(result).not.toContain("CANDIDATE RESUME:");
+  });
+});
+```
+
+**Integration Tests for `ApiClient.getInterviewContext`**: Test that the `ApiClient` can successfully call the new tRPC endpoint and retrieve the interview context.
+
+**Integration Tests for `GeminiSession`**: Verify that `GeminiSession` calls `getInterviewContext` and uses the result to build the system instruction via `buildSystemPrompt`.
+
+---
+
+This document provides a simplified implementation plan for the dynamic prompt feature, following KISS principles by avoiding unnecessary abstraction layers.

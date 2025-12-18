@@ -1,12 +1,18 @@
-# Prepare DevOps Documentation
+# Refactor GeminiSession - Extract Stream Handler
 
-**Status**: Completed
+**Status**: In Progress
 
 ## Objective
-Create a comprehensive guide for the DevOps team to deploy Preppal to production.
+Further reduce `GeminiSession` complexity by extracting the AI stream orchestration logic into a `GeminiStreamHandler`. This service will manage the real-time loop with Gemini, utilizing existing low-level handlers.
 
 ## Deliverables
-- [x] `docs/07_devops.md`: Detailed deployment guide covering Architecture, Infrastructure, Env Vars, and Deployment Strategy.
+- [x] Extract `InterviewLifecycleManager` (Completed)
+- [ ] Create failing tests for `GeminiStreamHandler`
+- [ ] Implement `worker/src/services/gemini-stream-handler.ts`
+- [ ] Integrate `GeminiStreamHandler` into `GeminiSession`
+- [ ] Verify all tests pass
 
 ## Context
-The application works locally (SQLite, Dev Worker). We need to document the requirements for a production environment (Postgres, Cloudflare Workers Prod, Vercel/Docker).
+`GeminiSession` currently mixes WebSocket transport with the complex Gemini event loop.
+- Existing `handlers/` (like `GeminiMessageHandler`) provide *logic* for processing individual messages.
+- The new `GeminiStreamHandler` will provide *orchestration* (connecting, maintaining state, routing audio).
