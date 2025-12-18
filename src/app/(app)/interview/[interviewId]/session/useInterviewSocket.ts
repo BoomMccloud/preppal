@@ -97,28 +97,56 @@ export function useInterviewSocket({
     const setupAudio = async () => {
       if (state === "live") {
         console.log("State is LIVE, setting up audio...");
-        audioPlayerRef.current = new AudioPlayer(24000);
-        audioPlayerRef.current.onPlaybackStateChange = (isPlaying) => {
-          setIsAiSpeaking(isPlaying);
-        };
-        await audioPlayerRef.current.start();
 
-        audioRecorder = new AudioRecorder();
-        await audioRecorder.start((audioChunk) => {
-          if (wsRef.current?.readyState === WebSocket.OPEN) {
-            try {
-              const message = preppal.ClientToServerMessage.create({
-                audioChunk: { audioContent: new Uint8Array(audioChunk) },
-              });
-              const buffer =
-                preppal.ClientToServerMessage.encode(message).finish();
-              wsRef.current.send(buffer);
-            } catch (err) {
-              console.error("Error sending audio chunk:", err);
+        try {
+          // Setup AudioPlayer
+          audioPlayerRef.current = new AudioPlayer(24000);
+          audioPlayerRef.current.onPlaybackStateChange = (isPlaying) => {
+            setIsAiSpeaking(isPlaying);
+          };
+          await audioPlayerRef.current.start();
+          console.log("[AudioPlayer] Successfully started");
+
+          // Setup AudioRecorder
+          audioRecorder = new AudioRecorder();
+          console.log("[AudioRecorder] Starting recorder...");
+          let chunkCount = 0;
+          await audioRecorder.start((audioChunk) => {
+            chunkCount++;
+            if (chunkCount <= 3) {
+              console.log(`[AudioRecorder] Received audio chunk #${chunkCount}, size: ${audioChunk.byteLength} bytes`);
             }
-          }
-        });
-        startTimer();
+
+            if (wsRef.current?.readyState === WebSocket.OPEN) {
+              try {
+                const message = preppal.ClientToServerMessage.create({
+                  audioChunk: { audioContent: new Uint8Array(audioChunk) },
+                });
+                const buffer =
+                  preppal.ClientToServerMessage.encode(message).finish();
+                wsRef.current.send(buffer);
+                if (chunkCount <= 3) {
+                  console.log(`[AudioRecorder] Sent audio chunk #${chunkCount} via WebSocket`);
+                }
+              } catch (err) {
+                console.error("Error sending audio chunk:", err);
+              }
+            } else {
+              console.warn(`[AudioRecorder] WebSocket not open (state: ${wsRef.current?.readyState}), cannot send audio chunk`);
+            }
+          });
+          console.log("[AudioRecorder] Successfully started and capturing audio");
+
+          startTimer();
+        } catch (err) {
+          console.error("[setupAudio] Failed to initialize audio:", err);
+          setError(
+            err instanceof Error
+              ? `Audio initialization failed: ${err.message}`
+              : "Failed to initialize audio"
+          );
+          setState("error");
+        }
       }
     };
 
@@ -148,8 +176,9 @@ export function useInterviewSocket({
 
     setConnectAttempts((prev) => prev + 1);
     setState("connecting");
-    const workerUrl =
-      process.env.NEXT_PUBLIC_WORKER_URL ?? "http://localhost:8787";
+    const workerUrl = (
+      process.env.NEXT_PUBLIC_WORKER_URL ?? "http://localhost:8787"
+    ).replace(/^http/, "ws");
     const wsUrl = `${workerUrl}/${interviewId}?token=${encodeURIComponent(token)}`;
     console.log(`[WebSocket] Connecting to: ${wsUrl} (Attempt #${connectAttempts + 1})`);
 
