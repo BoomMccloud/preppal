@@ -34,9 +34,8 @@ This project is divided into several key architectural components. For more deta
 ## Agent Instructions
 
 - Address the user as Mr. User
-- Reload all files for the latest context
 - Use /docs/05_current_task.md file document the current task
 - Add descriptions at the beginning of each file
 - Keep files to 300 lines of code or less, refactor if needed
 - Use boiler plates or reference implementation whenever possible, minize the amount of new code
-- run pnpm format:write && pnpm lint before submitting code
+- when finishing a task, update the documentation

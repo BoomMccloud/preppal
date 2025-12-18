@@ -1,4 +1,4 @@
-# Gemini Project Context: Preppal
+no# Gemini Project Context: Preppal
 
 This document provides a comprehensive overview of the "Preppal" project, its structure, and development conventions to be used as a guide for future interactions.
 
@@ -39,4 +39,4 @@ This project is divided into several key architectural components. For more deta
 - Add descriptions at the beginning of each file
 - Keep files to 300 lines of code or less, refactor if needed
 - Use boiler plates or reference implementation whenever possible, minize the amount of new code
-- run pnpm format:write && pnpm lint before submitting code
+- when finishing a task, update the documentation
