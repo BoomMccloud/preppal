@@ -279,6 +279,9 @@ export class ApiClient implements IApiClient {
       );
     }
 
-    return result.result.data;
+    // Handle superjson response format - data is wrapped in json property
+    const data = result.result.data.json ?? result.result.data;
+    console.log(`[API] getContext returning:`, JSON.stringify(data));
+    return data;
   }
 }

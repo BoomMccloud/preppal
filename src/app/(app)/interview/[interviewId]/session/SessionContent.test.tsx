@@ -1,8 +1,4 @@
-import {
-  render,
-  screen,
-  fireEvent,
-} from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { SessionContent } from "./SessionContent";
 import { useInterviewSocket } from "./useInterviewSocket";

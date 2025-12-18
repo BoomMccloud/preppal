@@ -2,7 +2,7 @@
  * @file src/lib/audio/TranscriptManager.ts
  * @description Manages buffering and sentence detection for real-time transcripts.
  */
-import { preppal } from "~/lib/interview_pb";
+import type { preppal } from "~/lib/interview_pb";
 
 type TranscriptUpdate = preppal.TranscriptUpdate;
 
@@ -11,7 +11,7 @@ interface TranscriptManagerCallbacks {
 }
 
 export class TranscriptManager {
-  private transcriptBuffers: { [speaker: string]: string } = {
+  private transcriptBuffers: Record<string, string> = {
     USER: "",
     AI: "",
   };
@@ -29,10 +29,8 @@ export class TranscriptManager {
     const { speaker, text, turnComplete } = update;
     this.transcriptBuffers[speaker] += text;
 
-    // Split by sentence-ending punctuation followed by a space and an uppercase letter.
-    const sentences = this.transcriptBuffers[speaker].split(
-      /(?<=[.?!])\s+(?=[A-Z])/,
-    );
+    // Split by sentence-ending punctuation followed by optional whitespace.
+    const sentences = this.transcriptBuffers[speaker].split(/(?<=[.?!])\s*/);
 
     if (sentences.length > 1) {
       for (let i = 0; i < sentences.length - 1; i++) {
@@ -43,12 +41,15 @@ export class TranscriptManager {
 
     // If the turn is complete, flush the remaining buffer
     if (turnComplete && this.transcriptBuffers[speaker].trim()) {
-      this.callbacks.onSentence(speaker, this.transcriptBuffers[speaker].trim());
+      this.callbacks.onSentence(
+        speaker,
+        this.transcriptBuffers[speaker].trim(),
+      );
       this.transcriptBuffers[speaker] = "";
     }
   }
 
   public getBufferedText(speaker: string): string {
-    return this.transcriptBuffers[speaker] || "";
+    return this.transcriptBuffers[speaker] ?? "";
   }
 }

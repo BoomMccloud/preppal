@@ -17,7 +17,7 @@ describe("buildSystemPrompt", () => {
     expect(result).toContain("CANDIDATE RESUME:");
     expect(result).toContain("5 years experience in TypeScript");
     expect(result).toContain(
-      "Start by introducing yourself and asking the candidate to introduce themselves."
+      "Start by introducing yourself and asking the candidate to introduce themselves.",
     );
   });
 

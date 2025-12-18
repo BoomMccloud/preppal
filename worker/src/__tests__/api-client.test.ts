@@ -28,7 +28,9 @@ describe("ApiClient", () => {
         status: 200,
         statusText: "OK",
         headers: new Map([["content-type", "application/json"]]),
-        text: vi.fn().mockResolvedValue(JSON.stringify({ result: { data: {} } })),
+        text: vi
+          .fn()
+          .mockResolvedValue(JSON.stringify({ result: { data: {} } })),
       });
 
       await apiClient.updateStatus(interviewId, status);
@@ -58,7 +60,9 @@ describe("ApiClient", () => {
         status: 200,
         statusText: "OK",
         headers: new Map([["content-type", "application/json"]]),
-        text: vi.fn().mockResolvedValue(JSON.stringify({ result: { data: {} } })),
+        text: vi
+          .fn()
+          .mockResolvedValue(JSON.stringify({ result: { data: {} } })),
       });
 
       await apiClient.updateStatus(interviewId, status);
