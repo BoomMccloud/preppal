@@ -13,9 +13,11 @@ Preppal consists of three main components:
 ## 2. Infrastructure Requirements
 
 ### A. Database
--   **Requirement**: PostgreSQL (Recommended) or MySQL.
--   **Note**: The project currently uses SQLite for development. For production, you must provision a robust database (e.g., AWS RDS, Supabase, Neon, or Vercel Postgres).
--   **Action**: Update `prisma/schema.prisma` `datasource` provider to `postgresql` (or your chosen provider) before building.
+-   **Selected Provider**: **Neon** (Serverless PostgreSQL).
+-   **Action**:
+    1.  Create a project on [Neon.tech](https://neon.tech).
+    2.  Copy the **Connection String** (Pooled connection recommended for Serverless).
+    3.  This string will be your `DATABASE_URL`.
 
 ### B. Cloudflare Worker
 -   **Requirement**: A Cloudflare account with Workers and Durable Objects enabled.
@@ -23,10 +25,11 @@ Preppal consists of three main components:
 -   **Tooling**: `wrangler` CLI is used for deployment.
 
 ### C. Web Application Hosting
--   **Option 1 (Recommended)**: Vercel. Native support for Next.js, easy environment management.
--   **Option 2**: Docker. The application can be built into a container and deployed to AWS ECS, Google Cloud Run, or Kubernetes.
-    -   *Build Command*: `pnpm build`
-    -   *Start Command*: `pnpm start`
+-   **Selected Platform**: **Vercel**.
+-   **Configuration**:
+    -   Connect your GitHub repository to Vercel.
+    -   Vercel automatically detects the Next.js framework.
+    -   Add the Environment Variables (see Section 3) in the Vercel Project Settings.
 
 ### D. External Services
 -   **Google Gemini API**: An API key with access to the Gemini Live API.
@@ -34,20 +37,20 @@ Preppal consists of three main components:
 
 ## 3. Environment Variables
 
-### A. Web Application (Next.js)
+### A. Web Application (Vercel)
 
-These variables must be set in your web host (e.g., Vercel Project Settings or `.env.production`).
+These variables must be set in your Vercel Project Settings.
 
 | Variable | Description | Required? |
 | :--- | :--- | :--- |
-| `DATABASE_URL` | Connection string for the production database (e.g., `postgresql://...`). | **Yes** |
+| `DATABASE_URL` | Your Neon connection string (e.g., `postgres://...`). | **Yes** |
 | `AUTH_SECRET` | A random 32+ character string used by NextAuth to encrypt tokens. | **Yes** |
 | `AUTH_GOOGLE_ID` | Google OAuth Client ID. | Optional |
 | `AUTH_GOOGLE_SECRET` | Google OAuth Client Secret. | Optional |
 | `JWT_SECRET` | A random 32+ character string. **Must match the Worker's `JWT_SECRET`.** | **Yes** |
 | `WORKER_SHARED_SECRET` | A random 32+ character string. **Must match the Worker's secret.** | **Yes** |
 | `NEXT_PUBLIC_WORKER_URL` | The public URL of your deployed Cloudflare Worker (e.g., `https://preppal-worker.your-org.workers.dev`). | **Yes** |
-| `NODE_ENV` | Set to `production`. | **Yes** |
+| `NODE_ENV` | Set to `production` (Vercel sets this automatically). | **Yes** |
 
 ### B. Cloudflare Worker
 
@@ -58,19 +61,18 @@ These secrets must be set in Cloudflare using `wrangler secret put <KEY>` or via
 | `GEMINI_API_KEY` | API Key for Google Gemini Live API. | **Yes** |
 | `JWT_SECRET` | **Must match the Web App's `JWT_SECRET`.** | **Yes** |
 | `WORKER_SHARED_SECRET` | **Must match the Web App's `WORKER_SHARED_SECRET`.** | **Yes** |
-| `NEXT_PUBLIC_API_URL` | The URL of your deployed Web Application (e.g., `https://preppal.com`). | **Yes** |
+| `NEXT_PUBLIC_API_URL` | The URL of your deployed Web Application (e.g., `https://preppal.vercel.app`). | **Yes** |
 
 **Note**: `DEV_MODE` should be set to `"false"` (or omitted) in `wrangler.toml` for production.
 
 ## 4. Deployment Strategy
 
-### Step 1: Database Migration
-1.  Provision the production database (Postgres).
-2.  Update `prisma/schema.prisma`: change `provider = "sqlite"` to `provider = "postgresql"`.
-3.  Run the migration against the production database:
-    ```bash
-    DATABASE_URL="postgresql://user:pass@host:5432/db" pnpm prisma migrate deploy
-    ```
+### Step 1: Database Setup (Neon)
+1.  Create a Neon project.
+2.  Get your **Database URL**.
+3.  **Local Migration**: Since you are still developing, you might want to run the migration from your local machine against the production DB *once* to set it up, or let the build pipeline handle it (advanced).
+    -   *Easiest way*: Create a temporary `.env.production.local` file with `DATABASE_URL="your_neon_url"`.
+    -   Run: `pnpm prisma migrate deploy` (This pushes the schema to Neon).
 
 ### Step 2: Deploy Cloudflare Worker
 1.  Navigate to the `worker/` directory.
@@ -86,13 +88,14 @@ These secrets must be set in Cloudflare using `wrangler secret put <KEY>` or via
     ```bash
     npx wrangler deploy --env production
     ```
-5.  Note the **Worker URL** output by the deploy command. You will need this for the Web App configuration.
+5.  Note the **Worker URL** output by the deploy command.
 
-### Step 3: Deploy Web Application
-1.  Configure the environment variables (from Section 3A) in your hosting platform (Vercel/AWS).
-    -   Ensure `NEXT_PUBLIC_WORKER_URL` is set to the URL from Step 2.
-2.  Trigger a build and deployment.
-3.  Verify the application is running.
+### Step 3: Deploy Web Application (Vercel)
+1.  Push your code to GitHub (ensure `prisma/schema.prisma` has `provider = "postgresql"`).
+2.  Import the repo in Vercel.
+3.  Add the Environment Variables from Section 3A.
+    -   **Crucial**: Set `NEXT_PUBLIC_WORKER_URL` to the URL from Step 2.
+4.  Deploy.
 
 ## 5. CI/CD Recommendations (GitHub Actions)
 
