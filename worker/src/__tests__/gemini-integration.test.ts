@@ -63,11 +63,17 @@ global.Response = class MockResponse extends OriginalResponse {
 } as any;
 
 describe("Audio Conversion", () => {
+  let audioConverter: AudioConverter;
+
+  beforeEach(() => {
+    audioConverter = new AudioConverter();
+  });
+
   it("should convert binary audio to base64 string", () => {
     // Create sample audio data (simulating PCM audio)
     const audioData = new Uint8Array([0x00, 0x01, 0x02, 0x03, 0xff, 0xfe]);
 
-    const base64 = AudioConverter.binaryToBase64(audioData);
+    const base64 = audioConverter.binaryToBase64(audioData);
 
     // Base64 encoding should produce a string
     expect(typeof base64).toBe("string");
@@ -81,7 +87,7 @@ describe("Audio Conversion", () => {
     // Create base64 string (representing "Hello" in base64)
     const base64Audio = "AAECA/8="; // base64 for [0x00, 0x01, 0x02, 0xff]
 
-    const binary = AudioConverter.base64ToBinary(base64Audio);
+    const binary = audioConverter.base64ToBinary(base64Audio);
 
     // Should return a Uint8Array
     expect(binary).toBeInstanceOf(Uint8Array);
@@ -93,8 +99,8 @@ describe("Audio Conversion", () => {
       0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0,
     ]);
 
-    const base64 = AudioConverter.binaryToBase64(originalData);
-    const roundTripped = AudioConverter.base64ToBinary(base64);
+    const base64 = audioConverter.binaryToBase64(originalData);
+    const roundTripped = audioConverter.base64ToBinary(base64);
 
     expect(roundTripped).toEqual(originalData);
   });
@@ -102,7 +108,7 @@ describe("Audio Conversion", () => {
   it("should handle empty audio data", () => {
     const emptyData = new Uint8Array([]);
 
-    const base64 = AudioConverter.binaryToBase64(emptyData);
+    const base64 = audioConverter.binaryToBase64(emptyData);
 
     expect(base64).toBe("");
   });
@@ -114,8 +120,8 @@ describe("Audio Conversion", () => {
       largeChunk[i] = i % 256;
     }
 
-    const base64 = AudioConverter.binaryToBase64(largeChunk);
-    const roundTripped = AudioConverter.base64ToBinary(base64);
+    const base64 = audioConverter.binaryToBase64(largeChunk);
+    const roundTripped = audioConverter.base64ToBinary(base64);
 
     expect(roundTripped).toEqual(largeChunk);
   });
@@ -398,6 +404,12 @@ describe("Gemini Message Handling", () => {
 });
 
 describe("Integration: End-to-End Flow", () => {
+  let audioConverter: AudioConverter;
+
+  beforeEach(() => {
+    audioConverter = new AudioConverter();
+  });
+
   it("should handle complete user audio -> transcription flow", () => {
     const manager = new TranscriptManager();
 
@@ -405,7 +417,7 @@ describe("Integration: End-to-End Flow", () => {
     const clientAudio = new Uint8Array([0x12, 0x34, 0x56, 0x78]);
 
     // 2. Convert to base64 for Gemini
-    const base64Audio = AudioConverter.binaryToBase64(clientAudio);
+    const base64Audio = audioConverter.binaryToBase64(clientAudio);
     expect(base64Audio).toBeDefined();
     expect(typeof base64Audio).toBe("string");
 
@@ -427,7 +439,7 @@ describe("Integration: End-to-End Flow", () => {
     const geminiBase64Audio = "AAECA/8=";
 
     // 2. Convert to binary for client
-    const binaryAudio = AudioConverter.base64ToBinary(geminiBase64Audio);
+    const binaryAudio = audioConverter.base64ToBinary(geminiBase64Audio);
     expect(binaryAudio).toBeInstanceOf(Uint8Array);
     expect(binaryAudio.length).toBeGreaterThan(0);
 

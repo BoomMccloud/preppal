@@ -1,25 +1,24 @@
 // ABOUTME: Audio format conversion utilities for WebSocket audio streaming
 // ABOUTME: Converts between binary PCM (Uint8Array) and base64-encoded strings for Gemini Live API
 
-// NOTE: This class currently uses static methods and will be refactored to instance
-// methods in Phase 6 to implement IAudioConverter interface
+import type { IAudioConverter } from "./interfaces/index.js";
 
 /**
- * Utility class for converting audio between binary and base64 formats
+ * Service for converting audio between binary and base64 formats
  */
-export class AudioConverter {
+export class AudioConverter implements IAudioConverter {
   /**
    * Convert binary audio (Uint8Array) to base64 string for Gemini
    */
-  static binaryToBase64(audioData: Uint8Array): string {
-    if (audioData.length === 0) {
+  binaryToBase64(binary: Uint8Array): string {
+    if (binary.length === 0) {
       return "";
     }
 
     // Convert Uint8Array to binary string
     let binaryString = "";
-    for (let i = 0; i < audioData.length; i++) {
-      binaryString += String.fromCharCode(audioData[i]);
+    for (let i = 0; i < binary.length; i++) {
+      binaryString += String.fromCharCode(binary[i]);
     }
 
     // Encode to base64
@@ -29,13 +28,13 @@ export class AudioConverter {
   /**
    * Convert base64 audio string from Gemini to binary (Uint8Array)
    */
-  static base64ToBinary(base64Audio: string): Uint8Array {
-    if (base64Audio.length === 0) {
+  base64ToBinary(base64: string): Uint8Array {
+    if (base64.length === 0) {
       return new Uint8Array([]);
     }
 
     // Decode from base64 to binary string
-    const binaryString = atob(base64Audio);
+    const binaryString = atob(base64);
 
     // Convert binary string to Uint8Array
     const audioData = new Uint8Array(binaryString.length);

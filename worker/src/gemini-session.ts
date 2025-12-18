@@ -56,13 +56,11 @@ export class GeminiSession implements DurableObject {
 
   // Dependencies (injected via constructor)
   private transcriptManager: ITranscriptManager;
+  private audioConverter: IAudioConverter;
   private apiClient: IApiClient;
   private geminiClient: IGeminiClient;
   private wsMessageHandler: WebSocketMessageHandler;
   private geminiMessageHandler: GeminiMessageHandler;
-
-  // NOTE: AudioConverter is NOT injected yet - Phase 6 will convert it to instance methods
-  // For now, we use static methods via AudioConverter class directly
 
   constructor(
     private state: DurableObjectState,
@@ -70,6 +68,7 @@ export class GeminiSession implements DurableObject {
   ) {
     // Initialize services
     this.transcriptManager = new TranscriptManager();
+    this.audioConverter = new AudioConverter();
     this.apiClient = new ApiClient(
       env.NEXT_PUBLIC_API_URL,
       env.WORKER_SHARED_SECRET
@@ -77,16 +76,10 @@ export class GeminiSession implements DurableObject {
     this.geminiClient = new GeminiClient(env.GEMINI_API_KEY);
 
     // Initialize handlers
-    // NOTE: GeminiMessageHandler uses AudioConverter static methods for now
-    const audioConverter = {
-      binaryToBase64: (binary: Uint8Array) =>
-        AudioConverter.binaryToBase64(binary),
-      base64ToBinary: (base64: string) => AudioConverter.base64ToBinary(base64),
-    };
     this.wsMessageHandler = new WebSocketMessageHandler();
     this.geminiMessageHandler = new GeminiMessageHandler(
       this.transcriptManager,
-      audioConverter
+      this.audioConverter
     );
   }
 
@@ -335,7 +328,7 @@ Start by introducing yourself and asking the candidate to introduce themselves.`
 
     // Convert and send to Gemini
     try {
-      const base64Audio = AudioConverter.binaryToBase64(
+      const base64Audio = this.audioConverter.binaryToBase64(
         new Uint8Array(audioContent)
       );
 
