@@ -1,4 +1,7 @@
-# Cloudflare Worker Refactoring Plan (Practical)
+# Cloudflare Worker Refactoring Plan (Practical) - UPDATED
+
+## Document Updates
+This document has been updated based on analysis of the actual codebase at [worker/src](worker/src). All ambiguities have been resolved and the plan now accurately reflects the current implementation.
 
 ## Overview
 This document provides a practical, focused refactoring plan for the Cloudflare Worker's `GeminiSession` Durable Object. Unlike over-engineered approaches, this plan respects the existing architecture while improving testability, type safety, and maintainability.
@@ -10,13 +13,42 @@ This document provides a practical, focused refactoring plan for the Cloudflare 
 - Clear separation between WebSocket and Gemini handling
 - `GeminiSession` as Durable Object coordinator (correct architecture)
 - Good error handling and logging
+- JWT authentication system in place ([worker/src/auth.ts](worker/src/auth.ts))
+- Feedback generation system ([worker/src/utils/feedback.ts](worker/src/utils/feedback.ts))
+- Message encoding/decoding utilities ([worker/src/messages.ts](worker/src/messages.ts))
+- Interview context support (job description + resume)
 
 ### What Needs Improvement 🔧
 1. **No interfaces** - can't mock dependencies for testing
 2. **Gemini connection code mixed into GeminiSession** - should be extracted like ApiClient
-3. **Type safety** - using `any` for Gemini session and messages
-4. **Message handling logic** - could be extracted for clarity
-5. **Error types** - generic Error instead of domain-specific errors
+3. **Type safety** - using `any` for Gemini session and messages (line 24, 407 in [worker/src/gemini-session.ts](worker/src/gemini-session.ts))
+4. **AudioConverter uses static methods** - should be instance methods for consistency and testing (line 257, 553 in [worker/src/gemini-session.ts](worker/src/gemini-session.ts))
+5. **Message handling logic** - could be extracted for clarity
+6. **Error types** - generic Error instead of domain-specific errors
+
+### Current File Structure
+```
+worker/src/
+├── index.ts                    # Entry point, routes WebSocket connections
+├── gemini-session.ts           # Durable Object (needs refactoring)
+├── transcript-manager.ts       # ✅ Already well-structured
+├── audio-converter.ts          # ⚠️ Uses static methods (need to convert to instance)
+├── api-client.ts              # ✅ Already well-structured (has 4 methods)
+├── messages.ts                 # ✅ Protobuf encoding/decoding utilities
+├── auth.ts                     # ✅ JWT validation
+├── utils/
+│   └── feedback.ts            # ✅ Gemini feedback generation
+├── lib/
+│   ├── interview_pb.js        # Generated protobuf code
+│   └── interview_pb.d.ts      # TypeScript definitions
+└── __tests__/                  # Existing tests
+    ├── api-client.test.ts
+    ├── auth.test.ts
+    ├── feedback.test.ts
+    ├── gemini-integration.test.ts
+    ├── gemini-session-feedback.test.ts
+    └── messages.test.ts
+```
 
 ## Key Architectural Principles
 
@@ -44,20 +76,19 @@ Add interfaces to existing services for testability WITHOUT changing any impleme
 
 /**
  * Interface for transcript management operations
+ * Implementation: worker/src/transcript-manager.ts (already matches this interface)
  */
 export interface ITranscriptManager {
   addUserTranscript(text: string): void;
   addAITranscript(text: string): void;
-  getTranscript(): Array<{
-    speaker: "USER" | "AI";
-    content: string;
-    timestamp: string;
-  }>;
+  getTranscript(): TranscriptEntry[];
   clear(): void;
 }
 
 /**
  * Interface for audio format conversion
+ * Implementation: worker/src/audio-converter.ts
+ * NOTE: Current implementation uses STATIC methods - will convert to instance methods in Phase 6
  */
 export interface IAudioConverter {
   binaryToBase64(binary: Uint8Array): string;
@@ -65,30 +96,70 @@ export interface IAudioConverter {
 }
 
 /**
- * Interface for API communication with Next.js backend
+ * Transcript entry structure used across the system
+ * Matches the structure in TranscriptManager and ApiClient
+ */
+export interface TranscriptEntry {
+  speaker: "USER" | "AI";
+  content: string;
+  timestamp: string; // ISO 8601 format
+}
+
+/**
+ * Interview context containing job description and resume
+ * Used for personalized interview questions and feedback generation
+ */
+export interface InterviewContext {
+  jobDescription: string;
+  resume: string;
+}
+
+/**
+ * Interface for API communication with Next.js backend via tRPC
+ * Implementation: worker/src/api-client.ts (already matches this interface)
  */
 export interface IApiClient {
   updateStatus(interviewId: string, status: string): Promise<void>;
   submitTranscript(
     interviewId: string,
-    transcript: Array<{
-      speaker: "USER" | "AI";
-      content: string;
-      timestamp: string;
-    }>,
+    transcript: TranscriptEntry[],
     endedAt: string
   ): Promise<void>;
+  submitFeedback(interviewId: string, feedback: FeedbackData): Promise<void>;
+  getContext(interviewId: string): Promise<InterviewContext>;
+}
+
+/**
+ * Feedback data structure for interview evaluation
+ * Matches the structure from worker/src/utils/feedback.ts
+ */
+export interface FeedbackData {
+  summary: string;
+  strengths: string;
+  contentAndStructure: string;
+  communicationAndDelivery: string;
+  presentation: string;
 }
 
 /**
  * Interface for Gemini Live API connection management
+ * Will be implemented in Phase 2
  */
 export interface IGeminiClient {
   connect(config: GeminiConfig): Promise<void>;
   sendRealtimeInput(input: { audio: { data: string; mimeType: string } }): void;
-  sendClientContent(content: { turns: Array<any> }): void;
+  sendClientContent(content: { turns: Array<ClientTurn> }): void;
   close(): void;
   isConnected(): boolean;
+}
+
+/**
+ * Client turn structure for Gemini sendClientContent
+ */
+export interface ClientTurn {
+  role: "user" | "model";
+  parts: Array<{ text: string }>;
+  turnComplete?: boolean;
 }
 
 /**
@@ -97,10 +168,10 @@ export interface IGeminiClient {
 export interface GeminiConfig {
   model: string;
   config: {
-    responseModalities: string[];
+    responseModalities: string[]; // e.g. ["AUDIO"]
     systemInstruction: string;
-    outputAudioTranscription: Record<string, any>;
-    inputAudioTranscription: Record<string, any>;
+    outputAudioTranscription: Record<string, never>; // Empty object {}
+    inputAudioTranscription: Record<string, never>; // Empty object {}
   };
   callbacks: {
     onopen: () => void;
@@ -112,16 +183,27 @@ export interface GeminiConfig {
 
 /**
  * Message received from Gemini Live API
+ * Based on actual message structure from @google/genai SDK v0.21.0
+ * See: gemini-session.ts lines 407-420, 503-557
  */
 export interface GeminiMessage {
   serverContent?: {
+    /** User's speech transcription */
     inputTranscription?: { text: string };
+    /** AI's speech transcription */
     outputTranscription?: { text: string };
+    /** Model turn with potential inline data (audio) */
     modelTurn?: {
-      parts?: Array<{ inlineData?: any }>;
+      parts?: Array<{
+        inlineData?: {
+          data: string; // Base64 audio
+          mimeType: string; // e.g. "audio/pcm"
+        };
+      }>;
     };
   };
-  data?: string; // Base64 encoded audio
+  /** Base64 encoded audio data (alternative format) */
+  data?: string;
 }
 ```
 
@@ -129,29 +211,23 @@ export interface GeminiMessage {
 
 ```typescript
 // File: worker/src/transcript-manager.ts
-import type { ITranscriptManager } from "./interfaces";
+import type { ITranscriptManager, TranscriptEntry } from "./interfaces";
 
 export class TranscriptManager implements ITranscriptManager {
-  // Existing implementation - no changes needed
-}
-```
-
-```typescript
-// File: worker/src/audio-converter.ts
-import type { IAudioConverter } from "./interfaces";
-
-export class AudioConverter implements IAudioConverter {
-  // Existing implementation - no changes needed
-  // Note: Make methods instance methods instead of static if they are currently static
+  // No changes needed - implementation already matches interface
 }
 ```
 
 ```typescript
 // File: worker/src/api-client.ts
-import type { IApiClient } from "./interfaces";
+import type { IApiClient, TranscriptEntry, InterviewContext, FeedbackData } from "./interfaces";
+
+// Add import for FeedbackData type
+import type { FeedbackData as FeedbackDataImport } from "./utils/feedback";
 
 export class ApiClient implements IApiClient {
-  // Existing implementation - no changes needed
+  // No changes needed - implementation already matches interface
+  // NOTE: Current implementation has all 4 methods already
 }
 ```
 
@@ -164,15 +240,17 @@ Extract Gemini connection logic into a separate client class, following the same
 
 ```typescript
 // File: worker/src/gemini-client.ts
-import { GoogleGenAI, Modality } from "@google/genai";
-import type { IGeminiClient, GeminiConfig, GeminiMessage } from "./interfaces";
+import { GoogleGenAI } from "@google/genai";
+import type { IGeminiClient, GeminiConfig, ClientTurn } from "./interfaces";
 
 /**
  * Client for managing Gemini Live API connections
- * Wraps the Google GenAI SDK with a cleaner interface
+ * Wraps the Google GenAI SDK with a cleaner, testable interface
+ *
+ * Extracts Gemini connection logic from GeminiSession (lines 370-491)
  */
 export class GeminiClient implements IGeminiClient {
-  private session: any = null;
+  private session: any = null; // Type is internal to @google/genai SDK
   private connected = false;
 
   constructor(private apiKey: string) {}
@@ -200,7 +278,7 @@ export class GeminiClient implements IGeminiClient {
     this.session.sendRealtimeInput(input);
   }
 
-  sendClientContent(content: { turns: Array<any> }): void {
+  sendClientContent(content: { turns: Array<ClientTurn> }): void {
     if (!this.session) {
       throw new Error("GeminiClient is not connected");
     }
@@ -236,6 +314,8 @@ import { decodeClientMessage } from "../messages";
 /**
  * Handles incoming WebSocket messages from the client
  * Decodes protobuf and routes to appropriate handlers
+ *
+ * Extracts logic from GeminiSession.handleBinaryMessage (lines 201-221)
  */
 export class WebSocketMessageHandler {
   /**
@@ -265,7 +345,7 @@ export class WebSocketMessageHandler {
 
 ```typescript
 // File: worker/src/handlers/gemini-message-handler.ts
-import type { GeminiMessage } from "../interfaces";
+import type { GeminiMessage, TranscriptEntry } from "../interfaces";
 import type { ITranscriptManager } from "../interfaces";
 import type { IAudioConverter } from "../interfaces";
 import {
@@ -276,6 +356,7 @@ import {
 
 /**
  * Result of processing a Gemini message
+ * Contains both raw data and encoded protobuf messages ready to send
  */
 export interface GeminiMessageResult {
   userTranscript?: {
@@ -295,6 +376,8 @@ export interface GeminiMessageResult {
 /**
  * Handles messages received from Gemini Live API
  * Processes transcripts and audio, prepares messages for client
+ *
+ * Extracts logic from GeminiSession.handleGeminiMessage (lines 493-558)
  */
 export class GeminiMessageHandler {
   constructor(
@@ -359,6 +442,7 @@ Add domain-specific error types for better error handling.
 
 /**
  * Base error for all worker errors
+ * Provides consistent error handling across the worker
  */
 export class WorkerError extends Error {
   constructor(message: string) {
@@ -411,12 +495,28 @@ export class WebSocketError extends WorkerError {
     super(message);
   }
 }
+
+/**
+ * Error when feedback generation fails
+ */
+export class FeedbackGenerationError extends WorkerError {
+  constructor(message: string, public cause?: Error) {
+    super(message);
+  }
+}
 ```
 
 ## Phase 5: Refactor GeminiSession
 
 ### Goal
 Update `GeminiSession` to use the new interfaces, clients, and handlers while maintaining its role as the Durable Object coordinator.
+
+### Key Changes from Current Implementation
+1. Replace `this.geminiSession: any` with `this.geminiClient: IGeminiClient`
+2. Replace static `AudioConverter` calls with instance methods
+3. Use new handlers for message processing
+4. Use custom error types
+5. Maintain all existing functionality (context fetching, feedback generation)
 
 ```typescript
 // File: worker/src/gemini-session.ts
@@ -436,6 +536,7 @@ import type {
   IApiClient,
   IGeminiClient,
   GeminiMessage,
+  InterviewContext,
 } from "./interfaces";
 
 // Import implementations
@@ -448,11 +549,15 @@ import { GeminiClient } from "./gemini-client";
 import { WebSocketMessageHandler } from "./handlers/websocket-message-handler";
 import { GeminiMessageHandler } from "./handlers/gemini-message-handler";
 
+// Import utilities
+import { generateFeedback } from "./utils/feedback";
+
 // Import errors
 import {
   GeminiConnectionError,
   StatusUpdateError,
   AuthenticationError,
+  FeedbackGenerationError,
 } from "./errors";
 
 /**
@@ -466,6 +571,10 @@ export class GeminiSession implements DurableObject {
   private isDebug = false;
   private userInitiatedClose = false;
   private sessionEnded = false;
+  private interviewContext: InterviewContext = {
+    jobDescription: "",
+    resume: "",
+  };
 
   // Metrics
   private audioChunksReceivedCount = 0;
@@ -542,6 +651,18 @@ export class GeminiSession implements DurableObject {
       const [client, server] = Object.values(webSocketPair);
       server.accept();
 
+      // Fetch interview context (if not debug)
+      if (!this.isDebug) {
+        try {
+          console.log(`[GeminiSession] Fetching context for interview ${this.interviewId}`);
+          this.interviewContext = await this.apiClient.getContext(this.interviewId!);
+          console.log(`[GeminiSession] Context fetched successfully`);
+        } catch (error) {
+          console.error(`[GeminiSession] Failed to fetch interview context:`, error);
+          // Continue with empty context
+        }
+      }
+
       // Initialize Gemini connection
       await this.initializeGemini(server);
 
@@ -608,12 +729,18 @@ export class GeminiSession implements DurableObject {
     try {
       console.log(`[GeminiSession] Connecting to Gemini Live API`);
 
+      const systemInstruction = `You are a professional interviewer. Your goal is to conduct a behavioral interview.
+Context:
+Job Description: ${this.interviewContext.jobDescription || "Not provided"}
+Candidate Resume: ${this.interviewContext.resume || "Not provided"}
+
+Start by introducing yourself and asking the candidate to introduce themselves.`;
+
       await this.geminiClient.connect({
         model: "gemini-2.5-flash-native-audio-preview-09-2025",
         config: {
           responseModalities: [Modality.AUDIO],
-          systemInstruction:
-            "You are a professional interviewer. Your goal is to conduct a behavioral interview. Start by introducing yourself and asking the candidate to introduce themselves.",
+          systemInstruction,
           outputAudioTranscription: {},
           inputAudioTranscription: {},
         },
@@ -768,45 +895,69 @@ export class GeminiSession implements DurableObject {
       `[GeminiSession] Closed Gemini connection for interview ${this.interviewId}`
     );
 
-    // Submit transcript and update status (if not debug)
-    if (!this.isDebug) {
-      try {
-        // Submit transcript
-        const transcript = this.transcriptManager.getTranscript();
-        const endedAt = new Date().toISOString();
-
-        console.log(
-          `[GeminiSession] Submitting transcript for interview ${this.interviewId} (${transcript.length} entries)`
-        );
-        await this.apiClient.submitTranscript(
-          this.interviewId!,
-          transcript,
-          endedAt
-        );
-        console.log(
-          `[GeminiSession] Transcript submitted for interview ${this.interviewId}`
-        );
-
-        // Update status
-        console.log(
-          `[GeminiSession] Updating status to COMPLETED for interview ${this.interviewId}`
-        );
-        await this.apiClient.updateStatus(this.interviewId!, "COMPLETED");
-        console.log(
-          `[GeminiSession] Interview ${this.interviewId} status updated to COMPLETED`
-        );
-      } catch (error) {
-        console.error(
-          `[GeminiSession] Failed to submit transcript or update status for interview ${this.interviewId}:`,
-          error
-        );
-      }
-    }
-
     // Send session ended message and close WebSocket
     const endedMsg = createSessionEnded(preppal.SessionEnded.Reason.USER_INITIATED);
     this.safeSend(ws, encodeServerMessage(endedMsg));
     ws.close(1000, "Interview ended by user");
+
+    // Skip background processing in debug mode
+    if (this.isDebug) return;
+
+    // Background processing (Transcript + Feedback)
+    try {
+      const transcript = this.transcriptManager.getTranscript();
+      const endedAt = new Date().toISOString();
+
+      // Step 1: Save transcript - CRITICAL
+      console.log(
+        `[GeminiSession] Submitting transcript for interview ${this.interviewId} (${transcript.length} entries)`
+      );
+      await this.apiClient.submitTranscript(
+        this.interviewId!,
+        transcript,
+        endedAt
+      );
+      console.log(`[GeminiSession] Transcript submitted for interview ${this.interviewId}`);
+
+      // Step 2: Generate and submit feedback - BEST EFFORT
+      try {
+        console.log(`[GeminiSession] Generating feedback...`);
+        const feedback = await generateFeedback(
+          transcript,
+          this.interviewContext,
+          this.env.GEMINI_API_KEY
+        );
+        console.log(`[GeminiSession] Feedback generated, submitting...`);
+        await this.apiClient.submitFeedback(this.interviewId!, feedback);
+        console.log(`[GeminiSession] Feedback submitted successfully`);
+      } catch (feedbackError) {
+        console.error(
+          `[GeminiSession] Failed to generate/submit feedback:`,
+          feedbackError
+        );
+        // Continue - interview is still COMPLETED even if feedback fails
+      }
+
+      // Step 3: Update status to COMPLETED
+      await this.apiClient.updateStatus(this.interviewId!, "COMPLETED");
+      console.log(
+        `[GeminiSession] Interview ${this.interviewId} status updated to COMPLETED`
+      );
+    } catch (error) {
+      console.error(
+        `[GeminiSession] Failed to submit transcript or update status for interview ${this.interviewId}:`,
+        error
+      );
+      // If transcript submission failed, mark as ERROR
+      try {
+        await this.apiClient.updateStatus(this.interviewId!, "ERROR");
+      } catch (statusError) {
+        console.error(
+          `[GeminiSession] Failed to set ERROR status:`,
+          statusError
+        );
+      }
+    }
   }
 
   /**
@@ -950,6 +1101,7 @@ export class GeminiSession implements DurableObject {
 
   /**
    * Safely send data to WebSocket
+   * NOTE: Cloudflare Workers use WebSocket.READY_STATE_OPEN (not WebSocket.OPEN)
    */
   private safeSend(ws: WebSocket, data: ArrayBuffer | string | Uint8Array): void {
     try {
@@ -966,15 +1118,28 @@ export class GeminiSession implements DurableObject {
 }
 ```
 
-## Phase 6: Update Existing Services
+## Phase 6: Update AudioConverter to Use Instance Methods
 
 ### Goal
-Update existing services to match new interfaces (if needed).
+Convert AudioConverter from static methods to instance methods for consistency with other services.
 
-### 6.1 AudioConverter - Make Methods Instance Methods
-
+### Current Implementation (BEFORE)
 ```typescript
-// File: worker/src/audio-converter.ts
+// File: worker/src/audio-converter.ts (CURRENT)
+export class AudioConverter {
+  static binaryToBase64(audioData: Uint8Array): string {
+    // ... implementation
+  }
+
+  static base64ToBinary(base64Audio: string): Uint8Array {
+    // ... implementation
+  }
+}
+```
+
+### Updated Implementation (AFTER)
+```typescript
+// File: worker/src/audio-converter.ts (UPDATED)
 import type { IAudioConverter } from "./interfaces";
 
 /**
@@ -1022,7 +1187,26 @@ export class AudioConverter implements IAudioConverter {
 ### Goal
 Enable comprehensive testing of all components.
 
-### 7.1 Unit Tests for Services
+### 7.1 Test Infrastructure Setup
+
+The project already has tests in [worker/src/__tests__](worker/src/__tests__). We'll follow the existing patterns:
+
+```json
+// File: worker/package.json (partial)
+{
+  "scripts": {
+    "test": "vitest",
+    "test:watch": "vitest watch",
+    "test:coverage": "vitest --coverage"
+  },
+  "devDependencies": {
+    "vitest": "^latest",
+    "@vitest/coverage-v8": "^latest"
+  }
+}
+```
+
+### 7.2 Unit Tests for Services
 
 ```typescript
 // File: worker/src/__tests__/transcript-manager.test.ts
@@ -1123,7 +1307,7 @@ describe("AudioConverter", () => {
 });
 ```
 
-### 7.2 Unit Tests for Handlers
+### 7.3 Unit Tests for Handlers
 
 ```typescript
 // File: worker/src/__tests__/handlers/gemini-message-handler.test.ts
@@ -1219,108 +1403,170 @@ describe("GeminiMessageHandler", () => {
 });
 ```
 
-### 7.3 Integration Test Setup
+### 7.4 Unit Tests for GeminiClient
 
 ```typescript
-// File: worker/src/__tests__/gemini-session.test.ts
+// File: worker/src/__tests__/gemini-client.test.ts
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { GeminiSession } from "../gemini-session";
-import type { DurableObjectState } from "@cloudflare/workers-types";
+import { GeminiClient } from "../gemini-client";
 
-// Mock environment
-const mockEnv = {
-  GEMINI_API_KEY: "test-key",
-  NEXT_PUBLIC_API_URL: "http://localhost:3000",
-  WORKER_SHARED_SECRET: "test-secret",
-  DEV_MODE: "false",
-};
+// Mock the @google/genai module
+vi.mock("@google/genai", () => ({
+  GoogleGenAI: vi.fn().mockImplementation(() => ({
+    live: {
+      connect: vi.fn().mockResolvedValue({
+        sendRealtimeInput: vi.fn(),
+        sendClientContent: vi.fn(),
+        close: vi.fn(),
+      }),
+    },
+  })),
+  Modality: {
+    AUDIO: "AUDIO",
+    TEXT: "TEXT",
+  },
+}));
 
-describe("GeminiSession", () => {
-  let session: GeminiSession;
-  let mockState: DurableObjectState;
+describe("GeminiClient", () => {
+  let client: GeminiClient;
 
   beforeEach(() => {
-    // Create mock state
-    mockState = {
-      id: { toString: () => "test-id" },
-    } as any;
-
-    session = new GeminiSession(mockState, mockEnv as any);
+    client = new GeminiClient("test-api-key");
   });
 
-  it("should reject non-WebSocket requests", async () => {
-    const request = new Request("http://localhost/", {
-      headers: {},
-    });
-
-    const response = await session.fetch(request);
-
-    expect(response.status).toBe(426);
-    expect(await response.text()).toBe("Expected WebSocket");
+  it("should not be connected initially", () => {
+    expect(client.isConnected()).toBe(false);
   });
 
-  it("should require authentication headers", async () => {
-    const request = new Request("http://localhost/", {
-      headers: {
-        Upgrade: "websocket",
+  it("should connect to Gemini", async () => {
+    await client.connect({
+      model: "test-model",
+      config: {
+        responseModalities: ["AUDIO"],
+        systemInstruction: "Test",
+        outputAudioTranscription: {},
+        inputAudioTranscription: {},
+      },
+      callbacks: {
+        onopen: () => {},
+        onmessage: () => {},
+        onerror: () => {},
+        onclose: () => {},
       },
     });
 
-    const response = await session.fetch(request);
-
-    expect(response.status).toBe(500);
+    expect(client.isConnected()).toBe(true);
   });
 
-  // Additional integration tests would require mocking WebSocketPair,
-  // which is environment-specific
+  it("should throw if connecting when already connected", async () => {
+    await client.connect({
+      model: "test-model",
+      config: {
+        responseModalities: ["AUDIO"],
+        systemInstruction: "Test",
+        outputAudioTranscription: {},
+        inputAudioTranscription: {},
+      },
+      callbacks: {
+        onopen: () => {},
+        onmessage: () => {},
+        onerror: () => {},
+        onclose: () => {},
+      },
+    });
+
+    await expect(
+      client.connect({
+        model: "test-model",
+        config: {
+          responseModalities: ["AUDIO"],
+          systemInstruction: "Test",
+          outputAudioTranscription: {},
+          inputAudioTranscription: {},
+        },
+        callbacks: {
+          onopen: () => {},
+          onmessage: () => {},
+          onerror: () => {},
+          onclose: () => {},
+        },
+      })
+    ).rejects.toThrow("already connected");
+  });
+
+  it("should close connection", async () => {
+    await client.connect({
+      model: "test-model",
+      config: {
+        responseModalities: ["AUDIO"],
+        systemInstruction: "Test",
+        outputAudioTranscription: {},
+        inputAudioTranscription: {},
+      },
+      callbacks: {
+        onopen: () => {},
+        onmessage: () => {},
+        onerror: () => {},
+        onclose: () => {},
+      },
+    });
+
+    client.close();
+
+    expect(client.isConnected()).toBe(false);
+  });
 });
 ```
 
 ## Migration Steps
 
-### Step 1: Add Interfaces (Day 1)
-1. Create `worker/src/interfaces/index.ts`
-2. Run tests to ensure no breaking changes
-3. Commit: "Add interfaces for services"
+### Step 1: Add Interfaces
+1. Create `worker/src/interfaces/index.ts` with all interfaces
+2. Update existing services to implement interfaces (no code changes, just add `implements`)
+3. Run existing tests to ensure no breaking changes
+4. Commit: "Add interfaces for services"
 
-### Step 2: Extract GeminiClient (Day 1-2)
+### Step 2: Extract GeminiClient
 1. Create `worker/src/gemini-client.ts`
 2. Write unit tests for GeminiClient
-3. Commit: "Extract Gemini client"
+3. Run tests to verify
+4. Commit: "Extract Gemini client"
 
-### Step 3: Extract Handlers (Day 2)
+### Step 3: Extract Handlers
 1. Create `worker/src/handlers/websocket-message-handler.ts`
 2. Create `worker/src/handlers/gemini-message-handler.ts`
 3. Write unit tests for handlers
-4. Commit: "Extract message handlers"
+4. Run tests to verify
+5. Commit: "Extract message handlers"
 
-### Step 4: Add Error Types (Day 2)
+### Step 4: Add Error Types
 1. Create `worker/src/errors/index.ts`
 2. Commit: "Add custom error types"
 
-### Step 5: Update AudioConverter (Day 3)
+### Step 5: Update AudioConverter
 1. Modify `worker/src/audio-converter.ts` to use instance methods
-2. Update any existing usages (should be minimal)
-3. Run tests
+2. Update tests if needed
+3. Run tests to verify
 4. Commit: "Update AudioConverter to use instance methods"
 
-### Step 6: Refactor GeminiSession (Day 3-4)
+### Step 6: Refactor GeminiSession
 1. Update `worker/src/gemini-session.ts` to use new structure
 2. Run all tests
-3. Test in development environment
+3. Test in development environment (use /debug/live-audio endpoint)
 4. Commit: "Refactor GeminiSession to use interfaces and handlers"
 
-### Step 7: Add Tests (Day 4-5)
-1. Write comprehensive unit tests
-2. Write integration tests
+### Step 7: Add Tests
+1. Write comprehensive unit tests for all new code
+2. Update integration tests if needed
 3. Achieve >80% code coverage
 4. Commit: "Add comprehensive test suite"
 
-### Step 8: Deploy (Day 5)
-1. Test in staging environment
-2. Deploy to production
-3. Monitor for errors
-4. Rollback if issues occur
+### Step 8: Deploy
+1. Test in local development
+2. Test with debug endpoint
+3. Deploy to production
+4. Monitor for errors
+5. Rollback if issues occur (redeploy previous version)
 
 ## Expected Benefits
 
@@ -1355,7 +1601,8 @@ describe("GeminiSession", () => {
 2. **No ServiceContainer** - Simple constructor injection is sufficient
 3. **Reuses Existing Services** - Doesn't recreate TranscriptManager, AudioConverter, ApiClient
 4. **Simpler Architecture** - Fewer layers, clearer ownership
-5. **Practical** - Can be implemented in 1 week by a junior developer
+5. **Practical** - Can be implemented incrementally
+6. **Complete Context** - Maintains interview context fetching and feedback generation
 
 ## Questions & Answers
 
@@ -1374,10 +1621,16 @@ A: Mock the WebSocket in tests - the handlers are isolated and easy to test inde
 **Q: What if I need to add a new feature?**
 A: Add a new service/handler, inject it into GeminiSession, use it in the appropriate method.
 
+**Q: What about the feedback generation and context fetching?**
+A: These are maintained in the refactored version. GeminiSession still handles all existing functionality.
+
+**Q: Is `WebSocket.READY_STATE_OPEN` correct?**
+A: Yes! Cloudflare Workers use this constant. The original spec was incorrect.
+
 ## For Junior Developers
 
 ### Getting Started
-1. Read the existing code first: `worker/src/gemini-session.ts`
+1. Read the existing code first: [worker/src/gemini-session.ts](worker/src/gemini-session.ts)
 2. Understand what services already exist
 3. Follow the migration steps in order
 4. Write tests before changing implementation
@@ -1399,3 +1652,22 @@ A: Add a new service/handler, inject it into GeminiSession, use it in the approp
 - ✅ Do keep GeminiSession as the coordinator
 - ✅ Do write tests for each change
 - ✅ Do follow the existing patterns
+
+## Changes from Original Spec
+
+### Resolved Ambiguities
+1. ✅ **AudioConverter** - Confirmed uses static methods, needs conversion to instance methods
+2. ✅ **ApiClient methods** - Added `submitFeedback` and `getContext` methods
+3. ✅ **Message helper functions** - Documented all functions from messages.ts
+4. ✅ **Protobuf types** - All types are correct and well-defined
+5. ✅ **Gemini message types** - Properly typed based on actual SDK
+6. ✅ **WebSocket constant** - `WebSocket.READY_STATE_OPEN` is correct for Cloudflare Workers
+7. ✅ **Interview context** - Added support for job description and resume
+8. ✅ **Feedback generation** - Included in the refactored implementation
+9. ✅ **Testing infrastructure** - Documented existing test setup with vitest
+
+### Additional Files Documented
+1. [worker/src/auth.ts](worker/src/auth.ts) - JWT authentication
+2. [worker/src/utils/feedback.ts](worker/src/utils/feedback.ts) - Feedback generation
+3. [worker/src/index.ts](worker/src/index.ts) - Entry point and routing
+4. Existing test files in `worker/src/__tests__/`
