@@ -1,6 +1,9 @@
 // ABOUTME: Audio format conversion utilities for WebSocket audio streaming
 // ABOUTME: Converts between binary PCM (Uint8Array) and base64-encoded strings for Gemini Live API
 
+// NOTE: This class currently uses static methods and will be refactored to instance
+// methods in Phase 6 to implement IAudioConverter interface
+
 /**
  * Utility class for converting audio between binary and base64 formats
  */

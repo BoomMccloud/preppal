@@ -1,15 +1,13 @@
 // ABOUTME: Transcript tracking for interview conversations
 // ABOUTME: Maintains chronological history of user and AI speech with timestamps
 
+import type { ITranscriptManager, TranscriptEntry } from "./interfaces/index.js";
+
 /**
  * Manages conversation transcript tracking during an interview session
  */
-export class TranscriptManager {
-  private transcript: Array<{
-    speaker: "USER" | "AI";
-    content: string;
-    timestamp: string;
-  }> = [];
+export class TranscriptManager implements ITranscriptManager {
+  private transcript: TranscriptEntry[] = [];
 
   /**
    * Add a user transcript entry
@@ -36,11 +34,7 @@ export class TranscriptManager {
   /**
    * Get all transcript entries
    */
-  getTranscript(): Array<{
-    speaker: "USER" | "AI";
-    content: string;
-    timestamp: string;
-  }> {
+  getTranscript(): TranscriptEntry[] {
     return this.transcript;
   }
 

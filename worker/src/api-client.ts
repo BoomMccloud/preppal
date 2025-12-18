@@ -1,13 +1,14 @@
 // ABOUTME: API client for communicating with Next.js backend tRPC endpoints
 // ABOUTME: Handles interview status updates and transcript submission with authentication
 
-export interface TranscriptEntry {
-  speaker: "USER" | "AI";
-  content: string;
-  timestamp: string; // ISO 8601
-}
+import type {
+  IApiClient,
+  TranscriptEntry,
+  InterviewContext,
+  FeedbackData,
+} from "./interfaces/index.js";
 
-export class ApiClient {
+export class ApiClient implements IApiClient {
   constructor(
     private apiUrl: string,
     private workerSecret: string,
@@ -192,7 +193,10 @@ export class ApiClient {
     );
   }
 
-  async submitFeedback(interviewId: string, feedback: any): Promise<void> {
+  async submitFeedback(
+    interviewId: string,
+    feedback: FeedbackData,
+  ): Promise<void> {
     const url = `${this.apiUrl}/api/trpc/interview.submitFeedback`;
 
     console.log(
@@ -239,9 +243,7 @@ export class ApiClient {
     );
   }
 
-  async getContext(
-    interviewId: string,
-  ): Promise<{ jobDescription: string; resume: string }> {
+  async getContext(interviewId: string): Promise<InterviewContext> {
     const url = `${this.apiUrl}/api/trpc/interview.getContext?batch=1&input=${encodeURIComponent(
       JSON.stringify({ "0": { json: { interviewId } } }),
     )}`;
