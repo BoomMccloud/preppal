@@ -1,22 +1,20 @@
 /*eslint-disable block-scoped-var, id-length, no-control-regex, no-magic-numbers, no-prototype-builtins, no-redeclare, no-shadow, no-var, sort-vars*/
-"use strict";
-
-var $protobuf = require("protobufjs/minimal");
+import * as $protobuf from "protobufjs/minimal";
 
 // Common aliases
-var $Reader = $protobuf.Reader, $Writer = $protobuf.Writer, $util = $protobuf.util;
+const $Reader = $protobuf.Reader, $Writer = $protobuf.Writer, $util = $protobuf.util;
 
 // Exported root namespace
-var $root = $protobuf.roots["default"] || ($protobuf.roots["default"] = {});
+const $root = $protobuf.roots["default"] || ($protobuf.roots["default"] = {});
 
-$root.preppal = (function() {
+export const preppal = $root.preppal = (() => {
 
     /**
      * Namespace preppal.
      * @exports preppal
      * @namespace
      */
-    var preppal = {};
+    const preppal = {};
 
     preppal.ClientToServerMessage = (function() {
 
@@ -38,7 +36,7 @@ $root.preppal = (function() {
          */
         function ClientToServerMessage(properties) {
             if (properties)
-                for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
                     if (properties[keys[i]] != null)
                         this[keys[i]] = properties[keys[i]];
         }
@@ -60,7 +58,7 @@ $root.preppal = (function() {
         ClientToServerMessage.prototype.endRequest = null;
 
         // OneOf field names bound to virtual getters and setters
-        var $oneOfFields;
+        let $oneOfFields;
 
         /**
          * ClientToServerMessage payload.
@@ -131,9 +129,9 @@ $root.preppal = (function() {
         ClientToServerMessage.decode = function decode(reader, length, error) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            var end = length === undefined ? reader.len : reader.pos + length, message = new $root.preppal.ClientToServerMessage();
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.preppal.ClientToServerMessage();
             while (reader.pos < end) {
-                var tag = reader.uint32();
+                let tag = reader.uint32();
                 if (tag === error)
                     break;
                 switch (tag >>> 3) {
@@ -180,11 +178,11 @@ $root.preppal = (function() {
         ClientToServerMessage.verify = function verify(message) {
             if (typeof message !== "object" || message === null)
                 return "object expected";
-            var properties = {};
+            let properties = {};
             if (message.audioChunk != null && message.hasOwnProperty("audioChunk")) {
                 properties.payload = 1;
                 {
-                    var error = $root.preppal.AudioChunk.verify(message.audioChunk);
+                    let error = $root.preppal.AudioChunk.verify(message.audioChunk);
                     if (error)
                         return "audioChunk." + error;
                 }
@@ -194,7 +192,7 @@ $root.preppal = (function() {
                     return "payload: multiple values";
                 properties.payload = 1;
                 {
-                    var error = $root.preppal.EndRequest.verify(message.endRequest);
+                    let error = $root.preppal.EndRequest.verify(message.endRequest);
                     if (error)
                         return "endRequest." + error;
                 }
@@ -213,7 +211,7 @@ $root.preppal = (function() {
         ClientToServerMessage.fromObject = function fromObject(object) {
             if (object instanceof $root.preppal.ClientToServerMessage)
                 return object;
-            var message = new $root.preppal.ClientToServerMessage();
+            let message = new $root.preppal.ClientToServerMessage();
             if (object.audioChunk != null) {
                 if (typeof object.audioChunk !== "object")
                     throw TypeError(".preppal.ClientToServerMessage.audioChunk: object expected");
@@ -239,7 +237,7 @@ $root.preppal = (function() {
         ClientToServerMessage.toObject = function toObject(message, options) {
             if (!options)
                 options = {};
-            var object = {};
+            let object = {};
             if (message.audioChunk != null && message.hasOwnProperty("audioChunk")) {
                 object.audioChunk = $root.preppal.AudioChunk.toObject(message.audioChunk, options);
                 if (options.oneofs)
@@ -301,7 +299,7 @@ $root.preppal = (function() {
          */
         function AudioChunk(properties) {
             if (properties)
-                for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
                     if (properties[keys[i]] != null)
                         this[keys[i]] = properties[keys[i]];
         }
@@ -370,9 +368,9 @@ $root.preppal = (function() {
         AudioChunk.decode = function decode(reader, length, error) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            var end = length === undefined ? reader.len : reader.pos + length, message = new $root.preppal.AudioChunk();
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.preppal.AudioChunk();
             while (reader.pos < end) {
-                var tag = reader.uint32();
+                let tag = reader.uint32();
                 if (tag === error)
                     break;
                 switch (tag >>> 3) {
@@ -432,7 +430,7 @@ $root.preppal = (function() {
         AudioChunk.fromObject = function fromObject(object) {
             if (object instanceof $root.preppal.AudioChunk)
                 return object;
-            var message = new $root.preppal.AudioChunk();
+            let message = new $root.preppal.AudioChunk();
             if (object.audioContent != null)
                 if (typeof object.audioContent === "string")
                     $util.base64.decode(object.audioContent, message.audioContent = $util.newBuffer($util.base64.length(object.audioContent)), 0);
@@ -453,7 +451,7 @@ $root.preppal = (function() {
         AudioChunk.toObject = function toObject(message, options) {
             if (!options)
                 options = {};
-            var object = {};
+            let object = {};
             if (options.defaults)
                 if (options.bytes === String)
                     object.audioContent = "";
@@ -514,7 +512,7 @@ $root.preppal = (function() {
          */
         function EndRequest(properties) {
             if (properties)
-                for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
                     if (properties[keys[i]] != null)
                         this[keys[i]] = properties[keys[i]];
         }
@@ -573,9 +571,9 @@ $root.preppal = (function() {
         EndRequest.decode = function decode(reader, length, error) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            var end = length === undefined ? reader.len : reader.pos + length, message = new $root.preppal.EndRequest();
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.preppal.EndRequest();
             while (reader.pos < end) {
-                var tag = reader.uint32();
+                let tag = reader.uint32();
                 if (tag === error)
                     break;
                 switch (tag >>> 3) {
@@ -695,7 +693,7 @@ $root.preppal = (function() {
          */
         function ServerToClientMessage(properties) {
             if (properties)
-                for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
                     if (properties[keys[i]] != null)
                         this[keys[i]] = properties[keys[i]];
         }
@@ -733,7 +731,7 @@ $root.preppal = (function() {
         ServerToClientMessage.prototype.sessionEnded = null;
 
         // OneOf field names bound to virtual getters and setters
-        var $oneOfFields;
+        let $oneOfFields;
 
         /**
          * ServerToClientMessage payload.
@@ -808,9 +806,9 @@ $root.preppal = (function() {
         ServerToClientMessage.decode = function decode(reader, length, error) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            var end = length === undefined ? reader.len : reader.pos + length, message = new $root.preppal.ServerToClientMessage();
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.preppal.ServerToClientMessage();
             while (reader.pos < end) {
-                var tag = reader.uint32();
+                let tag = reader.uint32();
                 if (tag === error)
                     break;
                 switch (tag >>> 3) {
@@ -865,11 +863,11 @@ $root.preppal = (function() {
         ServerToClientMessage.verify = function verify(message) {
             if (typeof message !== "object" || message === null)
                 return "object expected";
-            var properties = {};
+            let properties = {};
             if (message.transcriptUpdate != null && message.hasOwnProperty("transcriptUpdate")) {
                 properties.payload = 1;
                 {
-                    var error = $root.preppal.TranscriptUpdate.verify(message.transcriptUpdate);
+                    let error = $root.preppal.TranscriptUpdate.verify(message.transcriptUpdate);
                     if (error)
                         return "transcriptUpdate." + error;
                 }
@@ -879,7 +877,7 @@ $root.preppal = (function() {
                     return "payload: multiple values";
                 properties.payload = 1;
                 {
-                    var error = $root.preppal.AudioResponse.verify(message.audioResponse);
+                    let error = $root.preppal.AudioResponse.verify(message.audioResponse);
                     if (error)
                         return "audioResponse." + error;
                 }
@@ -889,7 +887,7 @@ $root.preppal = (function() {
                     return "payload: multiple values";
                 properties.payload = 1;
                 {
-                    var error = $root.preppal.ErrorResponse.verify(message.error);
+                    let error = $root.preppal.ErrorResponse.verify(message.error);
                     if (error)
                         return "error." + error;
                 }
@@ -899,7 +897,7 @@ $root.preppal = (function() {
                     return "payload: multiple values";
                 properties.payload = 1;
                 {
-                    var error = $root.preppal.SessionEnded.verify(message.sessionEnded);
+                    let error = $root.preppal.SessionEnded.verify(message.sessionEnded);
                     if (error)
                         return "sessionEnded." + error;
                 }
@@ -918,7 +916,7 @@ $root.preppal = (function() {
         ServerToClientMessage.fromObject = function fromObject(object) {
             if (object instanceof $root.preppal.ServerToClientMessage)
                 return object;
-            var message = new $root.preppal.ServerToClientMessage();
+            let message = new $root.preppal.ServerToClientMessage();
             if (object.transcriptUpdate != null) {
                 if (typeof object.transcriptUpdate !== "object")
                     throw TypeError(".preppal.ServerToClientMessage.transcriptUpdate: object expected");
@@ -954,7 +952,7 @@ $root.preppal = (function() {
         ServerToClientMessage.toObject = function toObject(message, options) {
             if (!options)
                 options = {};
-            var object = {};
+            let object = {};
             if (message.transcriptUpdate != null && message.hasOwnProperty("transcriptUpdate")) {
                 object.transcriptUpdate = $root.preppal.TranscriptUpdate.toObject(message.transcriptUpdate, options);
                 if (options.oneofs)
@@ -1029,7 +1027,7 @@ $root.preppal = (function() {
          */
         function TranscriptUpdate(properties) {
             if (properties)
-                for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
                     if (properties[keys[i]] != null)
                         this[keys[i]] = properties[keys[i]];
         }
@@ -1128,9 +1126,9 @@ $root.preppal = (function() {
         TranscriptUpdate.decode = function decode(reader, length, error) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            var end = length === undefined ? reader.len : reader.pos + length, message = new $root.preppal.TranscriptUpdate();
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.preppal.TranscriptUpdate();
             while (reader.pos < end) {
-                var tag = reader.uint32();
+                let tag = reader.uint32();
                 if (tag === error)
                     break;
                 switch (tag >>> 3) {
@@ -1211,7 +1209,7 @@ $root.preppal = (function() {
         TranscriptUpdate.fromObject = function fromObject(object) {
             if (object instanceof $root.preppal.TranscriptUpdate)
                 return object;
-            var message = new $root.preppal.TranscriptUpdate();
+            let message = new $root.preppal.TranscriptUpdate();
             if (object.speaker != null)
                 message.speaker = String(object.speaker);
             if (object.text != null)
@@ -1235,7 +1233,7 @@ $root.preppal = (function() {
         TranscriptUpdate.toObject = function toObject(message, options) {
             if (!options)
                 options = {};
-            var object = {};
+            let object = {};
             if (options.defaults) {
                 object.speaker = "";
                 object.text = "";
@@ -1301,7 +1299,7 @@ $root.preppal = (function() {
          */
         function AudioResponse(properties) {
             if (properties)
-                for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
                     if (properties[keys[i]] != null)
                         this[keys[i]] = properties[keys[i]];
         }
@@ -1370,9 +1368,9 @@ $root.preppal = (function() {
         AudioResponse.decode = function decode(reader, length, error) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            var end = length === undefined ? reader.len : reader.pos + length, message = new $root.preppal.AudioResponse();
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.preppal.AudioResponse();
             while (reader.pos < end) {
-                var tag = reader.uint32();
+                let tag = reader.uint32();
                 if (tag === error)
                     break;
                 switch (tag >>> 3) {
@@ -1432,7 +1430,7 @@ $root.preppal = (function() {
         AudioResponse.fromObject = function fromObject(object) {
             if (object instanceof $root.preppal.AudioResponse)
                 return object;
-            var message = new $root.preppal.AudioResponse();
+            let message = new $root.preppal.AudioResponse();
             if (object.audioContent != null)
                 if (typeof object.audioContent === "string")
                     $util.base64.decode(object.audioContent, message.audioContent = $util.newBuffer($util.base64.length(object.audioContent)), 0);
@@ -1453,7 +1451,7 @@ $root.preppal = (function() {
         AudioResponse.toObject = function toObject(message, options) {
             if (!options)
                 options = {};
-            var object = {};
+            let object = {};
             if (options.defaults)
                 if (options.bytes === String)
                     object.audioContent = "";
@@ -1516,7 +1514,7 @@ $root.preppal = (function() {
          */
         function ErrorResponse(properties) {
             if (properties)
-                for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
                     if (properties[keys[i]] != null)
                         this[keys[i]] = properties[keys[i]];
         }
@@ -1595,9 +1593,9 @@ $root.preppal = (function() {
         ErrorResponse.decode = function decode(reader, length, error) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            var end = length === undefined ? reader.len : reader.pos + length, message = new $root.preppal.ErrorResponse();
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.preppal.ErrorResponse();
             while (reader.pos < end) {
-                var tag = reader.uint32();
+                let tag = reader.uint32();
                 if (tag === error)
                     break;
                 switch (tag >>> 3) {
@@ -1664,7 +1662,7 @@ $root.preppal = (function() {
         ErrorResponse.fromObject = function fromObject(object) {
             if (object instanceof $root.preppal.ErrorResponse)
                 return object;
-            var message = new $root.preppal.ErrorResponse();
+            let message = new $root.preppal.ErrorResponse();
             if (object.code != null)
                 message.code = object.code | 0;
             if (object.message != null)
@@ -1684,7 +1682,7 @@ $root.preppal = (function() {
         ErrorResponse.toObject = function toObject(message, options) {
             if (!options)
                 options = {};
-            var object = {};
+            let object = {};
             if (options.defaults) {
                 object.code = 0;
                 object.message = "";
@@ -1744,7 +1742,7 @@ $root.preppal = (function() {
          */
         function SessionEnded(properties) {
             if (properties)
-                for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
                     if (properties[keys[i]] != null)
                         this[keys[i]] = properties[keys[i]];
         }
@@ -1813,9 +1811,9 @@ $root.preppal = (function() {
         SessionEnded.decode = function decode(reader, length, error) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            var end = length === undefined ? reader.len : reader.pos + length, message = new $root.preppal.SessionEnded();
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.preppal.SessionEnded();
             while (reader.pos < end) {
-                var tag = reader.uint32();
+                let tag = reader.uint32();
                 if (tag === error)
                     break;
                 switch (tag >>> 3) {
@@ -1882,7 +1880,7 @@ $root.preppal = (function() {
         SessionEnded.fromObject = function fromObject(object) {
             if (object instanceof $root.preppal.SessionEnded)
                 return object;
-            var message = new $root.preppal.SessionEnded();
+            let message = new $root.preppal.SessionEnded();
             switch (object.reason) {
             default:
                 if (typeof object.reason === "number") {
@@ -1922,7 +1920,7 @@ $root.preppal = (function() {
         SessionEnded.toObject = function toObject(message, options) {
             if (!options)
                 options = {};
-            var object = {};
+            let object = {};
             if (options.defaults)
                 object.reason = options.enums === String ? "REASON_UNSPECIFIED" : 0;
             if (message.reason != null && message.hasOwnProperty("reason"))
@@ -1966,7 +1964,7 @@ $root.preppal = (function() {
          * @property {number} TIMEOUT=3 TIMEOUT value
          */
         SessionEnded.Reason = (function() {
-            var valuesById = {}, values = Object.create(valuesById);
+            const valuesById = {}, values = Object.create(valuesById);
             values[valuesById[0] = "REASON_UNSPECIFIED"] = 0;
             values[valuesById[1] = "USER_INITIATED"] = 1;
             values[valuesById[2] = "GEMINI_ENDED"] = 2;
@@ -1980,4 +1978,4 @@ $root.preppal = (function() {
     return preppal;
 })();
 
-module.exports = $root;
+export { $root as default };

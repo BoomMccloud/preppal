@@ -19,7 +19,7 @@
     "lint": "next lint",
     "lint:fix": "next lint --fix",
     "preview": "next build && next start",
-    "proto:generate": "mkdir -p src/lib && pbjs -t static-module -w commonjs -o src/lib/interview_pb.js proto/interview.proto && pbts -o src/lib/interview_pb.d.ts src/lib/interview_pb.js",
+    "proto:generate": "mkdir -p src/lib && pbjs -t static-module -w es6 -o src/lib/interview_pb.js proto/interview.proto && pbts -o src/lib/interview_pb.d.ts src/lib/interview_pb.js",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
