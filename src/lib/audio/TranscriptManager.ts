@@ -26,7 +26,7 @@ export class TranscriptManager {
       return;
     }
 
-    const { speaker, text } = update;
+    const { speaker, text, turnComplete } = update;
     this.transcriptBuffers[speaker] += text;
 
     // Split by sentence-ending punctuation followed by a space and an uppercase letter.
@@ -39,6 +39,12 @@ export class TranscriptManager {
         this.callbacks.onSentence(speaker, sentences[i].trim());
       }
       this.transcriptBuffers[speaker] = sentences[sentences.length - 1];
+    }
+
+    // If the turn is complete, flush the remaining buffer
+    if (turnComplete && this.transcriptBuffers[speaker].trim()) {
+      this.callbacks.onSentence(speaker, this.transcriptBuffers[speaker].trim());
+      this.transcriptBuffers[speaker] = "";
     }
   }
 

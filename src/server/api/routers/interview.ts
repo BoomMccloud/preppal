@@ -41,6 +41,7 @@ export const interviewRouter = createTRPCRouter({
         jobDescription: JobDescriptionInput,
         resume: ResumeInput,
         idempotencyKey: z.string().min(1),
+        persona: z.string().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -101,6 +102,7 @@ export const interviewRouter = createTRPCRouter({
             resumeId,
             idempotencyKey: input.idempotencyKey,
             status: "PENDING",
+            persona: input.persona,
           },
         });
 
@@ -472,6 +474,7 @@ export const interviewRouter = createTRPCRouter({
         select: {
           jobDescriptionSnapshot: true,
           resumeSnapshot: true,
+          persona: true,
         },
       });
 
@@ -485,6 +488,7 @@ export const interviewRouter = createTRPCRouter({
       return {
         jobDescription: interview.jobDescriptionSnapshot ?? "",
         resume: interview.resumeSnapshot ?? "",
+        persona: interview.persona ?? "professional interviewer",
       };
     }),
 

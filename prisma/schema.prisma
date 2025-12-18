@@ -96,6 +96,11 @@ model Interview {
   // It ensures this historical record is immutable.
   resumeSnapshot String?
 
+  // --- INTERVIEWER PERSONA ---
+  // The persona/prompt for the AI interviewer (e.g., "Senior Technical Interviewer")
+  // Can be a simple role or a full custom prompt in the future
+  persona String?
+
   // Relation to the resume used for this interview (optional)
   resumeId String?
   resume   Resume? @relation(fields: [resumeId], references: [id], onDelete: SetNull)

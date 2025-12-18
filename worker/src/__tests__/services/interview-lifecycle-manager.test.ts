@@ -18,6 +18,7 @@ describe("InterviewLifecycleManager", () => {
   const mockContext = {
     jobDescription: "Software Engineer",
     resume: "Experienced developer",
+    persona: "professional interviewer",
   };
 
   beforeEach(() => {
@@ -68,7 +69,11 @@ describe("InterviewLifecycleManager", () => {
       const result = await manager.initializeSession(mockInterviewId);
 
       expect(mockApiClient.getContext).toHaveBeenCalled();
-      expect(result).toEqual({ jobDescription: "", resume: "" });
+      expect(result).toEqual({
+        jobDescription: "",
+        resume: "",
+        persona: "professional interviewer",
+      });
       // Should still proceed to update status
       expect(mockApiClient.updateStatus).toHaveBeenCalledWith(
         mockInterviewId,

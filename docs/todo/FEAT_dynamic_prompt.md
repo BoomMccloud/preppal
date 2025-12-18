@@ -22,7 +22,7 @@ model Interview {
 ```
 
 ### Step 2: Extend Interview Context in tRPC Router
-Create a new tRPC procedure `getWorkerContext` in `src/server/api/routers/interview.ts`. This procedure will allow the Cloudflare Worker to fetch the necessary details (job description, resume, persona) for constructing the system prompt.
+Update the existing `getContext` tRPC procedure in `src/server/api/routers/interview.ts` to include the `persona` field. This procedure allows the Cloudflare Worker to fetch the necessary details (job description, resume, persona) for constructing the system prompt.
 
 ```typescript
 // File: src/server/api/routers/interview.ts
@@ -31,7 +31,7 @@ Create a new tRPC procedure `getWorkerContext` in `src/server/api/routers/interv
 export const interviewRouter = createTRPCRouter({
   // ... existing procedures ...
 
-  getWorkerContext: workerProcedure
+  getContext: workerProcedure
     .input(z.object({ interviewId: z.string() }))
     .query(async ({ ctx, input }) => {
       const interview = await ctx.db.interview.findUniqueOrThrow({
@@ -127,83 +127,64 @@ async getContext(interviewId: string): Promise<InterviewContext> {
 
 > **Note**: If the existing `getContext` method doesn't exist yet, create it following the same pattern as `updateStatus` and `submitTranscript`.
 
-### Step 6: Update `GeminiSession`
-Modify `worker/src/gemini-session.ts` to import and use the `buildSystemPrompt` function when connecting to Gemini. No class instantiation or dependency injection needed.
+### Step 6: Update `GeminiStreamHandler`
+Modify `worker/src/services/gemini-stream-handler.ts` to import and use the `buildSystemPrompt` function when connecting to Gemini.
+
+> **Architecture Note**: The current architecture uses `GeminiStreamHandler` as an intermediary between `GeminiSession` and `GeminiClient`. The prompt is currently built inline in `GeminiStreamHandler.connect()`. We update this method to use the utility function instead.
 
 ```typescript
-// File: worker/src/gemini-session.ts
+// File: worker/src/services/gemini-stream-handler.ts
 
 // ... existing imports ...
-import { buildSystemPrompt } from "./utils/build-system-prompt";
+import { buildSystemPrompt } from "../utils/build-system-prompt";
 
-/**
- * Durable Object managing individual Gemini Live API WebSocket sessions
- * Coordinates WebSocket connections, Gemini API interactions, and transcript management
- */
-export class GeminiSession implements DurableObject {
+export class GeminiStreamHandler {
   // ... existing properties and constructor (no changes needed) ...
 
   /**
-   * Initialize Gemini Live API connection with dynamic system instruction
+   * Connects to the Gemini Live API with the provided context
    */
-  private async initializeGemini(ws: WebSocket): Promise<void> {
-    try {
-      console.log(`[GeminiSession] Connecting to Gemini Live API`);
+  async connect(context: InterviewContext): Promise<void> {
+    // Use the utility function instead of inline prompt building
+    const systemInstruction = buildSystemPrompt(context);
 
-      // Fetch interview context from the backend
-      const interviewContext = await this.apiClient.getInterviewContext(this.interviewId!);
+    await this.geminiClient.connect({
+      model: GEMINI_MODEL,
+      config: {
+        responseModalities: [Modality.AUDIO],
+        systemInstruction,
+        outputAudioTranscription: {},
+        inputAudioTranscription: {},
+      },
+      callbacks: {
+        onopen: () => this.handleOpen(),
+        onmessage: (msg) => this.handleMessage(msg),
+        onerror: (err) => this.callbacks.onError(err),
+        onclose: () => this.callbacks.onClose(),
+      },
+    });
 
-      // Build the dynamic system instruction using simple utility function
-      const systemInstruction = buildSystemPrompt(interviewContext);
-
-      await this.geminiClient.connect({
-        model: "gemini-2.5-flash-native-audio-preview-09-2025",
-        config: {
-          responseModalities: [Modality.AUDIO],
-          systemInstruction: systemInstruction,
-          outputAudioTranscription: {},
-          inputAudioTranscription: {},
+    // Send initial greeting
+    this.geminiClient.sendClientContent({
+      turns: [
+        {
+          role: "user",
+          parts: [{ text: "Hello, let's start the interview." }],
+          turnComplete: true,
         },
-        callbacks: {
-          onopen: () => this.handleGeminiOpen(),
-          onmessage: (message: GeminiMessage) => this.handleGeminiMessage(ws, message),
-          onerror: (error: Error) => this.handleGeminiError(ws, error),
-          onclose: () => this.handleGeminiClose(ws),
-        },
-      });
-
-      console.log(`[GeminiSession] Gemini connection established`);
-
-      // Send initial greeting to start the interview
-      this.geminiClient.sendClientContent({
-        turns: [
-          {
-            role: "user",
-            parts: [{ text: "Hello, let's start the interview." }],
-            turnComplete: true,
-          },
-        ],
-      });
-
-      console.log("[GeminiSession] Sent initial greeting to Gemini");
-    } catch (error) {
-      throw new GeminiConnectionError(
-        "Failed to initialize Gemini connection",
-        error as Error
-      );
-    }
+      ],
+    });
   }
 
   // ... rest of the class ...
 }
 ```
 
-> **Simplification**: Note that we no longer need to:
-> - Add a `promptBuilder` property to the class
-> - Initialize a `PromptBuilder` instance in the constructor
-> - Import any interface for the prompt builder
->
-> The function is simply imported and called where needed.
+**No changes needed to `GeminiSession`** - it already:
+1. Fetches context via `InterviewLifecycleManager.initializeSession()`
+2. Passes context to `GeminiStreamHandler.connect(context)`
+
+The `InterviewContext` type flows through the existing architecture.
 
 ### Step 7: Minimal E2E Verification via Raw Worker Test Page
 
@@ -277,18 +258,35 @@ const connect = useCallback(() => {
 ```
 
 **Worker debug endpoint modification** (`worker/src/index.ts`):
-Update the `/debug/live-audio` endpoint to read query params and pass them to GeminiSession.
+Update the `/debug/live-audio` endpoint to read query params and pass them via request headers to `GeminiSession`. The session will then pass them to `GeminiStreamHandler.connect()`.
 
 ```typescript
-// In the debug endpoint handler
+// In the debug endpoint handler (worker/src/index.ts)
 const url = new URL(request.url);
-const context = {
-  jobDescription: url.searchParams.get("jobDescription") ?? "",
-  resume: url.searchParams.get("resume") ?? "",
-  persona: url.searchParams.get("persona") ?? "professional interviewer",
-};
 
-// Pass context to the Durable Object (via query params or separate method)
+// Create a new request with context headers
+const contextHeaders = new Headers(request.headers);
+contextHeaders.set("X-Job-Description", url.searchParams.get("jobDescription") ?? "");
+contextHeaders.set("X-Resume", url.searchParams.get("resume") ?? "");
+contextHeaders.set("X-Persona", url.searchParams.get("persona") ?? "professional interviewer");
+
+const modifiedRequest = new Request(request, { headers: contextHeaders });
+
+// Forward to Durable Object
+```
+
+**GeminiSession debug mode update** (`worker/src/gemini-session.ts`):
+In debug mode, read context from headers instead of calling the API:
+
+```typescript
+// In extractAuthentication() or initializeSession()
+if (this.isDebug) {
+  this.interviewContext = {
+    jobDescription: request.headers.get("X-Job-Description") ?? "",
+    resume: request.headers.get("X-Resume") ?? "",
+    persona: request.headers.get("X-Persona") ?? "professional interviewer",
+  };
+}
 ```
 
 **Verification checklist:**
@@ -303,15 +301,17 @@ Once Step 7 verification passes, integrate the dynamic prompt into the productio
 
 **Files to update:**
 1. **Interview start flow** - Ensure `persona` is set when creating an interview
-2. **Worker session endpoint** - The production `/session` endpoint should use `getInterviewContext` (already covered in Step 6)
+2. **tRPC endpoint** - Already covered in Step 2 (`interview.getContext` returns persona)
 3. **Frontend interview page** - No changes needed if context is fetched server-side by worker
 
 The production flow is:
-1. User starts interview → Interview record created with JD/resume snapshots
+1. User starts interview → Interview record created with JD/resume snapshots + persona
 2. Frontend connects to worker with `interviewId`
-3. Worker calls `apiClient.getInterviewContext(interviewId)`
-4. Worker uses `buildSystemPrompt(context)` to generate system instruction
-5. Gemini session starts with dynamic prompt
+3. `GeminiSession` calls `InterviewLifecycleManager.initializeSession(interviewId)`
+4. `InterviewLifecycleManager` calls `apiClient.getContext(interviewId)` → returns `InterviewContext` with persona
+5. `GeminiSession` passes context to `GeminiStreamHandler.connect(context)`
+6. `GeminiStreamHandler` calls `buildSystemPrompt(context)` to generate system instruction
+7. Gemini session starts with dynamic prompt
 
 ### Step 9: Testing
 
@@ -361,9 +361,9 @@ describe("buildSystemPrompt", () => {
 });
 ```
 
-**Integration Tests for `ApiClient.getInterviewContext`**: Test that the `ApiClient` can successfully call the new tRPC endpoint and retrieve the interview context.
+**Integration Tests for `ApiClient.getContext`**: Test that the `ApiClient` can successfully call the tRPC endpoint and retrieve the interview context including the new `persona` field.
 
-**Integration Tests for `GeminiSession`**: Verify that `GeminiSession` calls `getInterviewContext` and uses the result to build the system instruction via `buildSystemPrompt`.
+**Integration Tests for `GeminiStreamHandler`**: Verify that `GeminiStreamHandler.connect()` uses the `InterviewContext` (with persona) and builds the system instruction via `buildSystemPrompt`.
 
 ---
 
@@ -371,16 +371,50 @@ describe("buildSystemPrompt", () => {
 
 This document provides a 9-step implementation plan for the dynamic prompt feature:
 
-| Step | Description | Scope |
-|------|-------------|-------|
-| 1 | Database schema update | Backend |
-| 2 | tRPC `getWorkerContext` procedure | Backend |
-| 3 | Update `IApiClient` interface | Worker |
-| 4 | Create `buildSystemPrompt` function | Worker |
-| 5 | Update `ApiClient` implementation | Worker |
-| 6 | Update `GeminiSession` | Worker |
-| 7 | **Minimal E2E verification** (raw-worker-test) | Frontend + Worker |
-| 8 | Integrate into production app | Frontend |
-| 9 | Unit and integration tests | All |
+| Step | Description | Scope | Status |
+|------|-------------|-------|--------|
+| 1 | Database schema update (add `persona` field) | Backend | ✅ Done |
+| 2 | tRPC `getContext` procedure (return `persona`) | Backend | ✅ Done |
+| 3 | Update `InterviewContext` interface (add `persona`) | Worker | ✅ Done |
+| 4 | Create `buildSystemPrompt` function | Worker | ✅ Done |
+| 5 | Update `ApiClient` (no changes needed) | Worker | ✅ Done |
+| 6 | Update `GeminiStreamHandler.connect()` | Worker | ✅ Done |
+| 7 | **Minimal E2E verification** (raw-worker-test) | Frontend + Worker | ✅ Done |
+| 8 | Integrate into production app | Frontend | ✅ Done |
+| 9 | Unit and integration tests | All | ✅ Done |
+
+### Implementation Notes (2024-12-18)
+
+**All steps completed.** The dynamic prompt feature is fully integrated, tested, and ready for production use.
+
+**Key files modified:**
+- `prisma/schema.prisma` - Added `persona String?` to Interview model
+- `src/server/api/routers/interview.ts` - `getContext` returns `persona`, `createSession` accepts `persona`
+- `src/app/(app)/create-interview/page.tsx` - Added "Interviewer Persona" input field
+- `worker/src/interfaces/index.ts` - `InterviewContext` includes `persona`
+- `worker/src/utils/build-system-prompt.ts` - New utility function (created)
+- `worker/src/services/gemini-stream-handler.ts` - Uses `buildSystemPrompt()`
+- `worker/src/gemini-session.ts` - Reads debug context from headers
+- `worker/src/index.ts` - Debug route passes context via headers
+- `src/app/(app)/raw-worker-test/page.tsx` - Added context input fields
+
+**Test files added/updated:**
+- `worker/src/__tests__/utils/build-system-prompt.test.ts` - Unit tests for `buildSystemPrompt` (6 tests)
+- `worker/src/__tests__/api-client.test.ts` - Added `getContext` tests (5 tests), fixed existing tests
+- `worker/src/__tests__/services/gemini-stream-handler.test.ts` - Added persona integration tests (9 tests total)
+
+**Testing:** Manually verified via `/raw-worker-test` page - the AI interviewer responds according to the provided persona, job description, and resume context.
 
 The plan follows KISS principles by avoiding unnecessary abstraction layers (no `IPromptBuilder` interface, just a simple function).
+
+**Architecture diagram:**
+```
+GeminiSession (Durable Object)
+    │
+    ├── InterviewLifecycleManager.initializeSession()
+    │       └── ApiClient.getContext() → InterviewContext { jd, resume, persona }
+    │
+    └── GeminiStreamHandler.connect(context)
+            └── buildSystemPrompt(context) → systemInstruction string
+            └── GeminiClient.connect({ systemInstruction, ... })
+```

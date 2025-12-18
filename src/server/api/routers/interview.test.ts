@@ -65,6 +65,7 @@ describe("interview.createSession", () => {
       endedAt: null,
       resumeId: null,
       jobDescriptionId: null,
+      persona: null,
     };
 
     // Mock findUnique to return null (no existing interview)
@@ -143,6 +144,7 @@ describe("interview.createSession", () => {
       endedAt: null,
       resumeId: null,
       jobDescriptionId: null,
+      persona: null,
     };
 
     // Mock findUnique to return an existing interview
@@ -209,6 +211,7 @@ describe("interview.getHistory", () => {
         endedAt: new Date("2023-01-01T01:00:00Z"),
         resumeId: null,
         jobDescriptionId: null,
+        persona: null,
       },
       {
         id: "int-2",
@@ -224,6 +227,7 @@ describe("interview.getHistory", () => {
         endedAt: null,
         resumeId: null,
         jobDescriptionId: null,
+        persona: null,
       },
     ];
 
@@ -306,6 +310,7 @@ describe("interview.getById", () => {
       endedAt: new Date(),
       resumeId: null,
       jobDescriptionId: null,
+      persona: null,
       feedback: {
         id: "feedback-id",
         interviewId: "interview-with-feedback-id",
@@ -375,6 +380,7 @@ describe("interview.getById", () => {
       endedAt: new Date(),
       resumeId: null,
       jobDescriptionId: null,
+      persona: null,
       feedback: null, // No feedback generated yet
     };
 
@@ -438,6 +444,7 @@ describe("interview.getCurrent", () => {
       endedAt: null,
       resumeId: null,
       jobDescriptionId: null,
+      persona: null,
     };
 
     // Mock the database call for findFirst
@@ -654,6 +661,7 @@ describe("interview.generateWsToken", () => {
       endedAt: null,
       resumeId: null,
       jobDescriptionId: null,
+      persona: null,
     };
 
     // Mock findUnique to return the interview
@@ -923,6 +931,7 @@ describe("interview.updateStatus", () => {
       idempotencyKey: "test-key",
       resumeId: null,
       jobDescriptionId: null,
+      persona: null,
     };
 
     // Mock findUnique to check ownership
@@ -989,6 +998,7 @@ describe("interview.updateStatus", () => {
       idempotencyKey: "test-key",
       resumeId: null,
       jobDescriptionId: null,
+      persona: null,
     };
 
     // Mock findUnique to just check existence

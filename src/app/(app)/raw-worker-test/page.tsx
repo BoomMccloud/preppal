@@ -20,6 +20,12 @@ export default function RawWorkerTestPage() {
     connectAttempts: 0,
     activeConnections: 0,
   });
+
+  // Dynamic prompt context inputs
+  const [persona, setPersona] = useState("professional interviewer");
+  const [jobDescription, setJobDescription] = useState("");
+  const [resume, setResume] = useState("");
+
   const clientRef = useRef<RawAudioClient | null>(null);
   const transcriptManagerRef = useRef<TranscriptManager | null>(null);
 
@@ -56,11 +62,18 @@ export default function RawWorkerTestPage() {
     const workerUrl = (
       process.env.NEXT_PUBLIC_WORKER_URL ?? "ws://localhost:8787"
     ).replace(/^http/, "ws");
-    const wsUrl = `${workerUrl}/debug/live-audio`;
+
+    // Encode context as query params for debug endpoint
+    const params = new URLSearchParams({
+      jobDescription,
+      resume,
+      persona,
+    });
+    const wsUrl = `${workerUrl}/debug/live-audio?${params.toString()}`;
 
     console.log(`Connecting to raw endpoint: ${wsUrl}`);
     void clientRef.current?.connect(wsUrl);
-  }, []);
+  }, [jobDescription, resume, persona]);
 
   const disconnect = useCallback(() => {
     clientRef.current?.disconnect();
@@ -74,6 +87,53 @@ export default function RawWorkerTestPage() {
         endpoint, bypassing all application logic to test the raw audio
         pipeline.
       </p>
+
+      {/* Dynamic prompt context inputs */}
+      <div className="not-prose mb-6 space-y-4 rounded-lg border border-gray-300 bg-white p-4 dark:border-gray-600 dark:bg-gray-900">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          Interview Context
+        </h3>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Persona
+          </label>
+          <input
+            type="text"
+            value={persona}
+            onChange={(e) => setPersona(e.target.value)}
+            className="w-full rounded border border-gray-300 bg-white p-2 text-gray-900 placeholder-gray-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400"
+            placeholder="e.g., Senior Technical Interviewer"
+            disabled={isConnected}
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Job Description
+          </label>
+          <textarea
+            value={jobDescription}
+            onChange={(e) => setJobDescription(e.target.value)}
+            className="w-full rounded border border-gray-300 bg-white p-2 text-gray-900 placeholder-gray-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400"
+            rows={3}
+            placeholder="Paste job description here..."
+            disabled={isConnected}
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Resume
+          </label>
+          <textarea
+            value={resume}
+            onChange={(e) => setResume(e.target.value)}
+            className="w-full rounded border border-gray-300 bg-white p-2 text-gray-900 placeholder-gray-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400"
+            rows={3}
+            placeholder="Paste resume here..."
+            disabled={isConnected}
+          />
+        </div>
+      </div>
+
       {!isConnected ? (
         <button
           onClick={connect}

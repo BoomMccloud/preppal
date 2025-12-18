@@ -23,7 +23,11 @@ export class InterviewLifecycleManager {
    * Initializes the interview session by fetching context and updating status.
    */
   async initializeSession(interviewId: string): Promise<InterviewContext> {
-    let context: InterviewContext = { jobDescription: "", resume: "" };
+    let context: InterviewContext = {
+      jobDescription: "",
+      resume: "",
+      persona: "professional interviewer",
+    };
 
     try {
       console.log(

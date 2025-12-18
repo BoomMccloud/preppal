@@ -1,18 +1,30 @@
-# Refactor GeminiSession - Extract Stream Handler
+# Dynamic Gemini System Prompt Feature
 
-**Status**: In Progress
+**Status**: In Progress (Steps 1-7 Complete)
 
 ## Objective
-Further reduce `GeminiSession` complexity by extracting the AI stream orchestration logic into a `GeminiStreamHandler`. This service will manage the real-time loop with Gemini, utilizing existing low-level handlers.
+Implement dynamic system prompt generation for the Gemini Live API, allowing the prompt to be constructed based on job description, user resume, and interviewer persona.
 
-## Deliverables
-- [x] Extract `InterviewLifecycleManager` (Completed)
-- [ ] Create failing tests for `GeminiStreamHandler`
-- [ ] Implement `worker/src/services/gemini-stream-handler.ts`
-- [ ] Integrate `GeminiStreamHandler` into `GeminiSession`
-- [ ] Verify all tests pass
+## Progress
 
-## Context
-`GeminiSession` currently mixes WebSocket transport with the complex Gemini event loop.
-- Existing `handlers/` (like `GeminiMessageHandler`) provide *logic* for processing individual messages.
-- The new `GeminiStreamHandler` will provide *orchestration* (connecting, maintaining state, routing audio).
+### Completed (Steps 1-7)
+- [x] Database schema update - Added `persona` field to Interview model
+- [x] tRPC `getContext` procedure - Returns `persona` with default "professional interviewer"
+- [x] `InterviewContext` interface - Includes `persona: string`
+- [x] `buildSystemPrompt` utility function - Created at `worker/src/utils/build-system-prompt.ts`
+- [x] `GeminiStreamHandler.connect()` - Uses `buildSystemPrompt(context)`
+- [x] E2E verification - Tested via `/raw-worker-test` page with context inputs
+
+### Remaining (Steps 8-9)
+- [ ] Integrate into production app - Ensure persona is set when creating interviews
+- [ ] Write unit tests for `buildSystemPrompt`
+
+## Key Files
+- `prisma/schema.prisma` - `persona String?` on Interview model
+- `src/server/api/routers/interview.ts` - `getContext` returns persona
+- `worker/src/utils/build-system-prompt.ts` - Prompt builder function
+- `worker/src/services/gemini-stream-handler.ts` - Uses buildSystemPrompt
+- `src/app/(app)/raw-worker-test/page.tsx` - Debug UI with context inputs
+
+## Reference
+See `docs/todo/FEAT_dynamic_prompt.md` for full implementation plan.

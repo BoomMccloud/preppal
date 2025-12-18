@@ -40,6 +40,7 @@ message TranscriptUpdate {
   string speaker = 1; // "USER" or "AI"
   string text = 2;
   bool is_final = 3; // True if this is a final, corrected transcript segment
+  bool turn_complete = 4; // True if the turn is complete
 }
 
 // Contains a chunk of AI-generated audio data to be played by the client.

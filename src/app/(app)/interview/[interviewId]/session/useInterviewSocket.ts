@@ -3,6 +3,7 @@ import { api } from "~/trpc/react";
 import { AudioRecorder } from "~/lib/audio/AudioRecorder";
 import { AudioPlayer } from "~/lib/audio/AudioPlayer";
 import { preppal } from "~/lib/interview_pb";
+import { TranscriptManager } from "~/lib/audio/TranscriptManager";
 
 type SessionState = "initializing" | "connecting" | "live" | "ending" | "error";
 
@@ -35,10 +36,17 @@ export function useInterviewSocket({
   onSessionEnded,
 }: UseInterviewSocketProps): UseInterviewSocketReturn {
   const [state, setState] = useState<SessionState>("initializing");
-  const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
+  const [committedTranscript, setCommittedTranscript] = useState<
+    TranscriptEntry[]
+  >([]);
+  const [pendingTranscript, setPendingTranscript] = useState<TranscriptEntry[]>(
+    [],
+  );
   const [elapsedTime, setElapsedTime] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
+
+  const transcript = [...committedTranscript, ...pendingTranscript];
 
   const stateRef = useRef(state);
   useEffect(() => {
@@ -51,6 +59,24 @@ export function useInterviewSocket({
   const hasInitiatedConnection = useRef(false);
   const [connectAttempts, setConnectAttempts] = useState(0);
   const [activeConnections, setActiveConnections] = useState(0);
+
+  const transcriptManagerRef = useRef<TranscriptManager | null>(null);
+
+  // Initialize TranscriptManager
+  if (!transcriptManagerRef.current) {
+    transcriptManagerRef.current = new TranscriptManager({
+      onSentence: (speaker, text) => {
+        setCommittedTranscript((prev) => [
+          ...prev,
+          {
+            text,
+            speaker: speaker === "USER" ? "USER" : "AI",
+            is_final: true,
+          },
+        ]);
+      },
+    });
+  }
 
   // Effect to handle user interruption (barge-in)
   useEffect(() => {
@@ -214,15 +240,28 @@ export function useInterviewSocket({
       );
 
       if (message.transcriptUpdate) {
-        setTranscript((prev) => [
-          ...prev,
-          {
-            text: message.transcriptUpdate.text!,
-            speaker:
-              message.transcriptUpdate.speaker === "USER" ? "USER" : "AI",
-            is_final: message.transcriptUpdate.isFinal!,
-          },
-        ]);
+        const tm = transcriptManagerRef.current;
+        if (tm) {
+          tm.process(message.transcriptUpdate);
+
+          const pending: TranscriptEntry[] = [];
+          // Check buffers for both speakers
+          const userBuffer = tm.getBufferedText("USER");
+          if (userBuffer) {
+            pending.push({
+              text: userBuffer,
+              speaker: "USER",
+              is_final: false,
+            });
+          }
+
+          const aiBuffer = tm.getBufferedText("AI");
+          if (aiBuffer) {
+            pending.push({ text: aiBuffer, speaker: "AI", is_final: false });
+          }
+
+          setPendingTranscript(pending);
+        }
       } else if (message.audioResponse) {
         if (audioPlayerRef.current) {
           const audioData = message.audioResponse.audioContent;

@@ -16,12 +16,13 @@ export interface TranscriptEntry {
 }
 
 /**
- * Interview context containing job description and resume
+ * Interview context containing job description, resume, and persona
  * Used for personalized interview questions and feedback generation
  */
 export interface InterviewContext {
   jobDescription: string;
   resume: string;
+  persona: string;
 }
 
 /**
@@ -120,6 +121,7 @@ export interface GeminiMessage {
         };
       }>;
     };
+    turnComplete?: boolean;
   };
   /** Base64 encoded audio data (alternative format) */
   data?: string;

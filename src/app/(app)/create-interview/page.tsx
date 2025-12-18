@@ -9,6 +9,7 @@ export default function CreateInterviewPage() {
   const router = useRouter();
   const [jobDescription, setJobDescription] = useState("");
   const [resume, setResume] = useState("");
+  const [persona, setPersona] = useState("professional interviewer");
   const [error, setError] = useState<string | null>(null);
 
   // Generate idempotency key once when component mounts
@@ -47,6 +48,7 @@ export default function CreateInterviewPage() {
         content: resume,
       },
       idempotencyKey,
+      persona: persona.trim() || undefined,
     });
   };
 
@@ -91,6 +93,22 @@ export default function CreateInterviewPage() {
               placeholder="Paste your resume content here..."
               required
             />
+          </div>
+
+          <div>
+            <label className="text-primary-text mb-2 block text-lg font-medium">
+              Interviewer Persona
+            </label>
+            <input
+              type="text"
+              value={persona}
+              onChange={(e) => setPersona(e.target.value)}
+              className="bg-secondary border-secondary-text text-primary-text placeholder-secondary-text w-full rounded-md border px-4 py-3"
+              placeholder="e.g., Senior Technical Interviewer, HR Manager"
+            />
+            <p className="text-secondary-text mt-1 text-sm">
+              Customize the interviewer&apos;s role and style
+            </p>
           </div>
 
           {error && (

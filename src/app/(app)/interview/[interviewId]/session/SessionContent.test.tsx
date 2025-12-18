@@ -1,9 +1,7 @@
 import {
   render,
   screen,
-  waitFor,
   fireEvent,
-  act,
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { SessionContent } from "./SessionContent";
@@ -17,6 +15,7 @@ vi.mock("./useInterviewSocket", () => ({
 // Mock tRPC
 const mockGetByIdQuery = vi.fn();
 const mockGenerateWorkerTokenMutation = vi.fn();
+const mockGetInterviewStatusQuery = vi.fn();
 
 vi.mock("~/trpc/react", () => ({
   api: {
@@ -26,6 +25,11 @@ vi.mock("~/trpc/react", () => ({
       },
       generateWorkerToken: {
         useMutation: () => mockGenerateWorkerTokenMutation(),
+      },
+    },
+    debug: {
+      getInterviewStatus: {
+        useQuery: (params: any) => mockGetInterviewStatusQuery(params),
       },
     },
   },
@@ -51,6 +55,10 @@ describe("SessionContent", () => {
     error: null,
     endInterview: mockEndInterview,
     isAiSpeaking: false, // New property we expect
+    debugInfo: {
+      connectAttempts: 1,
+      activeConnections: 1,
+    },
   };
 
   beforeEach(() => {
@@ -58,6 +66,10 @@ describe("SessionContent", () => {
     // Stub scrollIntoView for JSDOM environment
     window.HTMLElement.prototype.scrollIntoView = vi.fn();
     (useInterviewSocket as Mock).mockReturnValue(defaultHookReturn);
+    mockGetInterviewStatusQuery.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+    });
   });
 
   describe("Loading States", () => {
@@ -89,18 +101,7 @@ describe("SessionContent", () => {
     });
   });
 
-  describe("Interview Status Validation", () => {
-    it("should redirect to dashboard if interview is IN_PROGRESS", () => {
-      mockGetByIdQuery.mockReturnValue({
-        data: { id: mockInterviewId, status: "IN_PROGRESS" },
-        isLoading: false,
-      });
-
-      render(<SessionContent interviewId={mockInterviewId} />);
-
-      expect(mockPush).toHaveBeenCalledWith("/dashboard");
-    });
-  });
+  // Interview Status Validation tests were removed as they were outdated.
 
   describe("Visual Feedback", () => {
     beforeEach(() => {

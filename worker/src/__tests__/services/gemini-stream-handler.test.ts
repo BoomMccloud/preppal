@@ -50,6 +50,7 @@ describe("GeminiStreamHandler", () => {
   const mockContext = {
     jobDescription: "Software Engineer",
     resume: "Resume content",
+    persona: "professional interviewer",
   };
 
   const mockCallbacks = {
@@ -76,7 +77,91 @@ describe("GeminiStreamHandler", () => {
             responseModalities: [Modality.AUDIO],
             systemInstruction: expect.stringContaining("Software Engineer"),
           }),
-        })
+        }),
+      );
+    });
+
+    it("should include persona in system instruction", async () => {
+      const contextWithPersona = {
+        jobDescription: "Backend Developer",
+        resume: "Node.js expert",
+        persona: "Senior Technical Lead",
+      };
+
+      await handler.connect(contextWithPersona);
+
+      expect(mockGeminiClient.connect).toHaveBeenCalledWith(
+        expect.objectContaining({
+          config: expect.objectContaining({
+            systemInstruction: expect.stringContaining("Senior Technical Lead"),
+          }),
+        }),
+      );
+    });
+
+    it("should include job description in system instruction", async () => {
+      const contextWithJD = {
+        jobDescription: "Full Stack Engineer at StartupXYZ",
+        resume: "",
+        persona: "HR Manager",
+      };
+
+      await handler.connect(contextWithJD);
+
+      expect(mockGeminiClient.connect).toHaveBeenCalledWith(
+        expect.objectContaining({
+          config: expect.objectContaining({
+            systemInstruction: expect.stringContaining(
+              "Full Stack Engineer at StartupXYZ",
+            ),
+          }),
+        }),
+      );
+    });
+
+    it("should include resume in system instruction", async () => {
+      const contextWithResume = {
+        jobDescription: "",
+        resume: "10 years of Python development",
+        persona: "Engineering Director",
+      };
+
+      await handler.connect(contextWithResume);
+
+      expect(mockGeminiClient.connect).toHaveBeenCalledWith(
+        expect.objectContaining({
+          config: expect.objectContaining({
+            systemInstruction: expect.stringContaining(
+              "10 years of Python development",
+            ),
+          }),
+        }),
+      );
+    });
+
+    it("should build correct prompt structure via buildSystemPrompt", async () => {
+      const fullContext = {
+        jobDescription: "DevOps Engineer",
+        resume: "AWS certified",
+        persona: "Infrastructure Lead",
+      };
+
+      await handler.connect(fullContext);
+
+      const connectCall = mockGeminiClient.connect.mock.calls[0][0];
+      const systemInstruction = connectCall.config.systemInstruction;
+
+      // Verify buildSystemPrompt output structure
+      expect(systemInstruction).toContain("You are a Infrastructure Lead.");
+      expect(systemInstruction).toContain(
+        "Your goal is to conduct a behavioral interview.",
+      );
+      expect(systemInstruction).toContain("JOB DESCRIPTION:");
+      expect(systemInstruction).toContain("DevOps Engineer");
+      expect(systemInstruction).toContain("CANDIDATE RESUME:");
+      expect(systemInstruction).toContain("AWS certified");
+      expect(systemInstruction).toContain(
+        "Start by introducing yourself and asking the candidate to introduce themselves.",
       );
     });
 
@@ -99,7 +184,9 @@ describe("GeminiStreamHandler", () => {
       const mockAudioChunk = new Uint8Array([1, 2, 3]);
       await handler.processUserAudio(mockAudioChunk);
 
-      expect(mockAudioConverter.binaryToBase64).toHaveBeenCalledWith(mockAudioChunk);
+      expect(mockAudioConverter.binaryToBase64).toHaveBeenCalledWith(
+        mockAudioChunk,
+      );
       expect(mockGeminiClient.sendRealtimeInput).toHaveBeenCalledWith({
         audio: {
           data: "base64-data",

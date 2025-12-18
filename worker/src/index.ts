@@ -31,11 +31,31 @@ export default {
       // In dev mode, allow a raw, unauthenticated connection for testing.
       if (env.DEV_MODE === "true" && url.pathname === "/debug/live-audio") {
         console.log("Activating debug route: /debug/live-audio");
+
+        // Read context from query params and pass as headers
+        const contextHeaders = new Headers(request.headers);
+        contextHeaders.set(
+          "X-Debug-Job-Description",
+          url.searchParams.get("jobDescription") ?? "",
+        );
+        contextHeaders.set(
+          "X-Debug-Resume",
+          url.searchParams.get("resume") ?? "",
+        );
+        contextHeaders.set(
+          "X-Debug-Persona",
+          url.searchParams.get("persona") ?? "professional interviewer",
+        );
+
+        const modifiedRequest = new Request(request, {
+          headers: contextHeaders,
+        });
+
         // Use a new, temporary (non-named) Durable Object for this session
         const id = env.GEMINI_SESSION.newUniqueId();
         const stub = env.GEMINI_SESSION.get(id);
-        // Forward the request without any user context
-        return stub.fetch(request);
+        // Forward the request with context headers
+        return stub.fetch(modifiedRequest);
       }
       // --- END DEBUG ROUTE ---
 

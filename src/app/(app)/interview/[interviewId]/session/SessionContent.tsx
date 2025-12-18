@@ -79,10 +79,25 @@ export function SessionContent({ interviewId }: SessionContentProps) {
     },
   });
 
+  // Group transcript entries by speaker
+  const groupedTranscript = transcript.reduce(
+    (acc, curr) => {
+      const last = acc[acc.length - 1];
+      if (last && last.speaker === curr.speaker) {
+        return [
+          ...acc.slice(0, -1),
+          { ...last, text: last.text + "\n" + curr.text },
+        ];
+      }
+      return [...acc, { ...curr }];
+    },
+    [] as typeof transcript,
+  );
+
   // Auto-scroll to latest transcript
   useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [transcript]);
+  }, [groupedTranscript.length, transcript]); // Scroll on new groups or text updates
 
   // Format elapsed time as MM:SS
   const formatTime = (seconds: number): string => {
@@ -120,7 +135,7 @@ export function SessionContent({ interviewId }: SessionContentProps) {
             </div>
           )}
           <div className="mt-4 text-sm text-gray-500">
-            Current interview status: {interview?.status || "Unknown"}
+            Current interview status: {interview?.status ?? "Unknown"}
           </div>
         </div>
       </div>
@@ -191,15 +206,15 @@ export function SessionContent({ interviewId }: SessionContentProps) {
       {/* Transcript area */}
       <div className="flex-1 overflow-y-auto bg-gray-50 p-6">
         <div className="mx-auto max-w-3xl space-y-4">
-          {transcript.length === 0 ? (
+          {groupedTranscript.length === 0 ? (
             <div className="text-center text-gray-500">
               <p>Waiting for the interview to begin...</p>
               <p className="mt-2 text-sm">
-                Current interview status: {interview?.status || "Unknown"}
+                Current interview status: {interview?.status ?? "Unknown"}
               </p>
             </div>
           ) : (
-            transcript.map((entry, index) => (
+            groupedTranscript.map((entry, index) => (
               <div
                 key={index}
                 className={`flex ${entry.speaker === "USER" ? "justify-end" : "justify-start"}`}
@@ -214,7 +229,9 @@ export function SessionContent({ interviewId }: SessionContentProps) {
                   <div className="mb-1 text-xs font-semibold">
                     {entry.speaker === "AI" ? "AI Interviewer" : "You"}
                   </div>
-                  <div className="text-sm">{entry.text}</div>
+                  <div className="whitespace-pre-wrap text-sm">
+                    {entry.text}
+                  </div>
                 </div>
               </div>
             ))

@@ -29,12 +29,14 @@ export function createTranscriptUpdate(
   speaker: string,
   text: string,
   isFinal: boolean,
+  turnComplete: boolean = false,
 ): preppal.ServerToClientMessage {
   return preppal.ServerToClientMessage.create({
     transcriptUpdate: {
       speaker,
       text,
       isFinal,
+      turnComplete,
     },
   });
 }

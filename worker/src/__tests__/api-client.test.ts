@@ -27,7 +27,8 @@ describe("ApiClient", () => {
         ok: true,
         status: 200,
         statusText: "OK",
-        text: vi.fn().mockResolvedValue(""),
+        headers: new Map([["content-type", "application/json"]]),
+        text: vi.fn().mockResolvedValue(JSON.stringify({ result: { data: {} } })),
       });
 
       await apiClient.updateStatus(interviewId, status);
@@ -42,8 +43,7 @@ describe("ApiClient", () => {
             Authorization: `Bearer ${mockWorkerSecret}`,
           },
           body: JSON.stringify({
-            interviewId,
-            status,
+            json: { interviewId, status },
           }),
         },
       );
@@ -57,7 +57,8 @@ describe("ApiClient", () => {
         ok: true,
         status: 200,
         statusText: "OK",
-        text: vi.fn().mockResolvedValue(""),
+        headers: new Map([["content-type", "application/json"]]),
+        text: vi.fn().mockResolvedValue(JSON.stringify({ result: { data: {} } })),
       });
 
       await apiClient.updateStatus(interviewId, status);
@@ -73,13 +74,14 @@ describe("ApiClient", () => {
         ok: false,
         status: 500,
         statusText: "Internal Server Error",
+        headers: new Map([["content-type", "application/json"]]),
         text: vi.fn().mockResolvedValue("Database connection failed"),
       });
 
       await expect(
         apiClient.updateStatus("interview-123", "IN_PROGRESS"),
       ).rejects.toThrow(
-        "Failed to update status: 500 Internal Server Error - Database connection failed",
+        "HTTP error calling updateStatus: 500 Internal Server Error - Database connection failed",
       );
     });
   });
@@ -105,7 +107,7 @@ describe("ApiClient", () => {
         ok: true,
         status: 200,
         statusText: "OK",
-        text: vi.fn().mockResolvedValue(""),
+        json: vi.fn().mockResolvedValue({ result: { data: {} } }),
       });
 
       await apiClient.submitTranscript(interviewId, transcript, endedAt);
@@ -120,9 +122,7 @@ describe("ApiClient", () => {
             Authorization: `Bearer ${mockWorkerSecret}`,
           },
           body: JSON.stringify({
-            interviewId,
-            transcript,
-            endedAt,
+            json: { interviewId, transcript, endedAt },
           }),
         },
       );
@@ -143,12 +143,12 @@ describe("ApiClient", () => {
         ok: true,
         status: 200,
         statusText: "OK",
-        text: vi.fn().mockResolvedValue(""),
+        json: vi.fn().mockResolvedValue({ result: { data: {} } }),
       });
 
       await apiClient.submitTranscript(interviewId, transcript, endedAt);
 
-      const callArgs = mockFetch.mock.calls?.[0]?.[1]; // Added optional chaining
+      const callArgs = mockFetch.mock.calls?.[0]?.[1];
       expect(callArgs?.headers["Authorization"]).toBe(
         `Bearer ${mockWorkerSecret}`,
       );
@@ -174,7 +174,132 @@ describe("ApiClient", () => {
       await expect(
         apiClient.submitTranscript("interview-123", transcript, endedAt),
       ).rejects.toThrow(
-        "Failed to submit transcript: 404 Not Found - Interview not found",
+        "HTTP error calling submitTranscript: 404 Not Found - Interview not found",
+      );
+    });
+  });
+
+  describe("getContext", () => {
+    it("should send GET request to fetch interview context", async () => {
+      const interviewId = "interview-123";
+      const mockContext = {
+        jobDescription: "Software Engineer at Acme Corp",
+        resume: "5 years of experience in TypeScript",
+        persona: "Senior Technical Interviewer",
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue([
+          {
+            result: {
+              data: mockContext,
+            },
+          },
+        ]),
+      });
+
+      const result = await apiClient.getContext(interviewId);
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining(
+          "https://api.example.com/api/trpc/interview.getContext",
+        ),
+        expect.objectContaining({
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${mockWorkerSecret}`,
+          },
+        }),
+      );
+    });
+
+    it("should return context with persona field", async () => {
+      const interviewId = "interview-123";
+      const mockContext = {
+        jobDescription: "Frontend Developer",
+        resume: "React expert",
+        persona: "HR Manager",
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue([
+          {
+            result: {
+              data: mockContext,
+            },
+          },
+        ]),
+      });
+
+      const result = await apiClient.getContext(interviewId);
+
+      expect(result).toEqual(mockContext);
+      expect(result.persona).toBe("HR Manager");
+      expect(result.jobDescription).toBe("Frontend Developer");
+      expect(result.resume).toBe("React expert");
+    });
+
+    it("should include worker secret in request headers", async () => {
+      const mockContext = {
+        jobDescription: "",
+        resume: "",
+        persona: "professional interviewer",
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue([
+          {
+            result: {
+              data: mockContext,
+            },
+          },
+        ]),
+      });
+
+      await apiClient.getContext("interview-123");
+
+      const callArgs = mockFetch.mock.calls?.[0]?.[1];
+      expect(callArgs?.headers["Authorization"]).toBe(
+        `Bearer ${mockWorkerSecret}`,
+      );
+    });
+
+    it("should throw error when API request fails", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        text: vi.fn().mockResolvedValue("Interview not found"),
+      });
+
+      await expect(apiClient.getContext("interview-123")).rejects.toThrow(
+        "HTTP 404: Interview not found",
+      );
+    });
+
+    it("should throw error when tRPC returns error", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue([
+          {
+            error: {
+              json: {
+                message: "Interview not found",
+              },
+            },
+          },
+        ]),
+      });
+
+      await expect(apiClient.getContext("interview-123")).rejects.toThrow(
+        "tRPC error: Interview not found",
       );
     });
   });

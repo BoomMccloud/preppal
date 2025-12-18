@@ -65,7 +65,14 @@ export class GeminiMessageHandler {
       const text = message.serverContent.outputTranscription.text;
       this.transcriptManager.addAITranscript(text);
 
-      const transcriptMsg = createTranscriptUpdate("AI", text, true);
+      const turnComplete = message.serverContent.turnComplete ?? false;
+
+      const transcriptMsg = createTranscriptUpdate(
+        "AI",
+        text,
+        true,
+        turnComplete,
+      );
       result.aiTranscript = {
         text,
         message: encodeServerMessage(transcriptMsg),

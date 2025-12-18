@@ -16,6 +16,7 @@ import type {
   InterviewContext,
   TranscriptEntry,
 } from "../interfaces";
+import { buildSystemPrompt } from "../utils/build-system-prompt";
 
 export interface StreamCallbacks {
   onAudio: (data: Uint8Array) => void;
@@ -36,14 +37,14 @@ export class GeminiStreamHandler {
 
   constructor(
     private apiKey: string,
-    private callbacks: StreamCallbacks
+    private callbacks: StreamCallbacks,
   ) {
     this.geminiClient = new GeminiClient(apiKey);
     this.transcriptManager = new TranscriptManager();
     this.audioConverter = new AudioConverter();
     this.messageHandler = new GeminiMessageHandler(
       this.transcriptManager,
-      this.audioConverter
+      this.audioConverter,
     );
   }
 
@@ -51,12 +52,7 @@ export class GeminiStreamHandler {
    * Connects to the Gemini Live API with the provided context
    */
   async connect(context: InterviewContext): Promise<void> {
-    const systemInstruction = `You are a professional interviewer. Your goal is to conduct a behavioral interview.
-Context:
-Job Description: ${context.jobDescription || "Not provided"}
-Candidate Resume: ${context.resume || "Not provided"}
-
-Start by introducing yourself and asking the candidate to introduce themselves.`;
+    const systemInstruction = buildSystemPrompt(context);
 
     await this.geminiClient.connect({
       model: GEMINI_MODEL,
@@ -93,7 +89,7 @@ Start by introducing yourself and asking the candidate to introduce themselves.`
     if (!chunk || chunk.length === 0) return;
 
     this.audioChunksReceivedCount++;
-    
+
     // Log initial activity
     if (this.audioChunksReceivedCount === 1) {
       console.log(`[GeminiStreamHandler] Sending first audio chunk to Gemini`);
