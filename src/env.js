@@ -17,7 +17,6 @@ export const env = createEnv({
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
-    WSS_PORT: z.string().optional().default("3001"),
     JWT_SECRET: z.string().min(32),
     WORKER_SHARED_SECRET: z.string().min(32),
   },
@@ -42,7 +41,6 @@ export const env = createEnv({
     AUTH_GOOGLE_SECRET: process.env.AUTH_GOOGLE_SECRET,
     DATABASE_URL: process.env.DATABASE_URL,
     NODE_ENV: process.env.NODE_ENV,
-    WSS_PORT: process.env.WSS_PORT,
     JWT_SECRET: process.env.JWT_SECRET,
     WORKER_SHARED_SECRET: process.env.WORKER_SHARED_SECRET,
     NEXT_PUBLIC_WORKER_URL: process.env.NEXT_PUBLIC_WORKER_URL,
