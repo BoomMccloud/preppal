@@ -38,6 +38,15 @@
     "**/*.js",
     ".next/types/**/*.ts"
   ],
-  "exclude": ["node_modules", "src/lib/interview_pb.js", "src/lib/interview_pb.d.ts"],
+  "exclude": [
+    "node_modules",
+    "src/lib/interview_pb.js",
+    "src/lib/interview_pb.d.ts",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/__tests__/**",
+    "worker/**"
+  ],
   "types": ["testing-library__jest-dom", "vitest/globals", "@playwright/test"]
 }
