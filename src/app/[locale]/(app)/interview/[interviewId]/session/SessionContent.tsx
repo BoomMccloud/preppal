@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "~/i18n/navigation";
+import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { useInterviewSocket } from "./useInterviewSocket";
 import { StatusIndicator } from "~/app/_components/StatusIndicator";
@@ -13,6 +14,8 @@ interface SessionContentProps {
 
 export function SessionContent({ interviewId }: SessionContentProps) {
   const router = useRouter();
+  const t = useTranslations("interview.session");
+  const tCommon = useTranslations("common");
   const transcriptEndRef = useRef<HTMLDivElement>(null);
   const [debugInfo, setDebugInfo] = useState<string>("");
   const [shouldPoll, setShouldPoll] = useState(true);
@@ -96,7 +99,7 @@ export function SessionContent({ interviewId }: SessionContentProps) {
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <div className="text-lg">Loading...</div>
+        <div className="text-lg">{tCommon("loading")}</div>
       </div>
     );
   }
@@ -106,13 +109,13 @@ export function SessionContent({ interviewId }: SessionContentProps) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="text-lg">
-          <div>Connecting...</div>
+          <div>{t("connecting")}</div>
           <div className="mt-4">
             <button
               onClick={handleCheckStatus}
               className="rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
             >
-              Check Interview Status
+              {t("checkInterviewStatus")}
             </button>
           </div>
           {debugInfo && (
@@ -121,7 +124,7 @@ export function SessionContent({ interviewId }: SessionContentProps) {
             </div>
           )}
           <div className="mt-4 text-sm text-gray-500">
-            Current interview status: {interview?.status ?? "Unknown"}
+            {t("currentStatus", { status: interview?.status ?? "Unknown" })}
           </div>
         </div>
       </div>
@@ -133,15 +136,15 @@ export function SessionContent({ interviewId }: SessionContentProps) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="max-w-md space-y-4 text-center">
-          <h1 className="text-2xl font-bold text-red-600">Connection Error</h1>
-          <p className="text-gray-700">
-            {error ?? "Connection lost. Please return to the dashboard."}
-          </p>
+          <h1 className="text-2xl font-bold text-red-600">
+            {t("connectionError")}
+          </h1>
+          <p className="text-gray-700">{error ?? t("connectionLost")}</p>
           <button
             onClick={() => router.push("/dashboard")}
             className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
           >
-            Return to Dashboard
+            {t("returnToDashboard")}
           </button>
         </div>
       </div>
@@ -154,13 +157,13 @@ export function SessionContent({ interviewId }: SessionContentProps) {
       {/* Header with timer */}
       <div className="border-b bg-white px-6 py-4 shadow-sm">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold">Interview Session</h1>
+          <h1 className="text-xl font-semibold">{t("title")}</h1>
           <div className="flex items-center gap-4">
             <button
               onClick={handleCheckStatus}
               className="rounded bg-blue-500 px-3 py-1 text-sm text-white hover:bg-blue-600"
             >
-              Check Status
+              {t("checkStatus")}
             </button>
             <div className="flex flex-col items-end gap-1">
               <div className="text-xs text-gray-600">
@@ -194,7 +197,7 @@ export function SessionContent({ interviewId }: SessionContentProps) {
         {/* AI Avatar - Fixed at top */}
         <div className="shrink-0 p-6 pb-0">
           <div className="mx-auto max-w-4xl">
-            <AIAvatar status={isAiSpeaking ? "Speaking..." : "Listening..."} />
+            <AIAvatar status={isAiSpeaking ? t("speaking") : t("listening")} />
           </div>
         </div>
 
@@ -203,9 +206,9 @@ export function SessionContent({ interviewId }: SessionContentProps) {
           <div className="mx-auto max-w-3xl space-y-4">
             {transcript.length === 0 ? (
               <div className="text-center text-gray-500">
-                <p>Waiting for the interview to begin...</p>
+                <p>{t("waitingToBegin")}</p>
                 <p className="mt-2 text-sm">
-                  Current interview status: {interview?.status ?? "Unknown"}
+                  {t("currentStatus", { status: interview?.status ?? "Unknown" })}
                 </p>
               </div>
             ) : (
@@ -222,7 +225,7 @@ export function SessionContent({ interviewId }: SessionContentProps) {
                     }`}
                   >
                     <div className="mb-1 text-xs font-semibold">
-                      {entry.speaker === "AI" ? "AI Interviewer" : "You"}
+                      {entry.speaker === "AI" ? t("aiInterviewer") : t("you")}
                     </div>
                     <div className="text-sm whitespace-pre-wrap">
                       {entry.text}
@@ -244,7 +247,7 @@ export function SessionContent({ interviewId }: SessionContentProps) {
             disabled={state === "ending"}
             className="rounded-full bg-red-600 px-8 py-3 font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {state === "ending" ? "Ending..." : "End Interview"}
+            {state === "ending" ? t("ending") : t("endInterview")}
           </button>
         </div>
       </div>

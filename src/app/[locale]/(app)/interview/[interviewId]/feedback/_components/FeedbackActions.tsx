@@ -1,25 +1,30 @@
+"use client";
+
 import { Link } from "~/i18n/navigation";
+import { useTranslations } from "next-intl";
 
 export default function FeedbackActions() {
+  const t = useTranslations("interview.feedback");
+
   return (
     <div className="mt-6 flex justify-end space-x-4">
       <Link
         href="/dashboard"
         className="text-secondary-text hover:text-primary-text px-6 py-3 transition-colors"
       >
-        Back to Dashboard
+        {t("backToDashboard")}
       </Link>
       <button
         className="text-secondary-text hover:text-primary-text px-6 py-3 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
         disabled
       >
-        Download Report
+        {t("downloadReport")}
       </button>
       <Link
         href="/create-interview"
         className="bg-accent hover:bg-accent/80 text-primary rounded-md px-6 py-3 transition-colors"
       >
-        Schedule Another Interview
+        {t("scheduleAnother")}
       </Link>
     </div>
   );

@@ -1,16 +1,19 @@
 import { auth } from "~/server/auth";
-import { redirect } from "~/i18n/navigation";
+import { redirect } from "next/navigation";
 import Navigation from "../../_components/Navigation";
 
 export default async function AppLayout({
   children,
+  params,
 }: {
   children: React.ReactNode;
+  params: Promise<{ locale: string }>;
 }) {
   const session = await auth();
+  const { locale } = await params;
 
   if (!session) {
-    redirect("/signin");
+    redirect(`/${locale}/signin`);
   }
 
   return (

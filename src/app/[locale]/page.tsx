@@ -23,8 +23,8 @@ export default async function Home() {
 
           <div className="flex flex-col items-center justify-center gap-4">
             <p className="text-primary-text text-center text-2xl">
-              {session && (
-                <span>{t("welcomeBack", { name: session.user?.name })}</span>
+              {session && session.user?.name && (
+                <span>{t("welcomeBack", { name: session.user.name })}</span>
               )}
             </p>
 

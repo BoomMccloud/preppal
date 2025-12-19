@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import FeedbackCard from "./_components/FeedbackCard";
 
 interface FeedbackTabsProps {
@@ -9,21 +10,23 @@ interface FeedbackTabsProps {
   presentation: string;
 }
 
-const tabs = [
-  { id: "content", label: "Content & Structure" },
-  { id: "communication", label: "Communication & Delivery" },
-  { id: "presentation", label: "Presentation" },
-] as const;
+type TabId = "content" | "communication" | "presentation";
 
 export default function FeedbackTabs({
   contentAndStructure,
   communicationAndDelivery,
   presentation,
 }: FeedbackTabsProps) {
-  const [activeTab, setActiveTab] =
-    useState<(typeof tabs)[number]["id"]>("content");
+  const t = useTranslations("interview.feedback");
+  const [activeTab, setActiveTab] = useState<TabId>("content");
 
-  const getTabContent = (tabId: typeof activeTab) => {
+  const tabs: { id: TabId; labelKey: string }[] = [
+    { id: "content", labelKey: "contentAndStructure" },
+    { id: "communication", labelKey: "communicationAndDelivery" },
+    { id: "presentation", labelKey: "presentation" },
+  ];
+
+  const getTabContent = (tabId: TabId) => {
     switch (tabId) {
       case "content":
         return contentAndStructure;
@@ -37,7 +40,7 @@ export default function FeedbackTabs({
   };
 
   return (
-    <FeedbackCard title="Detailed Analysis">
+    <FeedbackCard title={t("detailedAnalysis")}>
       {/* Tab Navigation */}
       <div className="mb-6 flex space-x-1">
         {tabs.map((tab) => (
@@ -50,7 +53,7 @@ export default function FeedbackTabs({
                 : "text-secondary-text hover:text-primary-text hover:bg-accent/10 hover:border-accent/20 border-transparent"
             }`}
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "~/i18n/navigation";
+import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import FeedbackCard from "./FeedbackCard";
 
@@ -11,6 +12,7 @@ interface FeedbackPollingProps {
 
 export default function FeedbackPolling({ interviewId }: FeedbackPollingProps) {
   const router = useRouter();
+  const t = useTranslations("interview.feedback");
   const [shouldPoll, setShouldPoll] = useState(true);
 
   const { data, error } = api.interview.getById.useQuery(
@@ -43,10 +45,8 @@ export default function FeedbackPolling({ interviewId }: FeedbackPollingProps) {
     console.error("[FeedbackPolling] Error fetching feedback:", error);
     return (
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        <FeedbackCard title="Error" className="text-center">
-          <p className="text-secondary-text text-lg">
-            Could not retrieve feedback. Please refresh the page to try again.
-          </p>
+        <FeedbackCard title={t("errorTitle")} className="text-center">
+          <p className="text-secondary-text text-lg">{t("errorMessage")}</p>
         </FeedbackCard>
       </div>
     );
@@ -55,14 +55,14 @@ export default function FeedbackPolling({ interviewId }: FeedbackPollingProps) {
   // Show loading state
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-      <FeedbackCard title="Processing Feedback" className="text-center">
+      <FeedbackCard title={t("processingTitle")} className="text-center">
         <div className="flex flex-col items-center space-y-4">
           <div className="border-accent h-12 w-12 animate-spin rounded-full border-b-2"></div>
           <p className="text-secondary-text text-lg">
-            Your feedback is being generated. This may take a minute...
+            {t("processingMessage")}
           </p>
           <p className="text-secondary-text text-sm">
-            We&apos;re analyzing your interview performance
+            {t("analyzingPerformance")}
           </p>
         </div>
       </FeedbackCard>

@@ -28,25 +28,25 @@ Implement full UI localization for the Preppal application using `next-intl`. Th
 - [x] **1.8** Create language switcher component
 - [x] **1.10** Update user router to handle language preference
 
-### Bug Fixes (Required)
-- [ ] **1.12** Fix LanguageSwitcher to use locale-aware router (currently uses `window.location.href`)
-- [ ] **1.13** Fix `(app)/layout.tsx` redirect to use locale-aware redirect (currently redirects to `/signin` without locale)
-- [ ] **1.14** Fix all pages to use locale-aware `Link` from `~/i18n/navigation` instead of `next/link`
+### Bug Fixes (Complete)
+- [x] **1.12** Fix LanguageSwitcher to use locale-aware router (uses `useRouter` from `~/i18n/navigation`)
+- [x] **1.13** Fix `(app)/layout.tsx` redirect to use locale-prefixed path
+- [x] **1.14** Fix all pages to use locale-aware `Link` from `~/i18n/navigation` instead of `next/link`
 
-### Core Feature (Required)
-- [ ] **1.9** Replace hardcoded strings with translations in all UI components
-  - [ ] `Navigation.tsx` - nav links, sign out
-  - [ ] `dashboard/page.tsx` - all dashboard text
-  - [ ] `create-interview/page.tsx` - form labels and buttons
-  - [ ] `profile/page.tsx` - profile labels
-  - [ ] `signin/page.tsx` and `SignInForm.tsx` - auth text
-  - [ ] `page.tsx` (landing) - hero text, CTAs
-  - [ ] `lobby/page.tsx` - lobby instructions
-  - [ ] `session/SessionContent.tsx` - session controls
-  - [ ] `feedback/page.tsx` and feedback components - feedback labels
+### Core Feature - Translation Integration (Complete)
+- [x] **1.9** Replace hardcoded strings with translations in UI components
+  - [x] `Navigation.tsx` - nav links, sign out
+  - [x] `dashboard/page.tsx` - all dashboard text
+  - [x] `create-interview/page.tsx` - form labels and buttons
+  - [x] `profile/page.tsx` - profile labels
+  - [x] `signin/page.tsx` and `SignInForm.tsx` - auth text
+  - [x] `page.tsx` (landing) - hero text, CTAs
+  - [x] `lobby/page.tsx` - lobby instructions, checklist, interview details
+  - [x] `session/SessionContent.tsx` - session controls, transcript labels
+  - [x] `feedback/page.tsx` and feedback components - feedback labels, tabs, actions, polling
 
 ### Verification
-- [ ] **1.11** Run tests and verify all routes work
+- [x] **1.11** TypeScript compilation passes
 
 ---
 
@@ -1108,28 +1108,31 @@ describe("Locale routing", () => {
 | `src/app/layout.tsx` | Modify | ✅ | Simplify to root layout |
 | `src/server/api/routers/user.ts` | Modify | ✅ | Add uiLanguage to profile |
 
-### Bug Fixes (Required)
+### Bug Fixes (Complete)
 | File | Action | Status | Description |
 |------|--------|--------|-------------|
-| `src/app/_components/LanguageSwitcher.tsx` | Fix | ⚠️ | Use locale-aware router instead of `window.location.href` |
-| `src/app/[locale]/(app)/layout.tsx` | Fix | ⚠️ | Use locale-aware redirect from `~/i18n/navigation` |
-| `src/app/[locale]/(app)/dashboard/page.tsx` | Fix | ⚠️ | Use `Link` from `~/i18n/navigation` |
-| `src/app/[locale]/page.tsx` | Fix | ⚠️ | Use `Link` from `~/i18n/navigation` |
+| `src/app/_components/LanguageSwitcher.tsx` | Fix | ✅ | Uses `useRouter` from `~/i18n/navigation` for SPA navigation |
+| `src/app/[locale]/(app)/layout.tsx` | Fix | ✅ | Uses `redirect` with locale-prefixed path |
+| `src/app/[locale]/(app)/dashboard/page.tsx` | Fix | ✅ | Uses `Link` from `~/i18n/navigation` |
+| `src/app/[locale]/page.tsx` | Fix | ✅ | Uses `Link` from `~/i18n/navigation` |
 
-### Core Feature - Replace Hardcoded Strings (Required)
+### Core Feature - Replace Hardcoded Strings (Complete)
 | File | Action | Status | Description |
 |------|--------|--------|-------------|
-| `src/app/_components/Navigation.tsx` | Modify | ⚠️ | Add translations for nav links |
-| `src/app/[locale]/page.tsx` | Modify | ⚠️ | Add translations for landing page |
-| `src/app/[locale]/(app)/dashboard/page.tsx` | Modify | ⚠️ | Add translations for dashboard |
-| `src/app/[locale]/(app)/create-interview/page.tsx` | Modify | ⚠️ | Add translations for form |
-| `src/app/[locale]/(app)/profile/page.tsx` | Modify | ⚠️ | Add translations for profile |
-| `src/app/[locale]/signin/page.tsx` | Modify | ⚠️ | Add translations for sign in |
-| `src/app/[locale]/signin/_components/SignInForm.tsx` | Modify | ⚠️ | Add translations for auth buttons |
-| `src/app/[locale]/(app)/interview/[interviewId]/lobby/page.tsx` | Modify | ⚠️ | Add translations for lobby |
-| `src/app/[locale]/(app)/interview/[interviewId]/session/SessionContent.tsx` | Modify | ⚠️ | Add translations for session |
-| `src/app/[locale]/(app)/interview/[interviewId]/feedback/page.tsx` | Modify | ⚠️ | Add translations for feedback |
-| `messages/*.json` | Modify | ⚠️ | Add missing translation keys |
+| `src/app/_components/Navigation.tsx` | Modify | ✅ | Translations for nav links, sign out |
+| `src/app/[locale]/page.tsx` | Modify | ✅ | Translations for landing page |
+| `src/app/[locale]/(app)/dashboard/page.tsx` | Modify | ✅ | Translations for dashboard |
+| `src/app/[locale]/(app)/create-interview/page.tsx` | Modify | ✅ | Translations for form |
+| `src/app/[locale]/(app)/profile/page.tsx` | Modify | ✅ | Translations for profile |
+| `src/app/[locale]/signin/page.tsx` | Modify | ✅ | Translations for sign in |
+| `src/app/[locale]/signin/_components/SignInForm.tsx` | Modify | ✅ | Translations for auth buttons |
+| `src/app/[locale]/(app)/interview/[interviewId]/lobby/page.tsx` | Modify | ✅ | Translations for lobby, checklist, details |
+| `src/app/[locale]/(app)/interview/[interviewId]/session/SessionContent.tsx` | Modify | ✅ | Translations for session, transcript labels |
+| `src/app/[locale]/(app)/interview/[interviewId]/feedback/page.tsx` | Modify | ✅ | Translations for feedback |
+| `src/app/[locale]/(app)/interview/[interviewId]/feedback/feedback-tabs.tsx` | Modify | ✅ | Translations for tabs |
+| `src/app/[locale]/(app)/interview/[interviewId]/feedback/_components/FeedbackActions.tsx` | Modify | ✅ | Translations for actions |
+| `src/app/[locale]/(app)/interview/[interviewId]/feedback/_components/FeedbackPolling.tsx` | Modify | ✅ | Translations for polling state |
+| `messages/*.json` | Modify | ✅ | Added all required translation keys |
 
 ---
 

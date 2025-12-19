@@ -2,6 +2,7 @@
 
 import { signIn, getProviders } from "next-auth/react";
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 
 type Provider = {
   id: string;
@@ -10,6 +11,10 @@ type Provider = {
 };
 
 export default function SignInForm() {
+  const t = useTranslations("auth");
+  const tCommon = useTranslations("common");
+  const tProfile = useTranslations("profile");
+
   const [providers, setProviders] = useState<Record<string, Provider> | null>(
     null,
   );
@@ -56,13 +61,13 @@ export default function SignInForm() {
 
       if (result?.error) {
         console.error("Sign in failed:", result.error);
-        alert("Sign in failed. Please check your credentials.");
+        alert(t("signInFailed"));
       } else if (result?.ok) {
         window.location.href = "/dashboard";
       }
     } catch (error) {
       console.error("Error signing in:", error);
-      alert("An error occurred during sign in.");
+      alert(t("signInError"));
     } finally {
       setIsSigningIn(false);
     }
@@ -71,7 +76,7 @@ export default function SignInForm() {
   if (isLoading) {
     return (
       <div className="text-secondary-text text-center">
-        <p>Loading sign-in options...</p>
+        <p>{tCommon("loading")}</p>
       </div>
     );
   }
@@ -85,7 +90,7 @@ export default function SignInForm() {
               htmlFor="email"
               className="text-secondary-text mb-2 block text-sm font-medium"
             >
-              Email
+              {tProfile("email")}
             </label>
             <input
               id="email"
@@ -102,7 +107,7 @@ export default function SignInForm() {
               htmlFor="password"
               className="text-secondary-text mb-2 block text-sm font-medium"
             >
-              Password
+              {t("password")}
             </label>
             <input
               id="password"
@@ -120,19 +125,19 @@ export default function SignInForm() {
               disabled={isSigningIn}
               className="bg-accent hover:bg-accent/80 disabled:bg-accent/50 text-primary flex-1 rounded-md px-4 py-3 font-medium transition-colors"
             >
-              {isSigningIn ? "Signing in..." : "Sign In"}
+              {isSigningIn ? t("signingIn") : t("signIn")}
             </button>
             <button
               type="button"
               onClick={() => setShowCredentialsForm(false)}
               className="border-secondary-text/20 text-secondary-text hover:bg-secondary/50 rounded-md border px-4 py-3 transition-colors"
             >
-              Back
+              {tCommon("back")}
             </button>
           </div>
         </form>
         <div className="text-secondary-text text-center text-sm">
-          <p>Development credentials:</p>
+          <p>{t("devCredentials")}:</p>
           <p>dev1@preppal.com / dev123</p>
           <p>dev2@preppal.com / dev123</p>
           <p>dev3@preppal.com / dev123</p>
@@ -156,14 +161,14 @@ export default function SignInForm() {
             }}
             className="bg-accent hover:bg-accent/80 text-primary w-full rounded-md px-4 py-3 font-medium transition-colors"
           >
-            Sign in with {provider.name}
+            {t("signInWith", { provider: provider.name })}
           </button>
         ))}
 
       {(!providers || Object.keys(providers).length === 0) && (
         <div className="text-secondary-text text-center">
-          <p className="mb-4">No authentication providers available</p>
-          <p className="text-sm">Please check your configuration</p>
+          <p className="mb-4">{t("noProviders")}</p>
+          <p className="text-sm">{t("checkConfig")}</p>
         </div>
       )}
     </div>
