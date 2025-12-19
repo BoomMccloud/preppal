@@ -53,6 +53,10 @@ describe("GeminiSession.handleEndRequest - P0 Critical Tests", () => {
       jobDescription: "test jd",
       resume: "test resume",
     };
+    (session as any).streamHandler = {
+      disconnect: vi.fn(),
+      getTranscript: vi.fn().mockReturnValue([]),
+    };
   });
 
   it("should close WebSocket immediately and then process background tasks", async () => {

@@ -353,7 +353,6 @@ describe("interview.getById", () => {
     expect(db.interview.findUnique).toHaveBeenCalledWith({
       where: {
         id: "interview-with-feedback-id",
-        userId: "test-user-id",
       },
       include: {
         feedback: true,
@@ -410,7 +409,6 @@ describe("interview.getById", () => {
     expect(db.interview.findUnique).toHaveBeenCalledWith({
       where: {
         id: "interview-no-feedback-id",
-        userId: "test-user-id",
       },
       include: {
         feedback: true,
@@ -546,11 +544,10 @@ describe("interview.getFeedback", () => {
       interviewId: "interview-with-feedback-id",
     });
 
-    expect(result).toEqual(mockInterviewWithFeedback);
+    expect(result).toEqual({ ...mockInterviewWithFeedback, isGuest: false });
     expect(db.interview.findUnique).toHaveBeenCalledWith({
       where: {
         id: "interview-with-feedback-id",
-        userId: "test-user-id",
       },
       include: {
         feedback: true,
@@ -602,29 +599,6 @@ describe("interview.getFeedback", () => {
         interviewId: "not-found-id",
       }),
     ).rejects.toThrow("Interview not found");
-  });
-
-  it("should return mock data for demo interviews when the database is not available", async () => {
-    const { db } = await import("~/server/db");
-    const { createCaller } = await import("~/server/api/root");
-
-    vi.mocked(db.interview.findUnique).mockRejectedValue(
-      new Error("DB connection failed"),
-    );
-
-    const caller = createCaller({
-      db,
-      session: mockSession,
-      headers: new Headers(),
-    });
-
-    const result = await caller.interview.getFeedback({
-      interviewId: "demo-123",
-    });
-
-    expect(result?.id).toBe("demo-123");
-    expect(result?.feedback).toBeDefined();
-    expect(result?.feedback?.summary).toBeDefined();
   });
 });
 
@@ -762,7 +736,6 @@ describe("interview.generateWorkerToken", () => {
     expect(db.interview.findUnique).toHaveBeenCalledWith({
       where: {
         id: "some-other-users-interview",
-        userId: "test-user-id",
       },
     });
   });
@@ -1086,7 +1059,7 @@ describe("interview.updateStatus", () => {
   });
 });
 
-describe("interview.submitTranscript", () => {
+describe("interviewWorker.submitTranscript", () => {
   const mockTranscript = [
     {
       speaker: "USER" as const,
@@ -1113,7 +1086,7 @@ describe("interview.submitTranscript", () => {
     const caller = createCaller({ db, session: null, headers: new Headers() });
 
     await expect(
-      caller.interview.submitTranscript({
+      caller.interviewWorker.submitTranscript({
         interviewId: "any-interview-id",
         transcript: mockTranscript,
         endedAt: "2024-01-01T10:05:00Z",
@@ -1131,7 +1104,7 @@ describe("interview.submitTranscript", () => {
     const caller = createCaller({ db, session: null, headers });
 
     await expect(
-      caller.interview.submitTranscript({
+      caller.interviewWorker.submitTranscript({
         interviewId: "any-interview-id",
         transcript: mockTranscript,
         endedAt: "2024-01-01T10:05:00Z",
@@ -1152,7 +1125,7 @@ describe("interview.submitTranscript", () => {
 
     const caller = createCaller({ db, session: null, headers });
 
-    const result = await caller.interview.submitTranscript({
+    const result = await caller.interviewWorker.submitTranscript({
       interviewId: "target-interview-id",
       transcript: mockTranscript,
       endedAt: "2024-01-01T10:05:00Z",
@@ -1177,7 +1150,7 @@ describe("interview.submitTranscript", () => {
     const caller = createCaller({ db, session: null, headers });
 
     // First call
-    await caller.interview.submitTranscript({
+    await caller.interviewWorker.submitTranscript({
       interviewId: "target-interview-id",
       transcript: mockTranscript,
       endedAt: "2024-01-01T10:05:00Z",
@@ -1185,7 +1158,7 @@ describe("interview.submitTranscript", () => {
 
     // Second call with same data should not throw
     await expect(
-      caller.interview.submitTranscript({
+      caller.interviewWorker.submitTranscript({
         interviewId: "target-interview-id",
         transcript: mockTranscript,
         endedAt: "2024-01-01T10:05:00Z",
@@ -1227,9 +1200,7 @@ describe("interview.submitTranscript", () => {
         createdAt: new Date(),
       } as any);
 
-      const result = await (caller.interview as any).submitFeedback(
-        mockFeedback,
-      );
+      const result = await caller.interviewWorker.submitFeedback(mockFeedback);
 
       expect(result).toBeDefined();
       expect(db.interviewFeedback.upsert).toHaveBeenCalledWith({
@@ -1256,7 +1227,7 @@ describe("interview.submitTranscript", () => {
       });
 
       await expect(
-        (caller.interview as any).submitFeedback(mockFeedback),
+        caller.interviewWorker.submitFeedback(mockFeedback),
       ).rejects.toThrow("UNAUTHORIZED");
     });
 
@@ -1276,7 +1247,7 @@ describe("interview.submitTranscript", () => {
       vi.mocked(db.interview.findUnique).mockResolvedValue(null);
 
       await expect(
-        (caller.interview as any).submitFeedback(mockFeedback),
+        caller.interviewWorker.submitFeedback(mockFeedback),
       ).rejects.toThrow("Interview not found");
     });
 
@@ -1294,7 +1265,7 @@ describe("interview.submitTranscript", () => {
 
       // @ts-expect-error - testing invalid input
       await expect(
-        (caller.interview as any).submitFeedback({ interviewId: "test" }),
+        caller.interviewWorker.submitFeedback({ interviewId: "test" }),
       ).rejects.toThrow();
     });
   });

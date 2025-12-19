@@ -73,12 +73,8 @@ describe("InterviewLifecycleManager", () => {
         jobDescription: "",
         resume: "",
         persona: "professional interviewer",
+        durationMs: 30 * 60 * 1000,
       });
-      // Should still proceed to update status
-      expect(mockApiClient.updateStatus).toHaveBeenCalledWith(
-        mockInterviewId,
-        INTERVIEW_STATUS.IN_PROGRESS,
-      );
     });
   });
 

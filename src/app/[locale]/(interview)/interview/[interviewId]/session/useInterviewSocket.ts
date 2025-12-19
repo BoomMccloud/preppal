@@ -7,6 +7,10 @@ import { TranscriptManager } from "~/lib/audio/TranscriptManager";
 import {
   INTERVIEW_DURATION_MS,
   SAFETY_TIMEOUT_GRACE_MS,
+  WS_CLOSE_USER_INITIATED,
+  WS_CLOSE_TIMEOUT,
+  WS_CLOSE_GEMINI_ENDED,
+  WS_CLOSE_ERROR,
   type InterviewDuration,
 } from "~/lib/constants/interview";
 
@@ -322,14 +326,31 @@ export function useInterviewSocket({
     ws.onclose = (event) => {
       setActiveConnections((prev) => Math.max(0, prev - 1));
       console.log(
-        `[WebSocket] Closed: (Active: ${activeConnections - 1})`,
-        event,
+        `[WebSocket] Closed with code ${event.code}: ${event.reason} (Active: ${activeConnections - 1})`,
       );
       // WebSocket closed - ensure cleanup
       abortControllerRef.current?.abort();
-      if (["live", "connecting"].includes(stateRef.current)) {
-        setError("Connection lost.");
-        setState("error");
+
+      // Handle close based on code - close codes are the authoritative signal
+      switch (event.code) {
+        case WS_CLOSE_USER_INITIATED:
+        case WS_CLOSE_TIMEOUT:
+        case WS_CLOSE_GEMINI_ENDED:
+          // Graceful session end - navigate to feedback
+          setState("ending");
+          onSessionEnded();
+          break;
+        case WS_CLOSE_ERROR:
+          // Worker signaled an error
+          setError("Session error");
+          setState("error");
+          break;
+        default:
+          // Unexpected close (1006 abnormal, etc.) - only show error if we were active
+          if (["live", "connecting"].includes(stateRef.current)) {
+            setError("Connection lost");
+            setState("error");
+          }
       }
     };
   };
@@ -345,7 +366,8 @@ export function useInterviewSocket({
         });
         const buffer = preppal.ClientToServerMessage.encode(message).finish();
         wsRef.current.send(buffer);
-        wsRef.current.close(1000, "User ended interview");
+        // Don't close from client - let worker close with appropriate code
+        // This ensures onclose receives the correct WS_CLOSE_USER_INITIATED code
       } catch (err) {
         console.error("Error sending end request:", err);
       }

@@ -1,5 +1,6 @@
 import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
 import { interviewRouter } from "~/server/api/routers/interview";
+import { interviewWorkerRouter } from "~/server/api/routers/interview-worker";
 import { userRouter } from "~/server/api/routers/user";
 import { debugRouter } from "~/server/api/routers/debug";
 
@@ -11,6 +12,7 @@ import { debugRouter } from "~/server/api/routers/debug";
 export const appRouter = createTRPCRouter({
   user: userRouter,
   interview: interviewRouter,
+  interviewWorker: interviewWorkerRouter,
   debug: debugRouter,
 });
 

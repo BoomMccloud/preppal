@@ -27,18 +27,6 @@
 - **Resume Data:** Since the LinkedIn API typically restricts full profile data (work history, education), the primary method for resume import will remain **PDF parsing** (using the LinkedIn "Save to PDF" feature as the source).
 - **Workflow:** Users log in via LinkedIn for convenience, then upload their LinkedIn-exported PDF to populate their Preppal profile.
 
-### Interview Duration Limits
-**Goal:** Allow users to select a fixed interview duration to help with time management and create more focused practice sessions.
-
-**Implementation Details:**
-- **Schema:** Add an `InterviewDuration` enum with values: `SHORT` (10 min), `STANDARD` (30 min), `EXTENDED` (60 min). Maximum duration is 1 hour.
-- **Database:** Add a `duration` field to the `InterviewSession` model with a default of `STANDARD`.
-- **Metadata:** Include `durationMs` (duration in milliseconds) in the interview metadata when creating a session. This allows the worker to know the time limit without needing to query the database.
-- **Enforcement (Layered):**
-    - **Worker (Primary):** Use `setTimeout` to schedule session termination when `durationMs` elapses. When triggered, gracefully close the Gemini connection and notify the client. Clear the timeout if the session ends early.
-    - **Frontend (UX):** Display a countdown timer, warn the user when time is low (e.g., "2 minutes remaining"), and handle the session-end event from the worker.
-    - **Backend (Validation):** Validate that only valid enum values are accepted when creating a session.
-- **UI:** Add a duration selector during interview setup (dropdown or radio buttons).
 
 ### Interview Panels
 **Goal:** Allow users to define a sequence of interview stages (e.g., HR, Tech, Hiring Manager, Senior Management) for a specific job application to simulate a full hiring loop.
@@ -52,3 +40,35 @@
     - Users can select pre-defined templates (e.g., "Standard Tech Loop") or create custom sequences by selecting multiple personas.
     - Progress is tracked across stages, allowing users to visualize their journey through the hiring process.
 - **Aggregation:** A "Panel Summary" report that aggregates feedback across all stages to provide a holistic view of the candidate's performance and "hiring readiness".
+
+## Testing & Quality (Stabilization)
+
+### "Golden Path" System Tests
+**Goal:** Replace fragile Playwright E2E tests and mock-heavy unit tests with robust backend system tests.
+
+**Implementation Details:**
+- **Framework:** Vitest (Node environment).
+- **Approach:** Execute a sequence of tRPC caller actions using a **real test database** (SQLite) to verify the business logic from end-to-end.
+- **Flow to Validate:** 
+    1. Auth Setup (Mock session).
+    2. `interview.createSession` (Verify DB record).
+    3. `interview.generateWorkerToken` (Verify JWT).
+    4. `interview.updateStatus` (Simulate Worker starting).
+    5. `interviewWorker.submitTranscript` (Simulate session end).
+    6. `interview.getFeedback` (Verify final state).
+- **Benefit:** Verifies the entire data flow and schema constraints without browser-induced flakiness or implementation-coupled mocks.
+
+### Real Test Database Integration
+**Goal:** Stop mocking Prisma in integration tests.
+
+**Implementation Details:**
+- Use a dedicated `test.db` SQLite file.
+- Implement a global setup/teardown in Vitest to run `prisma db push` and clear tables between tests.
+- **Benefit:** Catches actual database errors (unique constraints, relation issues) that mocks miss.
+
+### UI Smoke Testing
+**Goal:** Reduce UI test maintenance by focusing on visibility rather than interaction.
+
+**Implementation Details:**
+- Simplify component tests to verify that core pages (`/lobby`, `/session`, `/feedback`) render without crashing given valid data.
+- Remove tests that verify specific CSS classes or internal component states.
