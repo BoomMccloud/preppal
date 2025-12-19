@@ -1,18 +1,13 @@
 // src/test/setup.ts
 import "@testing-library/jest-dom";
 import { vi } from "vitest";
-import path from "node:path";
 
-const testDbPath = path.join(process.cwd(), "prisma", "test.db");
-const testDbUrl = `file:${testDbPath}`;
-
-// Ensure DATABASE_URL is set for any code that reads it from process.env
-process.env.DATABASE_URL = testDbUrl;
+// Use DATABASE_URL from .env (Neon PostgreSQL) - don't override it
 
 vi.mock("~/env.js", () => {
   return {
     env: {
-      DATABASE_URL: testDbUrl,
+      DATABASE_URL: process.env.DATABASE_URL,
       NODE_ENV: "test",
       JWT_SECRET: "test-jwt-secret-at-least-32-chars-long",
       WORKER_SHARED_SECRET: "test-worker-secret-at-least-32-chars-long",

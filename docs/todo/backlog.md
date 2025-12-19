@@ -43,6 +43,16 @@
 
 ## Testing & Quality (Stabilization)
 
+### Test Database Strategy
+**Goal:** Establish a clear separation between development and test databases, with a strategy for managing Neon (cloud) vs local database environments.
+
+**Implementation Details:**
+- **Separate Test Database:** Configure a dedicated `TEST_DATABASE_URL` that points to an isolated database for running tests.
+- **Neon Branching:** Explore using Neon's database branching feature to create ephemeral test branches that mirror the dev schema.
+- **Local Development Option:** Investigate running a local PostgreSQL (via Docker) for offline development and faster test iteration.
+- **Environment Management:** Create clear documentation and tooling for switching between Neon and local databases (e.g., `pnpm dev:local` vs `pnpm dev:neon`).
+- **CI/CD Consideration:** Ensure the test database strategy works in CI pipelines (GitHub Actions) without polluting production or development data.
+
 ### "Golden Path" System Tests
 **Goal:** Replace fragile Playwright E2E tests and mock-heavy unit tests with robust backend system tests.
 

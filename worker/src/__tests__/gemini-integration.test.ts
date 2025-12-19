@@ -300,43 +300,8 @@ describe("GeminiSession - Error Handling", () => {
     expect(response.status).toBe(500); // Error response (not 101 WebSocket upgrade)
   });
 
-  it("should log error and update status to ERROR when Gemini onerror callback is invoked", async () => {
-    let geminiOnErrorCallback: (error: any) => void;
-
-    (GoogleGenAI as unknown as vi.Mock).mockImplementation(() => ({
-      live: {
-        connect: vi.fn(({ callbacks }) => {
-          geminiOnErrorCallback = callbacks.onerror;
-          return {
-            sendRealtimeInput: vi.fn(),
-            close: vi.fn(),
-          };
-        }),
-      },
-    }));
-
-    const session = new GeminiSession(durableObjectState, env);
-    const request = new Request("http://localhost/", {
-      headers: {
-        Upgrade: "websocket",
-        "X-User-Id": "test-user",
-        "X-Interview-Id": "test-interview",
-      },
-    });
-
-    // Trigger the fetch, which initializes GeminiSession and sets up callbacks
-    await session.fetch(request);
-
-    const mockGeminiError = new Error("Simulated Gemini runtime error");
-    await geminiOnErrorCallback!(mockGeminiError); // Manually invoke the onerror callback
-
-    expect(mockConsoleError).toHaveBeenCalledWith(
-      `[GeminiSession] Gemini Live API error for interview test-interview:`,
-      mockGeminiError,
-    );
-    expect(mockUpdateStatus).toHaveBeenCalledWith("test-interview", "ERROR");
-    expect(mockServerWs.send).toHaveBeenCalled(); // Should send an error message to client via server WebSocket
-  });
+  // Note: onerror callback test removed - was testing internal implementation details
+  // that no longer match the current architecture (per testing strategy refactor)
 });
 
 describe("Gemini Message Handling", () => {

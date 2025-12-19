@@ -190,6 +190,7 @@ describe("ApiClient", () => {
         jobDescription: "Software Engineer at Acme Corp",
         resume: "5 years of experience in TypeScript",
         persona: "Senior Technical Interviewer",
+        durationMs: 1800000,
       };
 
       mockFetch.mockResolvedValueOnce(

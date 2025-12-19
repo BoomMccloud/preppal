@@ -181,8 +181,12 @@ describe("GeminiStreamHandler", () => {
 
   describe("processUserAudio", () => {
     it("should convert audio and send to GeminiClient", async () => {
+      // Must connect first to set isConnected = true
+      await handler.connect(mockContext);
+      vi.clearAllMocks(); // Clear connect-related calls
+
       const mockAudioChunk = new Uint8Array([1, 2, 3]);
-      await handler.processUserAudio(mockAudioChunk);
+      handler.processUserAudio(mockAudioChunk);
 
       expect(mockAudioConverter.binaryToBase64).toHaveBeenCalledWith(
         mockAudioChunk,
@@ -196,7 +200,11 @@ describe("GeminiStreamHandler", () => {
     });
 
     it("should ignore empty audio chunks", async () => {
-      await handler.processUserAudio(new Uint8Array([]));
+      // Must connect first, then test empty chunk handling
+      await handler.connect(mockContext);
+      vi.clearAllMocks();
+
+      handler.processUserAudio(new Uint8Array([]));
       expect(mockGeminiClient.sendRealtimeInput).not.toHaveBeenCalled();
     });
   });

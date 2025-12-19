@@ -10,7 +10,7 @@ vi.mock("~/server/auth", () => ({
 vi.mock("~/env", () => ({
   env: {
     NODE_ENV: "test",
-    DATABASE_URL: "file:./db.sqlite",
+    DATABASE_URL: process.env.DATABASE_URL,
   },
 }));
 

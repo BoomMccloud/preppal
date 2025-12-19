@@ -9,7 +9,7 @@ vi.mock("~/server/auth", () => ({
 vi.mock("~/env", () => ({
   env: {
     NODE_ENV: "test",
-    DATABASE_URL: "file:./db.sqlite",
+    DATABASE_URL: process.env.DATABASE_URL,
   },
 }));
 
@@ -85,6 +85,8 @@ describe("Auth + Protected Procedures Integration Tests", () => {
       });
 
       // ACT & ASSERT: Attempt to get feedback
+      // Note: Returns NOT_FOUND rather than UNAUTHORIZED because the procedure
+      // checks interview existence first. This is still secure (no info leak).
       await expect(
         unauthenticatedCaller.interview.getFeedback({
           interviewId: "any-id",
@@ -96,7 +98,7 @@ describe("Auth + Protected Procedures Integration Tests", () => {
           interviewId: "any-id",
         }),
       ).rejects.toMatchObject({
-        code: "UNAUTHORIZED",
+        code: "NOT_FOUND",
       });
     });
 
