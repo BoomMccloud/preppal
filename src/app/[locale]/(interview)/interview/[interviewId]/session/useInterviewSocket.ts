@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "~/trpc/react";
 import { AudioSession } from "~/lib/audio/AudioSession";
-import { preppal } from "~/lib/interview_pb";
 import { TranscriptManager } from "~/lib/audio/TranscriptManager";
 import {
   WS_CLOSE_USER_INITIATED,
@@ -9,6 +8,12 @@ import {
   WS_CLOSE_GEMINI_ENDED,
   WS_CLOSE_ERROR,
 } from "~/lib/constants/interview";
+import {
+  encodeAudioChunk,
+  encodeEndRequest,
+  decodeServerMessage,
+} from "~/lib/interview/protocol";
+import { handleServerMessage } from "~/lib/interview/handleServerMessage";
 
 type SessionState = "initializing" | "connecting" | "live" | "ending" | "error";
 
@@ -151,12 +156,7 @@ export function useInterviewSocket({
 
             if (wsRef.current?.readyState === WebSocket.OPEN) {
               try {
-                const message = preppal.ClientToServerMessage.create({
-                  audioChunk: { audioContent: new Uint8Array(audioChunk) },
-                });
-                const buffer =
-                  preppal.ClientToServerMessage.encode(message).finish();
-                wsRef.current.send(buffer);
+                wsRef.current.send(encodeAudioChunk(audioChunk));
                 if (chunkCount <= 3) {
                   console.log(
                     `[AudioRecorder] Sent audio chunk #${chunkCount} via WebSocket`,
@@ -226,58 +226,54 @@ export function useInterviewSocket({
       setState("live");
     };
 
-    ws.onmessage = async (event: MessageEvent) => {
+    ws.onmessage = (event: MessageEvent) => {
       if (!(event.data instanceof ArrayBuffer)) return;
 
-      const message = preppal.ServerToClientMessage.decode(
-        new Uint8Array(event.data),
-      );
+      const message = decodeServerMessage(event.data);
 
-      if (message.transcriptUpdate) {
-        const tm = transcriptManagerRef.current;
-        if (tm) {
-          tm.process(message.transcriptUpdate);
+      handleServerMessage(message, {
+        onTranscript: (update) => {
+          const tm = transcriptManagerRef.current;
+          if (tm) {
+            tm.process(update);
 
-          const pending: TranscriptEntry[] = [];
-          // Check buffers for both speakers
-          const userBuffer = tm.getBufferedText("USER");
-          if (userBuffer) {
-            pending.push({
-              text: userBuffer,
-              speaker: "USER",
-              is_final: false,
-            });
+            const pending: TranscriptEntry[] = [];
+            const userBuffer = tm.getBufferedText("USER");
+            if (userBuffer) {
+              pending.push({
+                text: userBuffer,
+                speaker: "USER",
+                is_final: false,
+              });
+            }
+            const aiBuffer = tm.getBufferedText("AI");
+            if (aiBuffer) {
+              pending.push({ text: aiBuffer, speaker: "AI", is_final: false });
+            }
+            setPendingTranscript(pending);
           }
-
-          const aiBuffer = tm.getBufferedText("AI");
-          if (aiBuffer) {
-            pending.push({ text: aiBuffer, speaker: "AI", is_final: false });
-          }
-
-          setPendingTranscript(pending);
-        }
-      } else if (message.audioResponse) {
-        const audioData = message.audioResponse.audioContent;
-        if (audioData && audioData.length > 0) {
+        },
+        onAudio: (audioData) => {
           audioSessionRef.current?.enqueueAudio(audioData);
-        }
-      } else if (message.sessionEnded) {
-        const reasonMap: Record<number, string> = {
-          0: "UNSPECIFIED",
-          1: "USER_INITIATED",
-          2: "GEMINI_ENDED",
-          3: "TIMEOUT",
-        };
-        const reasonCode = message.sessionEnded.reason ?? 0;
-        const reasonName = reasonMap[reasonCode] ?? `UNKNOWN(${reasonCode})`;
-        console.log(`[WebSocket] Session ended with reason: ${reasonName}`);
-        setState("ending");
-        onSessionEnded();
-      } else if (message.error) {
-        console.log(`[WebSocket] Error from server:`, message.error);
-        setError(message.error?.message ?? "Unknown error");
-        setState("error");
-      }
+        },
+        onSessionEnded: (reason) => {
+          const reasonMap: Record<number, string> = {
+            0: "UNSPECIFIED",
+            1: "USER_INITIATED",
+            2: "GEMINI_ENDED",
+            3: "TIMEOUT",
+          };
+          const reasonName = reasonMap[reason] ?? `UNKNOWN(${reason})`;
+          console.log(`[WebSocket] Session ended with reason: ${reasonName}`);
+          setState("ending");
+          onSessionEnded();
+        },
+        onError: (errorMessage) => {
+          console.log(`[WebSocket] Error from server: ${errorMessage}`);
+          setError(errorMessage);
+          setState("error");
+        },
+      });
     };
 
     ws.onerror = (event) => {
@@ -320,11 +316,7 @@ export function useInterviewSocket({
     if (wsRef.current && state === "live") {
       setState("ending"); // State change triggers useEffect cleanup → stop()
       try {
-        const message = preppal.ClientToServerMessage.create({
-          endRequest: {},
-        });
-        const buffer = preppal.ClientToServerMessage.encode(message).finish();
-        wsRef.current.send(buffer);
+        wsRef.current.send(encodeEndRequest());
         // Don't close from client - let worker close with appropriate code
         // This ensures onclose receives the correct WS_CLOSE_USER_INITIATED code
       } catch (err) {
