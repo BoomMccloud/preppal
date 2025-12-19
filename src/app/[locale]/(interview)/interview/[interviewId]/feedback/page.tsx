@@ -6,20 +6,29 @@ import FeedbackTabs from "./feedback-tabs";
 import FeedbackCard from "./_components/FeedbackCard";
 import FeedbackActions from "./_components/FeedbackActions";
 import FeedbackPolling from "./_components/FeedbackPolling";
+import ShareButton from "./_components/ShareButton";
 
 interface PageProps {
   params: Promise<{ interviewId: string; locale: string }>;
+  searchParams: Promise<{ token?: string }>;
 }
 
-export default async function InterviewFeedbackPage({ params }: PageProps) {
+export default async function InterviewFeedbackPage({
+  params,
+  searchParams,
+}: PageProps) {
   const { interviewId, locale } = await params;
+  const { token } = await searchParams;
   const t = await getTranslations("interview.feedback");
 
   try {
     const interview = await api.interview.getById({
       id: interviewId,
+      token,
       includeFeedback: true,
     });
+
+    const isGuest = interview.isGuest;
 
     // Handle non-COMPLETED status:
     // If it's still IN_PROGRESS, the worker might be currently saving the transcript.
@@ -31,7 +40,10 @@ export default async function InterviewFeedbackPage({ params }: PageProps) {
       console.warn(
         `[Feedback Page] User attempted to access feedback for non-relevant status - interviewId: ${interviewId}, status: ${interview.status}`,
       );
-      redirect(`/${locale}/interview/${interviewId}/lobby`);
+      // Only redirect to lobby for owners, not guests
+      if (!isGuest) {
+        redirect(`/${locale}/interview/${interviewId}/lobby`);
+      }
     }
 
     // Handle COMPLETED but feedback still processing, or still IN_PROGRESS (transitioning)
@@ -42,13 +54,16 @@ export default async function InterviewFeedbackPage({ params }: PageProps) {
     // Render feedback results
     return (
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <h1 className="text-primary-text mb-4 text-4xl font-bold">
-            {t("title")}
-          </h1>
-          <p className="text-secondary-text text-lg">
-            {t("interviewId", { id: interviewId })}
-          </p>
+        <div className="mb-8 flex items-start justify-between">
+          <div>
+            <h1 className="text-primary-text mb-4 text-4xl font-bold">
+              {t("title")}
+            </h1>
+            <p className="text-secondary-text text-lg">
+              {t("interviewId", { id: interviewId })}
+            </p>
+          </div>
+          {!isGuest && <ShareButton interviewId={interviewId} />}
         </div>
 
         <FeedbackCard title={t("summary")} className="mb-8">
@@ -72,23 +87,30 @@ export default async function InterviewFeedbackPage({ params }: PageProps) {
               }
               presentation={interview.feedback.presentation}
             />
-            <FeedbackActions />
+            <FeedbackActions isGuest={isGuest} />
           </div>
         </div>
       </div>
     );
   } catch {
     // Handle NOT_FOUND or other errors
+    // If a token was provided, show "link expired" message for guests
+    const isGuestAccess = !!token;
+
     return (
       <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="bg-secondary border-secondary-text rounded-lg border p-6 text-center backdrop-blur-sm">
-          <p className="text-primary-text mb-4">{t("notFound")}</p>
-          <Link
-            href="/dashboard"
-            className="bg-secondary hover:bg-secondary/80 text-primary-text border-secondary-text/10 inline-block rounded-md border px-6 py-3 font-medium transition-colors"
-          >
-            {t("returnToDashboard")}
-          </Link>
+          <p className="text-primary-text mb-4">
+            {isGuestAccess ? t("linkExpired") : t("notFound")}
+          </p>
+          {!isGuestAccess && (
+            <Link
+              href="/dashboard"
+              className="bg-secondary hover:bg-secondary/80 text-primary-text border-secondary-text/10 inline-block rounded-md border px-6 py-3 font-medium transition-colors"
+            >
+              {t("returnToDashboard")}
+            </Link>
+          )}
         </div>
       </div>
     );

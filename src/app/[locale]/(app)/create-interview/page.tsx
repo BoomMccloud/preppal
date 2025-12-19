@@ -131,7 +131,9 @@ export default function CreateInterviewPage() {
               disabled={!isFormValid || createInterviewMutation.isPending}
               className="bg-accent hover:bg-accent/80 text-primary rounded-md px-8 py-3 font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {createInterviewMutation.isPending ? t("submitting") : t("submit")}
+              {createInterviewMutation.isPending
+                ? t("submitting")
+                : t("submit")}
             </button>
           </div>
         </form>

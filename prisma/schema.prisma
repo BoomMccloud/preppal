@@ -115,6 +115,10 @@ model Interview {
 
   // Relation: Each interview is composed of many transcript entries
   transcript TranscriptEntry[]
+
+  // Guest access: One-time shareable link
+  guestToken     String?   @unique
+  guestExpiresAt DateTime?
 }
 
 // The results/feedback from a completed interview

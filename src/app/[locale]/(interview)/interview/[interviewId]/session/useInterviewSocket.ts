@@ -15,6 +15,7 @@ interface TranscriptEntry {
 
 interface UseInterviewSocketProps {
   interviewId: string;
+  guestToken?: string;
   onSessionEnded: () => void;
 }
 
@@ -33,6 +34,7 @@ interface UseInterviewSocketReturn {
 
 export function useInterviewSocket({
   interviewId,
+  guestToken,
   onSessionEnded,
 }: UseInterviewSocketProps): UseInterviewSocketReturn {
   const [state, setState] = useState<SessionState>("initializing");
@@ -320,7 +322,7 @@ export function useInterviewSocket({
     // Only initiate connection once per interviewId
     if (!hasInitiatedConnection.current) {
       hasInitiatedConnection.current = true;
-      generateToken({ interviewId });
+      generateToken({ interviewId, token: guestToken });
     }
 
     return () => {

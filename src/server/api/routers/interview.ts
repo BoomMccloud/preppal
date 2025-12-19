@@ -2,13 +2,50 @@ import { z } from "zod";
 import {
   createTRPCRouter,
   protectedProcedure,
+  publicProcedure,
   flexibleProcedure,
   workerProcedure,
 } from "~/server/api/trpc";
 import { TRPCError } from "@trpc/server";
-import { Prisma } from "@prisma/client";
+import { Prisma, type PrismaClient, type Interview } from "@prisma/client";
 import { SignJWT } from "jose";
 import { env } from "~/env";
+import { randomBytes } from "crypto";
+
+/** Generate a URL-safe random token for guest access */
+function generateGuestToken(): string {
+  return randomBytes(32).toString("base64url");
+}
+
+/** Check interview access for owner or guest */
+async function getInterviewWithAccess(
+  db: PrismaClient,
+  interviewId: string,
+  userId?: string,
+  token?: string,
+): Promise<{ interview: Interview; isGuest: boolean } | null> {
+  const interview = await db.interview.findUnique({
+    where: { id: interviewId },
+  });
+  if (!interview) return null;
+
+  // Owner access
+  if (userId && interview.userId === userId) {
+    return { interview, isGuest: false };
+  }
+
+  // Guest access
+  if (
+    token &&
+    interview.guestToken === token &&
+    interview.guestExpiresAt &&
+    interview.guestExpiresAt > new Date()
+  ) {
+    return { interview, isGuest: true };
+  }
+
+  return null;
+}
 
 // Discriminated union for job description input
 const JobDescriptionInput = z.discriminatedUnion("type", [
@@ -172,29 +209,59 @@ export const interviewRouter = createTRPCRouter({
       return { success: true };
     }),
 
-  getById: protectedProcedure
+  createGuestLink: protectedProcedure
+    .input(z.object({ interviewId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      // Verify the user owns this interview
+      const interview = await ctx.db.interview.findUnique({
+        where: {
+          id: input.interviewId,
+          userId: ctx.session.user.id,
+        },
+      });
+
+      if (!interview) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Interview not found",
+        });
+      }
+
+      // Generate token and set 24h expiry
+      const guestToken = generateGuestToken();
+      const guestExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+      await ctx.db.interview.update({
+        where: { id: input.interviewId },
+        data: { guestToken, guestExpiresAt },
+      });
+
+      return {
+        token: guestToken,
+        expiresAt: guestExpiresAt,
+      };
+    }),
+
+  getById: publicProcedure
     .input(
       z.object({
         id: z.string(),
+        token: z.string().optional(),
         includeFeedback: z.boolean().optional().default(false),
       }),
     )
     .query(async ({ ctx, input }) => {
-      // Query with BOTH id AND userId for security (prevents enumeration)
-      const interview = await ctx.db.interview.findUnique({
-        where: {
-          id: input.id,
-          userId: ctx.session.user.id,
-        },
-        include: {
-          feedback: input.includeFeedback,
-        },
-      });
+      // Check access via owner or guest token
+      const access = await getInterviewWithAccess(
+        ctx.db,
+        input.id,
+        ctx.session?.user?.id,
+        input.token,
+      );
 
-      // If not found, log for security monitoring and throw error
-      if (!interview) {
+      if (!access) {
         console.warn(
-          `[Security] Unauthorized access attempt - User ${ctx.session.user.id} attempted to access interview ${input.id}`,
+          `[Security] Unauthorized access attempt to interview ${input.id}`,
         );
         throw new TRPCError({
           code: "NOT_FOUND",
@@ -202,7 +269,28 @@ export const interviewRouter = createTRPCRouter({
         });
       }
 
-      return interview;
+      // Fetch with feedback if requested
+      const interview = await ctx.db.interview.findUnique({
+        where: { id: input.id },
+        include: { feedback: input.includeFeedback },
+      });
+
+      if (!interview) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Interview not found",
+        });
+      }
+
+      // For guests, strip out the guest token (they shouldn't see it)
+      // For owners, include guestToken/guestExpiresAt so they can see share status
+      if (access.isGuest) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { guestToken: _omitted, ...interviewWithoutToken } = interview;
+        return { ...interviewWithoutToken, isGuest: true };
+      }
+
+      return { ...interview, isGuest: false };
     }),
 
   getCurrent: protectedProcedure.input(z.void()).query(async ({ ctx }) => {
@@ -216,22 +304,26 @@ export const interviewRouter = createTRPCRouter({
     return interview;
   }),
 
-  getFeedback: protectedProcedure
-    .input(z.object({ interviewId: z.string() }))
+  getFeedback: publicProcedure
+    .input(z.object({ interviewId: z.string(), token: z.string().optional() }))
     .query(async ({ ctx, input }) => {
       try {
-        const interview = await ctx.db.interview.findUnique({
-          where: {
-            id: input.interviewId,
-            userId: ctx.session.user.id, // Ensure user can only access their own interviews
-          },
-          include: {
-            feedback: true,
-          },
-        });
+        // Check access via owner or guest token
+        const access = await getInterviewWithAccess(
+          ctx.db,
+          input.interviewId,
+          ctx.session?.user?.id,
+          input.token,
+        );
 
-        if (interview) {
-          return interview;
+        if (access) {
+          const interview = await ctx.db.interview.findUnique({
+            where: { id: input.interviewId },
+            include: { feedback: true },
+          });
+          if (interview) {
+            return { ...interview, isGuest: access.isGuest };
+          }
         }
       } catch {
         console.log("Database not available, using mock data");
@@ -254,7 +346,8 @@ export const interviewRouter = createTRPCRouter({
             "We are looking for a senior frontend developer with React experience...",
           jobDescriptionId: null,
           resumeId: null,
-          userId: ctx.session.user.id,
+          userId: ctx.session?.user?.id ?? "demo-user",
+          isGuest: !ctx.session?.user,
           feedback: {
             id: "feedback-" + input.interviewId,
             createdAt: new Date(Date.now() - 1800000),
@@ -306,7 +399,10 @@ export const interviewRouter = createTRPCRouter({
         };
       }
 
-      throw new Error("Interview not found");
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Interview not found",
+      });
     }),
 
   generateWsToken: protectedProcedure
@@ -344,18 +440,18 @@ export const interviewRouter = createTRPCRouter({
       return { token };
     }),
 
-  generateWorkerToken: protectedProcedure
-    .input(z.object({ interviewId: z.string() }))
+  generateWorkerToken: publicProcedure
+    .input(z.object({ interviewId: z.string(), token: z.string().optional() }))
     .mutation(async ({ ctx, input }) => {
-      // Verify the interview belongs to the user and is in PENDING status
-      const interview = await ctx.db.interview.findUnique({
-        where: {
-          id: input.interviewId,
-          userId: ctx.session.user.id,
-        },
-      });
+      // Check access via owner or guest token
+      const access = await getInterviewWithAccess(
+        ctx.db,
+        input.interviewId,
+        ctx.session?.user?.id,
+        input.token,
+      );
 
-      if (!interview) {
+      if (!access) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Interview not found",
@@ -363,12 +459,14 @@ export const interviewRouter = createTRPCRouter({
       }
 
       // Verify interview is in PENDING state
-      if (interview.status !== "PENDING") {
+      if (access.interview.status !== "PENDING") {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "Interview is not in PENDING state",
         });
       }
+
+      const interview = access.interview;
 
       // Get JWT secret from environment
       const jwtSecret = process.env.JWT_SECRET;
@@ -380,10 +478,12 @@ export const interviewRouter = createTRPCRouter({
       }
 
       // Generate JWT token with HS256, valid for 5 minutes using jose
+      // For guests, use the interview owner's userId (interview belongs to them)
       const secret = new TextEncoder().encode(jwtSecret);
       const token = await new SignJWT({
-        userId: ctx.session.user.id,
+        userId: interview.userId,
         interviewId: input.interviewId,
+        isGuest: access.isGuest,
       } as Record<string, unknown>)
         .setProtectedHeader({ alg: "HS256" })
         .setIssuedAt()

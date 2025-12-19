@@ -10,9 +10,10 @@ import { AIAvatar } from "~/app/_components/AIAvatar";
 
 interface SessionContentProps {
   interviewId: string;
+  guestToken?: string;
 }
 
-export function SessionContent({ interviewId }: SessionContentProps) {
+export function SessionContent({ interviewId, guestToken }: SessionContentProps) {
   const router = useRouter();
   const t = useTranslations("interview.session");
   const tCommon = useTranslations("common");
@@ -28,6 +29,7 @@ export function SessionContent({ interviewId }: SessionContentProps) {
   } = api.interview.getById.useQuery(
     {
       id: interviewId,
+      token: guestToken,
     },
     {
       refetchInterval: shouldPoll ? 1000 : false, // Poll every 1 second
@@ -62,10 +64,13 @@ export function SessionContent({ interviewId }: SessionContentProps) {
   useEffect(() => {
     if (!isLoading && interview) {
       if (interview.status === "COMPLETED") {
-        router.push(`/interview/${interviewId}/feedback`);
+        const feedbackUrl = guestToken
+          ? `/interview/${interviewId}/feedback?token=${guestToken}`
+          : `/interview/${interviewId}/feedback`;
+        router.push(feedbackUrl);
       }
     }
-  }, [interview, isLoading, router, interviewId]);
+  }, [interview, isLoading, router, interviewId, guestToken]);
 
   // WebSocket connection and state management
   const {
@@ -78,8 +83,12 @@ export function SessionContent({ interviewId }: SessionContentProps) {
     debugInfo: wsDebugInfo,
   } = useInterviewSocket({
     interviewId,
+    guestToken,
     onSessionEnded: () => {
-      router.push(`/interview/${interviewId}/feedback`);
+      const feedbackUrl = guestToken
+        ? `/interview/${interviewId}/feedback?token=${guestToken}`
+        : `/interview/${interviewId}/feedback`;
+      router.push(feedbackUrl);
     },
   });
 
@@ -208,7 +217,9 @@ export function SessionContent({ interviewId }: SessionContentProps) {
               <div className="text-center text-gray-500">
                 <p>{t("waitingToBegin")}</p>
                 <p className="mt-2 text-sm">
-                  {t("currentStatus", { status: interview?.status ?? "Unknown" })}
+                  {t("currentStatus", {
+                    status: interview?.status ?? "Unknown",
+                  })}
                 </p>
               </div>
             ) : (

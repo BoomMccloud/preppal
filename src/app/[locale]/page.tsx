@@ -1,3 +1,4 @@
+import NextLink from "next/link";
 import { Link } from "~/i18n/navigation";
 import { getTranslations } from "next-intl/server";
 
@@ -42,17 +43,17 @@ export default async function Home() {
                 >
                   {t("startInterview")}
                 </Link>
-                <Link
+                <NextLink
                   href="/api/auth/signout"
                   className="bg-secondary text-secondary-text hover:text-primary-text rounded-full px-6 py-3 text-center font-semibold no-underline transition hover:opacity-80"
                 >
                   {tNav("signOut")}
-                </Link>
+                </NextLink>
               </div>
             ) : (
               <div className="flex flex-col gap-4 sm:flex-row">
                 <Link
-                  href="/api/auth/signin"
+                  href="/signin"
                   className="bg-accent text-primary rounded-full px-10 py-3 text-center font-semibold no-underline transition hover:opacity-90"
                 >
                   {tNav("signIn")}

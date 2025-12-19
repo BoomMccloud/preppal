@@ -3,8 +3,17 @@
 import { Link } from "~/i18n/navigation";
 import { useTranslations } from "next-intl";
 
-export default function FeedbackActions() {
+interface FeedbackActionsProps {
+  isGuest?: boolean;
+}
+
+export default function FeedbackActions({ isGuest }: FeedbackActionsProps) {
   const t = useTranslations("interview.feedback");
+
+  // Guests only see a minimal view
+  if (isGuest) {
+    return null;
+  }
 
   return (
     <div className="mt-6 flex justify-end space-x-4">

@@ -63,9 +63,7 @@ export default function DashboardPage() {
             <p className="text-secondary-text mb-4">{tCommon("loading")}</p>
           )}
 
-          {error && (
-            <p className="mb-4 text-red-500">{t("loadError")}</p>
-          )}
+          {error && <p className="mb-4 text-red-500">{t("loadError")}</p>}
 
           {!isLoading && !error && interviews && interviews.length === 0 && (
             <p className="text-secondary-text mb-4">

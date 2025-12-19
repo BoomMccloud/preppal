@@ -2,24 +2,34 @@ import { Link } from "~/i18n/navigation";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { api } from "~/trpc/server";
+import LobbyActions from "./_components/LobbyActions";
 
 export default async function InterviewLobbyPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ interviewId: string; locale: string }>;
+  searchParams: Promise<{ token?: string }>;
 }) {
   const { interviewId, locale } = await params;
+  const { token } = await searchParams;
   const t = await getTranslations("interview.lobby");
 
   try {
     const interview = await api.interview.getById({
       id: interviewId,
+      token,
       includeFeedback: false,
     });
 
+    const isGuest = interview.isGuest;
+
     // Handle COMPLETED status with redirect
     if (interview.status === "COMPLETED") {
-      redirect(`/${locale}/interview/${interview.id}/feedback`);
+      const redirectUrl = token
+        ? `/${locale}/interview/${interview.id}/feedback?token=${token}`
+        : `/${locale}/interview/${interview.id}/feedback`;
+      redirect(redirectUrl);
     }
 
     // Handle IN_PROGRESS status
@@ -27,13 +37,17 @@ export default async function InterviewLobbyPage({
       return (
         <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
           <div className="bg-secondary border-secondary-text rounded-lg border p-6 text-center backdrop-blur-sm">
-            <p className="text-primary-text mb-4">{t("inProgressError")}</p>
-            <Link
-              href="/dashboard"
-              className="bg-secondary hover:bg-secondary/80 text-primary-text border-secondary-text/10 inline-block rounded-md border px-6 py-3 font-medium transition-colors"
-            >
-              {t("returnToDashboard")}
-            </Link>
+            <p className="text-primary-text mb-4">
+              {isGuest ? t("inProgressGuest") : t("inProgressError")}
+            </p>
+            {!isGuest && (
+              <Link
+                href="/dashboard"
+                className="bg-secondary hover:bg-secondary/80 text-primary-text border-secondary-text/10 inline-block rounded-md border px-6 py-3 font-medium transition-colors"
+              >
+                {t("returnToDashboard")}
+              </Link>
+            )}
           </div>
         </div>
       );
@@ -45,12 +59,14 @@ export default async function InterviewLobbyPage({
         <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
           <div className="bg-secondary border-secondary-text rounded-lg border p-6 text-center backdrop-blur-sm">
             <p className="text-primary-text mb-4">{t("errorState")}</p>
-            <Link
-              href="/dashboard"
-              className="bg-secondary hover:bg-secondary/80 text-primary-text border-secondary-text/10 inline-block rounded-md border px-6 py-3 font-medium transition-colors"
-            >
-              {t("returnToDashboard")}
-            </Link>
+            {!isGuest && (
+              <Link
+                href="/dashboard"
+                className="bg-secondary hover:bg-secondary/80 text-primary-text border-secondary-text/10 inline-block rounded-md border px-6 py-3 font-medium transition-colors"
+              >
+                {t("returnToDashboard")}
+              </Link>
+            )}
           </div>
         </div>
       );
@@ -67,8 +83,11 @@ export default async function InterviewLobbyPage({
       <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-8 text-center">
           <h1 className="text-primary-text mb-4 text-2xl font-semibold">
-            {t("title")}
+            {isGuest ? t("guestTitle") : t("title")}
           </h1>
+          {isGuest && (
+            <p className="text-accent mb-2 text-sm">{t("guestSubtitle")}</p>
+          )}
           <p className="text-secondary-text text-sm">{displayDescription}</p>
         </div>
 
@@ -145,7 +164,9 @@ export default async function InterviewLobbyPage({
                 </div>
                 <div>
                   <span className="text-secondary-text">{t("level")}:</span>
-                  <span className="text-primary-text ml-2">{t("midLevel")}</span>
+                  <span className="text-primary-text ml-2">
+                    {t("midLevel")}
+                  </span>
                 </div>
                 <div>
                   <span className="text-secondary-text">{t("status")}:</span>
@@ -155,38 +176,34 @@ export default async function InterviewLobbyPage({
             </div>
           </div>
 
-          <div className="border-secondary-text mt-8 border-t pt-6 text-center">
-            <p className="text-secondary-text mb-6">{t("instructions")}</p>
-            <div className="flex justify-center space-x-4">
-              <Link
-                href="/dashboard"
-                className="bg-secondary hover:bg-secondary/80 text-primary-text border-secondary-text/10 rounded-md border px-6 py-3 font-medium transition-colors"
-              >
-                {t("returnToDashboard")}
-              </Link>
-              <Link
-                href={`/interview/${interview.id}/session`}
-                className="bg-accent hover:bg-accent/80 text-primary rounded-md px-8 py-3 text-lg font-medium transition-colors"
-              >
-                {t("start")}
-              </Link>
-            </div>
-          </div>
+          <LobbyActions
+            interviewId={interview.id}
+            isGuest={isGuest}
+            guestToken={"guestToken" in interview ? interview.guestToken : null}
+            guestExpiresAt={
+              "guestExpiresAt" in interview ? interview.guestExpiresAt : null
+            }
+            urlToken={token}
+          />
         </div>
       </div>
     );
   } catch {
-    // Handle NOT_FOUND or other errors
+    // Handle NOT_FOUND or other errors (including expired/invalid token)
     return (
       <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="bg-secondary border-secondary-text rounded-lg border p-6 text-center backdrop-blur-sm">
-          <p className="text-primary-text mb-4">{t("notFound")}</p>
-          <Link
-            href="/dashboard"
-            className="bg-secondary hover:bg-secondary/80 text-primary-text border-secondary-text/10 inline-block rounded-md border px-6 py-3 font-medium transition-colors"
-          >
-            {t("returnToDashboard")}
-          </Link>
+          <p className="text-primary-text mb-4">
+            {token ? t("linkExpiredOrInvalid") : t("notFound")}
+          </p>
+          {!token && (
+            <Link
+              href="/dashboard"
+              className="bg-secondary hover:bg-secondary/80 text-primary-text border-secondary-text/10 inline-block rounded-md border px-6 py-3 font-medium transition-colors"
+            >
+              {t("returnToDashboard")}
+            </Link>
+          )}
         </div>
       </div>
     );
