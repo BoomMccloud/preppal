@@ -19,7 +19,7 @@
     "lint": "next lint",
     "lint:fix": "next lint --fix",
     "preview": "next build && next start",
-    "proto:generate": "mkdir -p src/lib && pbjs -t static-module -w es6 -o src/lib/interview_pb.js proto/interview.proto && pbts -o src/lib/interview_pb.d.ts src/lib/interview_pb.js && cp src/lib/interview_pb.js worker/src/lib/ && cp src/lib/interview_pb.d.ts worker/src/lib/",
+    "proto:generate": "rm -rf src/lib/proto worker/src/lib/proto && buf generate",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
@@ -35,6 +35,7 @@
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.7.2",
+    "@bufbuild/protobuf": "^2.10.2",
     "@google/genai": "^1.28.0",
     "@prisma/client": "^6.5.0",
     "@t3-oss/env-nextjs": "^0.12.0",
@@ -55,6 +56,8 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@bufbuild/buf": "^1.61.0",
+    "@bufbuild/protoc-gen-es": "^2.10.2",
     "@cloudflare/workers-types": "^4.20251014.0",
     "@eslint/eslintrc": "^3.3.1",
     "@tailwindcss/postcss": "^4.0.15",

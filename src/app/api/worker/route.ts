@@ -2,11 +2,20 @@
 // ABOUTME: Handles all worker-to-API requests via a single endpoint with binary protobuf encoding
 
 import { type NextRequest, NextResponse } from "next/server";
-import { preppal } from "~/lib/interview_pb";
+import { create, toBinary, fromBinary } from "@bufbuild/protobuf";
+import {
+  WorkerApiRequestSchema,
+  WorkerApiResponseSchema,
+  GetContextResponseSchema,
+  UpdateStatusResponseSchema,
+  SubmitTranscriptResponseSchema,
+  SubmitFeedbackResponseSchema,
+  ApiErrorSchema,
+  InterviewStatus as ProtoInterviewStatus,
+} from "~/lib/proto/interview_pb";
 import { db } from "~/server/db";
 import {
   type Prisma,
-  type SpeakerRole,
   InterviewStatus,
   InterviewDuration,
 } from "@prisma/client";
@@ -24,19 +33,14 @@ function validateWorkerAuth(authHeader: string | null): boolean {
 }
 
 /**
- * Encodes a response to protobuf binary
- */
-function encodeResponse(response: preppal.IWorkerApiResponse): Uint8Array {
-  return preppal.WorkerApiResponse.encode(response).finish();
-}
-
-/**
  * Creates an error response
  */
 function createErrorResponse(code: number, message: string): Uint8Array {
-  return encodeResponse({
-    error: { code, message },
+  const error = create(ApiErrorSchema, { code, message });
+  const response = create(WorkerApiResponseSchema, {
+    response: { case: "error", value: error },
   });
+  return toBinary(WorkerApiResponseSchema, response);
 }
 
 /**
@@ -61,10 +65,10 @@ const DURATION_MS_MAP: Record<InterviewDuration, number> = {
 };
 
 async function handleGetContext(
-  req: preppal.IGetContextRequest,
-): Promise<preppal.IWorkerApiResponse> {
+  interviewId: string,
+): Promise<{ case: "getContext" | "error"; value: Uint8Array }> {
   const interview = await db.interview.findUnique({
-    where: { id: req.interviewId! },
+    where: { id: interviewId },
     select: {
       jobDescriptionSnapshot: true,
       resumeSnapshot: true,
@@ -75,134 +79,178 @@ async function handleGetContext(
 
   if (!interview) {
     return {
-      error: { code: 404, message: "Interview not found" },
+      case: "error",
+      value: createErrorResponse(404, "Interview not found"),
     };
   }
 
   const durationMs = DURATION_MS_MAP[interview.duration] ?? 30 * 60 * 1000;
 
+  const response = create(GetContextResponseSchema, {
+    jobDescription: interview.jobDescriptionSnapshot ?? "",
+    resume: interview.resumeSnapshot ?? "",
+    persona: interview.persona ?? "professional interviewer",
+    durationMs,
+  });
+
+  const fullResponse = create(WorkerApiResponseSchema, {
+    response: { case: "getContext", value: response },
+  });
+
   return {
-    getContext: {
-      jobDescription: interview.jobDescriptionSnapshot ?? "",
-      resume: interview.resumeSnapshot ?? "",
-      persona: interview.persona ?? "professional interviewer",
-      durationMs,
-    },
+    case: "getContext",
+    value: toBinary(WorkerApiResponseSchema, fullResponse),
   };
 }
 
 async function handleUpdateStatus(
-  req: preppal.IUpdateStatusRequest,
-): Promise<preppal.IWorkerApiResponse> {
+  interviewId: string,
+  status: ProtoInterviewStatus,
+  endedAt?: string,
+): Promise<{ case: "updateStatus" | "error"; value: Uint8Array }> {
   // Map protobuf enum to string status
-  const statusMap: Record<preppal.InterviewStatus, InterviewStatus> = {
-    [preppal.InterviewStatus.STATUS_UNSPECIFIED]: InterviewStatus.PENDING,
-    [preppal.InterviewStatus.IN_PROGRESS]: InterviewStatus.IN_PROGRESS,
-    [preppal.InterviewStatus.COMPLETED]: InterviewStatus.COMPLETED,
-    [preppal.InterviewStatus.ERROR]: InterviewStatus.ERROR,
+  const statusMap: Record<ProtoInterviewStatus, InterviewStatus> = {
+    [ProtoInterviewStatus.STATUS_UNSPECIFIED]: InterviewStatus.PENDING,
+    [ProtoInterviewStatus.IN_PROGRESS]: InterviewStatus.IN_PROGRESS,
+    [ProtoInterviewStatus.COMPLETED]: InterviewStatus.COMPLETED,
+    [ProtoInterviewStatus.ERROR]: InterviewStatus.ERROR,
   };
 
-  const status = statusMap[req.status!] ?? InterviewStatus.PENDING;
+  const dbStatus = statusMap[status] ?? InterviewStatus.PENDING;
 
   const interview = await db.interview.findUnique({
-    where: { id: req.interviewId! },
+    where: { id: interviewId },
   });
 
   if (!interview) {
     return {
-      error: { code: 404, message: "Interview not found" },
+      case: "error",
+      value: createErrorResponse(404, "Interview not found"),
     };
   }
 
   // Prepare update data based on status
   const updateData: Prisma.InterviewUpdateInput = {
-    status,
+    status: dbStatus,
   };
 
-  if (status === InterviewStatus.IN_PROGRESS) {
+  if (dbStatus === InterviewStatus.IN_PROGRESS) {
     updateData.startedAt = new Date();
   } else if (
-    status === InterviewStatus.COMPLETED ||
-    status === InterviewStatus.ERROR
+    dbStatus === InterviewStatus.COMPLETED ||
+    dbStatus === InterviewStatus.ERROR
   ) {
-    updateData.endedAt = req.endedAt ? new Date(req.endedAt) : new Date();
+    updateData.endedAt = endedAt ? new Date(endedAt) : new Date();
   }
 
   await db.interview.update({
-    where: { id: req.interviewId! },
+    where: { id: interviewId },
     data: updateData,
   });
 
+  const response = create(UpdateStatusResponseSchema, { success: true });
+  const fullResponse = create(WorkerApiResponseSchema, {
+    response: { case: "updateStatus", value: response },
+  });
+
   return {
-    updateStatus: { success: true },
+    case: "updateStatus",
+    value: toBinary(WorkerApiResponseSchema, fullResponse),
   };
 }
 
 async function handleSubmitTranscript(
-  req: preppal.ISubmitTranscriptRequest,
-): Promise<preppal.IWorkerApiResponse> {
-  const entries = req.entries ?? [];
+  interviewId: string,
+  transcript: Uint8Array,
+  endedAt: string,
+): Promise<{ case: "submitTranscript" | "error"; value: Uint8Array }> {
+  if (!transcript || transcript.length === 0) {
+    return {
+      case: "error",
+      value: createErrorResponse(400, "Missing transcript data"),
+    };
+  }
 
-  // Perform atomic transaction: save transcript + update status
+  // Store transcript as single protobuf blob (upsert for idempotency)
   await db.$transaction([
-    db.transcriptEntry.createMany({
-      data: entries.map((entry) => ({
-        interviewId: req.interviewId!,
-        speaker: entry.speaker! as SpeakerRole,
-        content: entry.content!,
-        timestamp: new Date(entry.timestamp!),
-      })),
+    db.transcriptEntry.upsert({
+      where: { interviewId },
+      update: {
+        transcript: Buffer.from(transcript),
+      },
+      create: {
+        interviewId,
+        transcript: Buffer.from(transcript),
+      },
     }),
     db.interview.update({
-      where: { id: req.interviewId! },
+      where: { id: interviewId },
       data: {
         status: InterviewStatus.COMPLETED,
-        endedAt: new Date(req.endedAt!),
+        endedAt: new Date(endedAt),
       },
     }),
   ]);
 
+  const response = create(SubmitTranscriptResponseSchema, { success: true });
+  const fullResponse = create(WorkerApiResponseSchema, {
+    response: { case: "submitTranscript", value: response },
+  });
+
   return {
-    submitTranscript: { success: true },
+    case: "submitTranscript",
+    value: toBinary(WorkerApiResponseSchema, fullResponse),
   };
 }
 
 async function handleSubmitFeedback(
-  req: preppal.ISubmitFeedbackRequest,
-): Promise<preppal.IWorkerApiResponse> {
+  interviewId: string,
+  summary: string,
+  strengths: string,
+  contentAndStructure: string,
+  communicationAndDelivery: string,
+  presentation: string,
+): Promise<{ case: "submitFeedback" | "error"; value: Uint8Array }> {
   // Check if interview exists
   const interview = await db.interview.findUnique({
-    where: { id: req.interviewId! },
+    where: { id: interviewId },
   });
 
   if (!interview) {
     return {
-      error: { code: 404, message: "Interview not found" },
+      case: "error",
+      value: createErrorResponse(404, "Interview not found"),
     };
   }
 
   // Create or update feedback (idempotent)
   await db.interviewFeedback.upsert({
-    where: { interviewId: req.interviewId! },
+    where: { interviewId },
     update: {
-      summary: req.summary!,
-      strengths: req.strengths!,
-      contentAndStructure: req.contentAndStructure!,
-      communicationAndDelivery: req.communicationAndDelivery!,
-      presentation: req.presentation!,
+      summary,
+      strengths,
+      contentAndStructure,
+      communicationAndDelivery,
+      presentation,
     },
     create: {
-      interviewId: req.interviewId!,
-      summary: req.summary!,
-      strengths: req.strengths!,
-      contentAndStructure: req.contentAndStructure!,
-      communicationAndDelivery: req.communicationAndDelivery!,
-      presentation: req.presentation!,
+      interviewId,
+      summary,
+      strengths,
+      contentAndStructure,
+      communicationAndDelivery,
+      presentation,
     },
   });
 
+  const response = create(SubmitFeedbackResponseSchema, { success: true });
+  const fullResponse = create(WorkerApiResponseSchema, {
+    response: { case: "submitFeedback", value: response },
+  });
+
   return {
-    submitFeedback: { success: true },
+    case: "submitFeedback",
+    value: toBinary(WorkerApiResponseSchema, fullResponse),
   };
 }
 
@@ -218,44 +266,70 @@ export async function POST(req: NextRequest) {
   try {
     // Decode request
     const buffer = await req.arrayBuffer();
-    const request = preppal.WorkerApiRequest.decode(new Uint8Array(buffer));
+    const request = fromBinary(WorkerApiRequestSchema, new Uint8Array(buffer));
 
-    let response: preppal.IWorkerApiResponse;
+    let result: { case: string; value: Uint8Array };
 
     // Route to appropriate handler based on oneof field
-    if (request.getContext) {
-      console.log(
-        `[Worker API] getContext for interview ${request.getContext.interviewId}`,
-      );
-      response = await handleGetContext(request.getContext);
-    } else if (request.updateStatus) {
-      console.log(
-        `[Worker API] updateStatus for interview ${request.updateStatus.interviewId}`,
-      );
-      response = await handleUpdateStatus(request.updateStatus);
-    } else if (request.submitTranscript) {
-      console.log(
-        `[Worker API] submitTranscript for interview ${request.submitTranscript.interviewId}`,
-      );
-      response = await handleSubmitTranscript(request.submitTranscript);
-    } else if (request.submitFeedback) {
-      console.log(
-        `[Worker API] submitFeedback for interview ${request.submitFeedback.interviewId}`,
-      );
-      response = await handleSubmitFeedback(request.submitFeedback);
-    } else {
-      return protobufResponse(
-        createErrorResponse(400, "Invalid request: no operation specified"),
-        400,
-      );
+    const { request: reqPayload } = request;
+
+    switch (reqPayload.case) {
+      case "getContext":
+        console.log(
+          `[Worker API] getContext for interview ${reqPayload.value.interviewId}`,
+        );
+        result = await handleGetContext(reqPayload.value.interviewId);
+        break;
+
+      case "updateStatus":
+        console.log(
+          `[Worker API] updateStatus for interview ${reqPayload.value.interviewId}`,
+        );
+        result = await handleUpdateStatus(
+          reqPayload.value.interviewId,
+          reqPayload.value.status,
+          reqPayload.value.endedAt,
+        );
+        break;
+
+      case "submitTranscript":
+        console.log(
+          `[Worker API] submitTranscript for interview ${reqPayload.value.interviewId}`,
+        );
+        result = await handleSubmitTranscript(
+          reqPayload.value.interviewId,
+          reqPayload.value.transcript,
+          reqPayload.value.endedAt,
+        );
+        break;
+
+      case "submitFeedback":
+        console.log(
+          `[Worker API] submitFeedback for interview ${reqPayload.value.interviewId}`,
+        );
+        result = await handleSubmitFeedback(
+          reqPayload.value.interviewId,
+          reqPayload.value.summary,
+          reqPayload.value.strengths,
+          reqPayload.value.contentAndStructure,
+          reqPayload.value.communicationAndDelivery,
+          reqPayload.value.presentation,
+        );
+        break;
+
+      default:
+        return protobufResponse(
+          createErrorResponse(400, "Invalid request: no operation specified"),
+          400,
+        );
     }
 
     // Check if response contains an error
-    if (response.error) {
-      return protobufResponse(encodeResponse(response), response.error.code!);
+    if (result.case === "error") {
+      return protobufResponse(result.value, 400);
     }
 
-    return protobufResponse(encodeResponse(response));
+    return protobufResponse(result.value);
   } catch (error) {
     console.error("[Worker API] Error:", error);
     return protobufResponse(

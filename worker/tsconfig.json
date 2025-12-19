@@ -13,5 +13,5 @@
 		"noEmit": true
 	},
 	"include": ["src/**/*"],
-	"exclude": ["node_modules", "src/lib/interview_pb.js", "src/lib/interview_pb.d.ts"]
+	"exclude": ["node_modules"]
 }

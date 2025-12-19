@@ -1,0 +1,15 @@
+# ABOUTME: Buf code generation configuration
+# ABOUTME: Generates TypeScript-first protobuf code for ESM environments
+version: v2
+plugins:
+  # Generate TypeScript bindings for src/lib (Next.js app)
+  - local: protoc-gen-es
+    out: src/lib/proto
+    opt:
+      - target=ts
+
+  # Generate TypeScript bindings for worker/src/lib (Cloudflare Worker)
+  - local: protoc-gen-es
+    out: worker/src/lib/proto
+    opt:
+      - target=ts

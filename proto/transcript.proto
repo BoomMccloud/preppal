@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package preppal.transcript;
+
+// Complete transcript for an interview session
+// Stored as a single binary blob in the database
+message Transcript {
+  repeated Turn turns = 1;
+}
+
+// A single conversational turn by one speaker
+message Turn {
+  Speaker speaker = 1;
+  string content = 2;
+  int64 timestamp_ms = 3;  // Unix milliseconds
+}
+
+// Speaker identity
+enum Speaker {
+  SPEAKER_UNSPECIFIED = 0;
+  USER = 1;
+  AI = 2;
+}

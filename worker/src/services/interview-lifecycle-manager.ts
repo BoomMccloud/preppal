@@ -5,7 +5,7 @@ import { INTERVIEW_STATUS } from "../constants";
 import type {
   IApiClient,
   InterviewContext,
-  TranscriptEntry,
+  ITranscriptManager,
 } from "../interfaces";
 import { generateFeedback } from "../utils/feedback";
 
@@ -63,26 +63,43 @@ export class InterviewLifecycleManager {
 
   /**
    * Finalizes the interview session by submitting transcripts and generating feedback.
+   * @param interviewId - The interview ID
+   * @param transcriptManager - The transcript manager with aggregated turns
+   * @param context - Interview context for feedback generation
    */
   async finalizeSession(
     interviewId: string,
-    transcript: TranscriptEntry[],
+    transcriptManager: ITranscriptManager,
     context: InterviewContext,
   ): Promise<void> {
     try {
       const endedAt = new Date().toISOString();
 
+      // Get serialized transcript (protobuf binary) for DB storage
+      const serializedTranscript = transcriptManager.serializeTranscript();
+
+      // Get formatted text for feedback generation
+      const transcriptText = transcriptManager.formatAsText();
+
       // Step 1: Save transcript - CRITICAL
       console.log(
-        `[InterviewLifecycleManager] Submitting transcript for interview ${interviewId} (${transcript.length} entries)`,
+        `[InterviewLifecycleManager] Submitting transcript for interview ${interviewId} (${serializedTranscript.length} bytes)`,
       );
-      await this.apiClient.submitTranscript(interviewId, transcript, endedAt);
+      await this.apiClient.submitTranscript(
+        interviewId,
+        serializedTranscript,
+        endedAt,
+      );
       console.log(
         `[InterviewLifecycleManager] Transcript submitted for interview ${interviewId}`,
       );
 
       // Step 2: Generate and submit feedback - BEST EFFORT
-      await this.generateAndSubmitFeedback(interviewId, transcript, context);
+      await this.generateAndSubmitFeedback(
+        interviewId,
+        transcriptText,
+        context,
+      );
 
       // Step 3: Update status to COMPLETED
       await this.apiClient.updateStatus(
@@ -126,13 +143,13 @@ export class InterviewLifecycleManager {
    */
   private async generateAndSubmitFeedback(
     interviewId: string,
-    transcript: TranscriptEntry[],
+    transcriptText: string,
     context: InterviewContext,
   ): Promise<void> {
     try {
       console.log(`[InterviewLifecycleManager] Generating feedback...`);
       const feedback = await generateFeedback(
-        transcript,
+        transcriptText,
         context,
         this.geminiApiKey,
       );

@@ -1,0 +1,11 @@
+# ABOUTME: Buf configuration for protobuf compilation
+# ABOUTME: Defines module location and lint/breaking rules
+version: v2
+modules:
+  - path: proto
+lint:
+  use:
+    - DEFAULT
+breaking:
+  use:
+    - FILE

@@ -2,12 +2,17 @@
 // handling audio recording, playback, and protobuf message serialization.
 // It's designed to be used by a React hook for testing the audio pipeline.
 
+import { create, toBinary, fromBinary } from "@bufbuild/protobuf";
 import { AudioPlayer } from "./AudioPlayer";
 import { AudioRecorder } from "./AudioRecorder";
-import { preppal } from "../interview_pb.js";
+import {
+  type TranscriptUpdate,
+  ClientToServerMessageSchema,
+  ServerToClientMessageSchema,
+  AudioChunkSchema,
+} from "../proto/interview_pb";
 
 type ConnectionState = "disconnected" | "connecting" | "connected";
-type TranscriptUpdate = preppal.ITranscriptUpdate;
 
 interface RawClientCallbacks {
   onConnectionStateChange?: (state: ConnectionState) => void;
@@ -118,28 +123,33 @@ export class RawAudioClient {
 
   private handleAudioData = (chunk: ArrayBuffer) => {
     if (this.ws?.readyState === WebSocket.OPEN) {
-      const message = preppal.ClientToServerMessage.create({
-        audioChunk: { audioContent: new Uint8Array(chunk) },
+      const message = create(ClientToServerMessageSchema, {
+        payload: {
+          case: "audioChunk",
+          value: create(AudioChunkSchema, { audioContent: new Uint8Array(chunk) }),
+        },
       });
-      const encodedMessage =
-        preppal.ClientToServerMessage.encode(message).finish();
+      const encodedMessage = toBinary(ClientToServerMessageSchema, message);
       this.ws.send(encodedMessage);
     }
   };
 
   private handleServerMessage = (data: ArrayBuffer) => {
     if (data instanceof ArrayBuffer) {
-      const message = preppal.ServerToClientMessage.decode(
+      const message = fromBinary(
+        ServerToClientMessageSchema,
         new Uint8Array(data),
       );
 
+      const { payload } = message;
+
       if (
-        message.audioResponse?.audioContent &&
-        message.audioResponse.audioContent.length > 0
+        payload.case === "audioResponse" &&
+        payload.value.audioContent?.length
       ) {
-        void this.player.enqueue(message.audioResponse.audioContent);
-      } else if (message.transcriptUpdate) {
-        this.callbacks.onTranscriptUpdate?.(message.transcriptUpdate);
+        void this.player.enqueue(payload.value.audioContent);
+      } else if (payload.case === "transcriptUpdate") {
+        this.callbacks.onTranscriptUpdate?.(payload.value);
       }
     } else {
       console.log("Received text message:", data);

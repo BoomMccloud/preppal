@@ -124,14 +124,8 @@ message UpdateStatusResponse {
 // ---- submitTranscript ----
 message SubmitTranscriptRequest {
   string interview_id = 1;
-  repeated WorkerTranscriptEntry entries = 2;
-  string ended_at = 3; // ISO 8601 timestamp
-}
-
-message WorkerTranscriptEntry {
-  string speaker = 1;  // "USER" or "AI"
-  string content = 2;
-  string timestamp = 3; // ISO 8601 timestamp
+  bytes transcript = 2;  // Protobuf binary blob (preppal.transcript.Transcript)
+  string ended_at = 3;   // ISO 8601 timestamp
 }
 
 message SubmitTranscriptResponse {

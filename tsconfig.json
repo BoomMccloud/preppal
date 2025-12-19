@@ -40,8 +40,6 @@
   ],
   "exclude": [
     "node_modules",
-    "src/lib/interview_pb.js",
-    "src/lib/interview_pb.d.ts",
     "**/*.test.ts",
     "**/*.test.tsx",
     "**/*.spec.ts",

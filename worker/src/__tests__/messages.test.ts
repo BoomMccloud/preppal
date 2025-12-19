@@ -2,6 +2,7 @@
 // ABOUTME: Validates message serialization for client-server WebSocket communication
 
 import { describe, it, expect } from "vitest";
+import { create, toBinary, fromBinary } from "@bufbuild/protobuf";
 import {
   decodeClientMessage,
   encodeServerMessage,
@@ -9,45 +10,56 @@ import {
   createAudioResponse,
   createErrorResponse,
   createSessionEnded,
+  SessionEnded_Reason,
 } from "../messages";
-import { preppal } from "../lib/interview_pb.js";
+import {
+  ClientToServerMessageSchema,
+  ServerToClientMessageSchema,
+  AudioChunkSchema,
+  EndRequestSchema,
+} from "../lib/proto/interview_pb.js";
 
 describe("Message Encoding/Decoding", () => {
   describe("Client to Server Messages", () => {
     it("should decode an AudioChunk message", () => {
       const audioData = new Uint8Array([1, 2, 3, 4, 5]);
-      const message = preppal.ClientToServerMessage.create({
-        audioChunk: {
-          audioContent: audioData,
+      const message = create(ClientToServerMessageSchema, {
+        payload: {
+          case: "audioChunk",
+          value: create(AudioChunkSchema, { audioContent: audioData }),
         },
       });
 
-      const encoded = preppal.ClientToServerMessage.encode(message).finish();
-      // Convert to ArrayBuffer for decoding, ensuring proper type
+      const encoded = toBinary(ClientToServerMessageSchema, message);
+      // Convert to ArrayBuffer for decoding
       const buffer = encoded.buffer.slice(
         encoded.byteOffset,
         encoded.byteOffset + encoded.byteLength,
       ) as ArrayBuffer;
       const decoded = decodeClientMessage(buffer);
 
-      expect(decoded.audioChunk).toBeDefined();
-      expect(decoded.audioChunk?.audioContent).toEqual(audioData);
+      expect(decoded.payload.case).toBe("audioChunk");
+      if (decoded.payload.case === "audioChunk") {
+        expect(decoded.payload.value.audioContent).toEqual(audioData);
+      }
     });
 
     it("should decode an EndRequest message", () => {
-      const message = preppal.ClientToServerMessage.create({
-        endRequest: {},
+      const message = create(ClientToServerMessageSchema, {
+        payload: {
+          case: "endRequest",
+          value: create(EndRequestSchema, {}),
+        },
       });
 
-      const encoded = preppal.ClientToServerMessage.encode(message).finish();
-      // Convert to ArrayBuffer for decoding, ensuring proper type
+      const encoded = toBinary(ClientToServerMessageSchema, message);
       const buffer = encoded.buffer.slice(
         encoded.byteOffset,
         encoded.byteOffset + encoded.byteLength,
       ) as ArrayBuffer;
       const decoded = decodeClientMessage(buffer);
 
-      expect(decoded.endRequest).toBeDefined();
+      expect(decoded.payload.case).toBe("endRequest");
     });
   });
 
@@ -56,14 +68,15 @@ describe("Message Encoding/Decoding", () => {
       const message = createTranscriptUpdate("USER", "Hello world", true);
       const encoded = encodeServerMessage(message);
 
-      // Buffer extends Uint8Array in Node.js
-      expect(encoded).toBeInstanceOf(Buffer);
+      expect(encoded).toBeInstanceOf(Uint8Array);
 
-      const decoded = preppal.ServerToClientMessage.decode(encoded);
-      expect(decoded.transcriptUpdate).toBeDefined();
-      expect(decoded.transcriptUpdate?.speaker).toBe("USER");
-      expect(decoded.transcriptUpdate?.text).toBe("Hello world");
-      expect(decoded.transcriptUpdate?.isFinal).toBe(true);
+      const decoded = fromBinary(ServerToClientMessageSchema, encoded);
+      expect(decoded.payload.case).toBe("transcriptUpdate");
+      if (decoded.payload.case === "transcriptUpdate") {
+        expect(decoded.payload.value.speaker).toBe("USER");
+        expect(decoded.payload.value.text).toBe("Hello world");
+        expect(decoded.payload.value.isFinal).toBe(true);
+      }
     });
 
     it("should create and encode an AudioResponse message", () => {
@@ -71,60 +84,62 @@ describe("Message Encoding/Decoding", () => {
       const message = createAudioResponse(audioData);
       const encoded = encodeServerMessage(message);
 
-      // Buffer extends Uint8Array in Node.js
-      expect(encoded).toBeInstanceOf(Buffer);
+      expect(encoded).toBeInstanceOf(Uint8Array);
 
-      const decoded = preppal.ServerToClientMessage.decode(encoded);
-      expect(decoded.audioResponse).toBeDefined();
-      // Compare as arrays since protobuf may return Buffer
-      expect(Array.from(decoded.audioResponse?.audioContent ?? [])).toEqual(
-        Array.from(audioData),
-      );
+      const decoded = fromBinary(ServerToClientMessageSchema, encoded);
+      expect(decoded.payload.case).toBe("audioResponse");
+      if (decoded.payload.case === "audioResponse") {
+        expect(Array.from(decoded.payload.value.audioContent ?? [])).toEqual(
+          Array.from(audioData),
+        );
+      }
     });
 
     it("should create and encode an ErrorResponse message", () => {
       const message = createErrorResponse(4001, "Authentication failed");
       const encoded = encodeServerMessage(message);
 
-      // Buffer extends Uint8Array in Node.js
-      expect(encoded).toBeInstanceOf(Buffer);
+      expect(encoded).toBeInstanceOf(Uint8Array);
 
-      const decoded = preppal.ServerToClientMessage.decode(encoded);
-      expect(decoded.error).toBeDefined();
-      expect(decoded.error?.code).toBe(4001);
-      expect(decoded.error?.message).toBe("Authentication failed");
+      const decoded = fromBinary(ServerToClientMessageSchema, encoded);
+      expect(decoded.payload.case).toBe("error");
+      if (decoded.payload.case === "error") {
+        expect(decoded.payload.value.code).toBe(4001);
+        expect(decoded.payload.value.message).toBe("Authentication failed");
+      }
     });
 
     it("should create and encode a SessionEnded message", () => {
-      const message = createSessionEnded(
-        preppal.SessionEnded.Reason.USER_INITIATED,
-      );
+      const message = createSessionEnded(SessionEnded_Reason.USER_INITIATED);
       const encoded = encodeServerMessage(message);
 
-      // Buffer extends Uint8Array in Node.js
-      expect(encoded).toBeInstanceOf(Buffer);
+      expect(encoded).toBeInstanceOf(Uint8Array);
 
-      const decoded = preppal.ServerToClientMessage.decode(encoded);
-      expect(decoded.sessionEnded).toBeDefined();
-      expect(decoded.sessionEnded?.reason).toBe(
-        preppal.SessionEnded.Reason.USER_INITIATED,
-      );
+      const decoded = fromBinary(ServerToClientMessageSchema, encoded);
+      expect(decoded.payload.case).toBe("sessionEnded");
+      if (decoded.payload.case === "sessionEnded") {
+        expect(decoded.payload.value.reason).toBe(
+          SessionEnded_Reason.USER_INITIATED,
+        );
+      }
     });
 
     it("should handle all SessionEnded reasons", () => {
       const reasons = [
-        preppal.SessionEnded.Reason.REASON_UNSPECIFIED,
-        preppal.SessionEnded.Reason.USER_INITIATED,
-        preppal.SessionEnded.Reason.GEMINI_ENDED,
-        preppal.SessionEnded.Reason.TIMEOUT,
+        SessionEnded_Reason.REASON_UNSPECIFIED,
+        SessionEnded_Reason.USER_INITIATED,
+        SessionEnded_Reason.GEMINI_ENDED,
+        SessionEnded_Reason.TIMEOUT,
       ];
 
       reasons.forEach((reason) => {
         const message = createSessionEnded(reason);
         const encoded = encodeServerMessage(message);
-        const decoded = preppal.ServerToClientMessage.decode(encoded);
+        const decoded = fromBinary(ServerToClientMessageSchema, encoded);
 
-        expect(decoded.sessionEnded?.reason).toBe(reason);
+        if (decoded.payload.case === "sessionEnded") {
+          expect(decoded.payload.value.reason).toBe(reason);
+        }
       });
     });
   });
@@ -137,11 +152,13 @@ describe("Message Encoding/Decoding", () => {
         false,
       );
       const encoded = encodeServerMessage(original);
-      const decoded = preppal.ServerToClientMessage.decode(encoded);
+      const decoded = fromBinary(ServerToClientMessageSchema, encoded);
 
-      expect(decoded.transcriptUpdate?.speaker).toBe("AI");
-      expect(decoded.transcriptUpdate?.text).toBe("This is a test message");
-      expect(decoded.transcriptUpdate?.isFinal).toBe(false);
+      if (decoded.payload.case === "transcriptUpdate") {
+        expect(decoded.payload.value.speaker).toBe("AI");
+        expect(decoded.payload.value.text).toBe("This is a test message");
+        expect(decoded.payload.value.isFinal).toBe(false);
+      }
     });
   });
 });

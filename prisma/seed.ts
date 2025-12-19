@@ -1,6 +1,22 @@
 import { PrismaClient } from "@prisma/client";
+import protobuf from "protobufjs";
+import * as path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const prisma = new PrismaClient();
+
+// Load protobuf schema dynamically to avoid ESM issues with generated code
+async function loadTranscriptProto() {
+  const root = await protobuf.load(path.join(__dirname, "../proto/transcript.proto"));
+  return {
+    Transcript: root.lookupType("preppal.transcript.Transcript"),
+    Turn: root.lookupType("preppal.transcript.Turn"),
+    Speaker: root.lookupEnum("preppal.transcript.Speaker"),
+  };
+}
 
 async function main() {
   // Development test users
@@ -307,16 +323,27 @@ We are seeking a talented Senior Frontend Developer to join our growing team. Yo
     },
   ];
 
-  for (const entry of transcriptEntries) {
-    await prisma.transcriptEntry.create({
-      data: {
-        interviewId: interview.id,
-        speaker: entry.speaker as "USER" | "AI",
-        content: entry.content,
-        timestamp: entry.timestamp,
-      },
-    });
-  }
+  // Load protobuf schema and convert transcript entries
+  const { Transcript, Speaker } = await loadTranscriptProto();
+
+  const turns = transcriptEntries.map((entry) => ({
+    speaker: entry.speaker === "USER" ? Speaker.values.USER : Speaker.values.AI,
+    content: entry.content,
+    timestampMs: entry.timestamp.getTime(),
+  }));
+
+  const transcriptMessage = Transcript.create({ turns });
+  const transcriptBlob = Transcript.encode(transcriptMessage).finish();
+
+  // Create a single transcript entry with the protobuf blob
+  await prisma.transcriptEntry.upsert({
+    where: { interviewId: interview.id },
+    update: { transcript: Buffer.from(transcriptBlob) },
+    create: {
+      interviewId: interview.id,
+      transcript: Buffer.from(transcriptBlob),
+    },
+  });
 
   // Create feedback for the interview
   await prisma.interviewFeedback.upsert({

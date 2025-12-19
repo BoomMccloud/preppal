@@ -25,6 +25,7 @@ vi.mock("~/server/db", () => ({
     },
     transcriptEntry: {
       createMany: vi.fn(),
+      upsert: vi.fn(),
     },
     $transaction: vi.fn(),
   },
@@ -1060,18 +1061,16 @@ describe("interview.updateStatus", () => {
 });
 
 describe("interviewWorker.submitTranscript", () => {
-  const mockTranscript = [
-    {
-      speaker: "USER" as const,
-      content: "Hello",
-      timestamp: "2024-01-01T10:00:00Z",
-    },
-    {
-      speaker: "AI" as const,
-      content: "Hi, how can I help?",
-      timestamp: "2024-01-01T10:00:05Z",
-    },
-  ];
+  // Base64-encoded mock transcript (simulating serialized protobuf)
+  // This is a simple JSON structure encoded as base64 for testing
+  const mockTranscript = Buffer.from(
+    JSON.stringify({
+      turns: [
+        { speaker: 1, content: "Hello", timestampMs: 1704099600000 },
+        { speaker: 2, content: "Hi, how can I help?", timestampMs: 1704099605000 },
+      ],
+    }),
+  ).toString("base64");
 
   beforeEach(() => {
     vi.clearAllMocks();

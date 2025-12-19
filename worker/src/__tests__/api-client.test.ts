@@ -2,8 +2,18 @@
 // ABOUTME: Validates binary protobuf encoding/decoding and proper authentication
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { create, toBinary, fromBinary } from "@bufbuild/protobuf";
 import { ApiClient } from "../api-client";
-import { preppal } from "../lib/interview_pb.js";
+import {
+  WorkerApiRequestSchema,
+  WorkerApiResponseSchema,
+  GetContextResponseSchema,
+  UpdateStatusResponseSchema,
+  SubmitTranscriptResponseSchema,
+  SubmitFeedbackResponseSchema,
+  ApiErrorSchema,
+  InterviewStatus,
+} from "../lib/proto/interview_pb.js";
 
 // Mock global fetch
 const mockFetch = vi.fn();
@@ -12,12 +22,59 @@ global.fetch = mockFetch;
 /**
  * Helper to create a mock protobuf response
  */
-function createMockProtobufResponse(response: preppal.IWorkerApiResponse): {
+function createMockProtobufResponse(
+  responseCase: "getContext" | "updateStatus" | "submitTranscript" | "submitFeedback" | "error",
+  value: unknown,
+): {
   ok: boolean;
   status: number;
   arrayBuffer: () => Promise<ArrayBuffer>;
 } {
-  const encoded = preppal.WorkerApiResponse.encode(response).finish();
+  let response;
+  switch (responseCase) {
+    case "getContext":
+      response = create(WorkerApiResponseSchema, {
+        response: {
+          case: "getContext",
+          value: create(GetContextResponseSchema, value as Record<string, unknown>),
+        },
+      });
+      break;
+    case "updateStatus":
+      response = create(WorkerApiResponseSchema, {
+        response: {
+          case: "updateStatus",
+          value: create(UpdateStatusResponseSchema, value as Record<string, unknown>),
+        },
+      });
+      break;
+    case "submitTranscript":
+      response = create(WorkerApiResponseSchema, {
+        response: {
+          case: "submitTranscript",
+          value: create(SubmitTranscriptResponseSchema, value as Record<string, unknown>),
+        },
+      });
+      break;
+    case "submitFeedback":
+      response = create(WorkerApiResponseSchema, {
+        response: {
+          case: "submitFeedback",
+          value: create(SubmitFeedbackResponseSchema, value as Record<string, unknown>),
+        },
+      });
+      break;
+    case "error":
+      response = create(WorkerApiResponseSchema, {
+        response: {
+          case: "error",
+          value: create(ApiErrorSchema, value as Record<string, unknown>),
+        },
+      });
+      break;
+  }
+
+  const encoded = toBinary(WorkerApiResponseSchema, response);
   return {
     ok: true,
     status: 200,
@@ -43,9 +100,7 @@ function createMockErrorResponse(
   status: number;
   arrayBuffer: () => Promise<ArrayBuffer>;
 } {
-  return createMockProtobufResponse({
-    error: { code, message },
-  });
+  return createMockProtobufResponse("error", { code, message });
 }
 
 describe("ApiClient", () => {
@@ -64,9 +119,7 @@ describe("ApiClient", () => {
       const status = "IN_PROGRESS";
 
       mockFetch.mockResolvedValueOnce(
-        createMockProtobufResponse({
-          updateStatus: { success: true },
-        }),
+        createMockProtobufResponse("updateStatus", { success: true }),
       );
 
       await apiClient.updateStatus(interviewId, status);
@@ -89,9 +142,7 @@ describe("ApiClient", () => {
       const status = "COMPLETED";
 
       mockFetch.mockResolvedValueOnce(
-        createMockProtobufResponse({
-          updateStatus: { success: true },
-        }),
+        createMockProtobufResponse("updateStatus", { success: true }),
       );
 
       await apiClient.updateStatus(interviewId, status);
@@ -99,13 +150,15 @@ describe("ApiClient", () => {
       // Verify the body can be decoded as protobuf
       const callArgs = mockFetch.mock.calls?.[0]?.[1];
       const requestBuffer = callArgs?.body as ArrayBuffer;
-      const decoded = preppal.WorkerApiRequest.decode(
+      const decoded = fromBinary(
+        WorkerApiRequestSchema,
         new Uint8Array(requestBuffer),
       );
-      expect(decoded.updateStatus?.interviewId).toBe(interviewId);
-      expect(decoded.updateStatus?.status).toBe(
-        preppal.InterviewStatus.COMPLETED,
-      );
+      expect(decoded.request.case).toBe("updateStatus");
+      if (decoded.request.case === "updateStatus") {
+        expect(decoded.request.value.interviewId).toBe(interviewId);
+        expect(decoded.request.value.status).toBe(InterviewStatus.COMPLETED);
+      }
     });
 
     it("should throw error when API returns error response", async () => {
@@ -120,54 +173,37 @@ describe("ApiClient", () => {
   });
 
   describe("submitTranscript", () => {
-    it("should send POST request with transcript entries", async () => {
+    it("should send POST request with transcript blob", async () => {
       const interviewId = "interview-123";
-      const transcript = [
-        {
-          speaker: "USER" as const,
-          content: "Hello",
-          timestamp: "2024-01-01T00:00:00Z",
-        },
-        {
-          speaker: "AI" as const,
-          content: "Hi there!",
-          timestamp: "2024-01-01T00:00:01Z",
-        },
-      ];
+      const transcript = new Uint8Array([1, 2, 3, 4, 5]); // Serialized protobuf transcript
       const endedAt = "2024-01-01T00:00:02Z";
 
       mockFetch.mockResolvedValueOnce(
-        createMockProtobufResponse({
-          submitTranscript: { success: true },
-        }),
+        createMockProtobufResponse("submitTranscript", { success: true }),
       );
 
       await apiClient.submitTranscript(interviewId, transcript, endedAt);
 
       expect(mockFetch).toHaveBeenCalledTimes(1);
 
-      // Verify the request body contains transcript entries
+      // Verify the request body contains transcript
       const callArgs = mockFetch.mock.calls?.[0]?.[1];
       const requestBuffer = callArgs?.body as ArrayBuffer;
-      const decoded = preppal.WorkerApiRequest.decode(
+      const decoded = fromBinary(
+        WorkerApiRequestSchema,
         new Uint8Array(requestBuffer),
       );
 
-      expect(decoded.submitTranscript?.interviewId).toBe(interviewId);
-      expect(decoded.submitTranscript?.entries).toHaveLength(2);
-      expect(decoded.submitTranscript?.entries?.[0]?.speaker).toBe("USER");
-      expect(decoded.submitTranscript?.entries?.[0]?.content).toBe("Hello");
-      expect(decoded.submitTranscript?.endedAt).toBe(endedAt);
+      expect(decoded.request.case).toBe("submitTranscript");
+      if (decoded.request.case === "submitTranscript") {
+        expect(decoded.request.value.interviewId).toBe(interviewId);
+        expect(decoded.request.value.transcript).toEqual(transcript);
+        expect(decoded.request.value.endedAt).toBe(endedAt);
+      }
     });
 
     it("should throw error when API returns error response", async () => {
-      const transcript = [
-        {
-          speaker: "USER" as const,
-          content: "Test",
-          timestamp: "2024-01-01T00:00:00Z",
-        },
-      ];
+      const transcript = new Uint8Array([1, 2, 3]);
 
       mockFetch.mockResolvedValueOnce(
         createMockErrorResponse(404, "Interview not found"),
@@ -194,9 +230,7 @@ describe("ApiClient", () => {
       };
 
       mockFetch.mockResolvedValueOnce(
-        createMockProtobufResponse({
-          getContext: mockContext,
-        }),
+        createMockProtobufResponse("getContext", mockContext),
       );
 
       const result = await apiClient.getContext(interviewId);
@@ -221,12 +255,11 @@ describe("ApiClient", () => {
         jobDescription: "Frontend Developer",
         resume: "React expert",
         persona: "HR Manager",
+        durationMs: 1800000,
       };
 
       mockFetch.mockResolvedValueOnce(
-        createMockProtobufResponse({
-          getContext: mockContext,
-        }),
+        createMockProtobufResponse("getContext", mockContext),
       );
 
       const result = await apiClient.getContext("interview-123");
@@ -238,12 +271,11 @@ describe("ApiClient", () => {
 
     it("should include worker secret in request headers", async () => {
       mockFetch.mockResolvedValueOnce(
-        createMockProtobufResponse({
-          getContext: {
-            jobDescription: "",
-            resume: "",
-            persona: "professional interviewer",
-          },
+        createMockProtobufResponse("getContext", {
+          jobDescription: "",
+          resume: "",
+          persona: "professional interviewer",
+          durationMs: 1800000,
         }),
       );
 
@@ -278,9 +310,7 @@ describe("ApiClient", () => {
       };
 
       mockFetch.mockResolvedValueOnce(
-        createMockProtobufResponse({
-          submitFeedback: { success: true },
-        }),
+        createMockProtobufResponse("submitFeedback", { success: true }),
       );
 
       await apiClient.submitFeedback(interviewId, feedback);
@@ -290,13 +320,17 @@ describe("ApiClient", () => {
       // Verify the request body contains feedback
       const callArgs = mockFetch.mock.calls?.[0]?.[1];
       const requestBuffer = callArgs?.body as ArrayBuffer;
-      const decoded = preppal.WorkerApiRequest.decode(
+      const decoded = fromBinary(
+        WorkerApiRequestSchema,
         new Uint8Array(requestBuffer),
       );
 
-      expect(decoded.submitFeedback?.interviewId).toBe(interviewId);
-      expect(decoded.submitFeedback?.summary).toBe(feedback.summary);
-      expect(decoded.submitFeedback?.strengths).toBe(feedback.strengths);
+      expect(decoded.request.case).toBe("submitFeedback");
+      if (decoded.request.case === "submitFeedback") {
+        expect(decoded.request.value.interviewId).toBe(interviewId);
+        expect(decoded.request.value.summary).toBe(feedback.summary);
+        expect(decoded.request.value.strengths).toBe(feedback.strengths);
+      }
     });
 
     it("should throw error when API returns error response", async () => {

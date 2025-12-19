@@ -1,25 +1,32 @@
 // ABOUTME: Protobuf message encoding and decoding for client-server WebSocket communication
 // ABOUTME: Handles AudioChunk, EndRequest, TranscriptUpdate, AudioResponse, ErrorResponse, and SessionEnded messages
 
-import { preppal } from "./lib/interview_pb.js";
+import { create, toBinary, fromBinary } from "@bufbuild/protobuf";
+import {
+  type ClientToServerMessage,
+  ClientToServerMessageSchema,
+  type ServerToClientMessage,
+  ServerToClientMessageSchema,
+  TranscriptUpdateSchema,
+  AudioResponseSchema,
+  ErrorResponseSchema,
+  SessionEndedSchema,
+  SessionEnded_Reason,
+} from "./lib/proto/interview_pb.js";
 
 /**
  * Decodes a binary message from the client
  */
-export function decodeClientMessage(
-  buffer: ArrayBuffer,
-): preppal.ClientToServerMessage {
+export function decodeClientMessage(buffer: ArrayBuffer): ClientToServerMessage {
   const uint8Array = new Uint8Array(buffer);
-  return preppal.ClientToServerMessage.decode(uint8Array);
+  return fromBinary(ClientToServerMessageSchema, uint8Array);
 }
 
 /**
  * Encodes a server message to binary for sending to client
  */
-export function encodeServerMessage(
-  message: preppal.ServerToClientMessage,
-): Uint8Array {
-  return preppal.ServerToClientMessage.encode(message).finish();
+export function encodeServerMessage(message: ServerToClientMessage): Uint8Array {
+  return toBinary(ServerToClientMessageSchema, message);
 }
 
 /**
@@ -30,13 +37,16 @@ export function createTranscriptUpdate(
   text: string,
   isFinal: boolean,
   turnComplete: boolean = false,
-): preppal.ServerToClientMessage {
-  return preppal.ServerToClientMessage.create({
-    transcriptUpdate: {
-      speaker,
-      text,
-      isFinal,
-      turnComplete,
+): ServerToClientMessage {
+  return create(ServerToClientMessageSchema, {
+    payload: {
+      case: "transcriptUpdate",
+      value: create(TranscriptUpdateSchema, {
+        speaker,
+        text,
+        isFinal,
+        turnComplete,
+      }),
     },
   });
 }
@@ -46,10 +56,13 @@ export function createTranscriptUpdate(
  */
 export function createAudioResponse(
   audioContent: Uint8Array,
-): preppal.ServerToClientMessage {
-  return preppal.ServerToClientMessage.create({
-    audioResponse: {
-      audioContent,
+): ServerToClientMessage {
+  return create(ServerToClientMessageSchema, {
+    payload: {
+      case: "audioResponse",
+      value: create(AudioResponseSchema, {
+        audioContent,
+      }),
     },
   });
 }
@@ -60,11 +73,14 @@ export function createAudioResponse(
 export function createErrorResponse(
   code: number,
   message: string,
-): preppal.ServerToClientMessage {
-  return preppal.ServerToClientMessage.create({
-    error: {
-      code,
-      message,
+): ServerToClientMessage {
+  return create(ServerToClientMessageSchema, {
+    payload: {
+      case: "error",
+      value: create(ErrorResponseSchema, {
+        code,
+        message,
+      }),
     },
   });
 }
@@ -73,11 +89,17 @@ export function createErrorResponse(
  * Creates a session ended message
  */
 export function createSessionEnded(
-  reason: preppal.SessionEnded.Reason,
-): preppal.ServerToClientMessage {
-  return preppal.ServerToClientMessage.create({
-    sessionEnded: {
-      reason,
+  reason: SessionEnded_Reason,
+): ServerToClientMessage {
+  return create(ServerToClientMessageSchema, {
+    payload: {
+      case: "sessionEnded",
+      value: create(SessionEndedSchema, {
+        reason,
+      }),
     },
   });
 }
+
+// Re-export SessionEnded_Reason for use in other modules
+export { SessionEnded_Reason };

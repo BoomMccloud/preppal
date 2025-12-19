@@ -11,17 +11,19 @@ const FeedbackSchema = z.object({
 
 export type FeedbackData = z.infer<typeof FeedbackSchema>;
 
+/**
+ * Generate interview feedback from transcript text.
+ * @param transcriptText - Pre-formatted transcript ("SPEAKER: content" per line)
+ * @param context - Interview context (job description, resume)
+ * @param apiKey - Gemini API key
+ */
 export async function generateFeedback(
-  transcript: { speaker: string; content: string }[],
+  transcriptText: string,
   context: { jobDescription: string; resume: string },
   apiKey: string,
 ): Promise<FeedbackData> {
   const ai = new GoogleGenAI({ apiKey });
   const model = "gemini-2.0-flash"; // Use a stable standard model for feedback
-
-  const transcriptText = transcript
-    .map((e) => `${e.speaker}: ${e.content}`)
-    .join("\n");
 
   const prompt = `
 You are an expert technical interviewer. Analyze the following transcript of a behavioral interview.

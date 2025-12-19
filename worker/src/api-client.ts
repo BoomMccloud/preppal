@@ -1,26 +1,28 @@
 // ABOUTME: Protobuf API client for communicating with Next.js backend
 // ABOUTME: Uses binary protobuf encoding for type-safe worker↔API communication
 
-import { preppal } from "./lib/interview_pb.js";
+import { create, toBinary, fromBinary } from "@bufbuild/protobuf";
+import {
+  WorkerApiRequestSchema,
+  type WorkerApiResponse,
+  WorkerApiResponseSchema,
+  GetContextRequestSchema,
+  UpdateStatusRequestSchema,
+  SubmitTranscriptRequestSchema,
+  SubmitFeedbackRequestSchema,
+  InterviewStatus,
+} from "./lib/proto/interview_pb.js";
 import type {
   IApiClient,
-  TranscriptEntry,
   InterviewContext,
   FeedbackData,
 } from "./interfaces/index.js";
 
 /**
- * Encodes a WorkerApiRequest to binary protobuf
- */
-function encodeRequest(request: preppal.IWorkerApiRequest): Uint8Array {
-  return preppal.WorkerApiRequest.encode(request).finish();
-}
-
-/**
  * Decodes a WorkerApiResponse from binary protobuf
  */
-function decodeResponse(buffer: ArrayBuffer): preppal.WorkerApiResponse {
-  return preppal.WorkerApiResponse.decode(new Uint8Array(buffer));
+function decodeResponse(buffer: ArrayBuffer): WorkerApiResponse {
+  return fromBinary(WorkerApiResponseSchema, new Uint8Array(buffer));
 }
 
 /**
@@ -36,11 +38,7 @@ export class ApiClient implements IApiClient {
   /**
    * Sends a protobuf-encoded request to the API
    */
-  private async sendRequest(
-    request: preppal.IWorkerApiRequest,
-  ): Promise<preppal.WorkerApiResponse> {
-    const payload = encodeRequest(request);
-
+  private async sendRequest(payload: Uint8Array): Promise<WorkerApiResponse> {
     const response = await fetch(`${this.apiUrl}/api/worker`, {
       method: "POST",
       headers: {
@@ -58,9 +56,9 @@ export class ApiClient implements IApiClient {
     const decoded = decodeResponse(buffer);
 
     // Check for error response
-    if (decoded.error) {
+    if (decoded.response.case === "error") {
       throw new Error(
-        `API Error (${decoded.error.code}): ${decoded.error.message}`,
+        `API Error (${decoded.response.value.code}): ${decoded.response.value.message}`,
       );
     }
 
@@ -73,15 +71,20 @@ export class ApiClient implements IApiClient {
   async getContext(interviewId: string): Promise<InterviewContext> {
     console.log(`[API] getContext for interview ${interviewId}`);
 
-    const response = await this.sendRequest({
-      getContext: { interviewId },
+    const request = create(WorkerApiRequestSchema, {
+      request: {
+        case: "getContext",
+        value: create(GetContextRequestSchema, { interviewId }),
+      },
     });
+    const payload = toBinary(WorkerApiRequestSchema, request);
+    const response = await this.sendRequest(payload);
 
-    if (!response.getContext) {
+    if (response.response.case !== "getContext") {
       throw new Error("Unexpected response: missing getContext");
     }
 
-    const ctx = response.getContext;
+    const ctx = response.response.value;
     // Use || instead of ?? because protobuf defaults int32 to 0, not null
     const DEFAULT_DURATION_MS = 30 * 60 * 1000;
     const durationMs = ctx.durationMs || DEFAULT_DURATION_MS;
@@ -105,27 +108,32 @@ export class ApiClient implements IApiClient {
     console.log(`[API] updateStatus for interview ${interviewId} to ${status}`);
 
     // Map string status to protobuf enum
-    const statusMap: Record<string, preppal.InterviewStatus> = {
-      IN_PROGRESS: preppal.InterviewStatus.IN_PROGRESS,
-      COMPLETED: preppal.InterviewStatus.COMPLETED,
-      ERROR: preppal.InterviewStatus.ERROR,
+    const statusMap: Record<string, InterviewStatus> = {
+      IN_PROGRESS: InterviewStatus.IN_PROGRESS,
+      COMPLETED: InterviewStatus.COMPLETED,
+      ERROR: InterviewStatus.ERROR,
     };
 
     const protoStatus =
-      statusMap[status] ?? preppal.InterviewStatus.STATUS_UNSPECIFIED;
+      statusMap[status] ?? InterviewStatus.STATUS_UNSPECIFIED;
 
-    const response = await this.sendRequest({
-      updateStatus: {
-        interviewId,
-        status: protoStatus,
-        endedAt:
-          status === "COMPLETED" || status === "ERROR"
-            ? new Date().toISOString()
-            : "",
+    const request = create(WorkerApiRequestSchema, {
+      request: {
+        case: "updateStatus",
+        value: create(UpdateStatusRequestSchema, {
+          interviewId,
+          status: protoStatus,
+          endedAt:
+            status === "COMPLETED" || status === "ERROR"
+              ? new Date().toISOString()
+              : "",
+        }),
       },
     });
+    const payload = toBinary(WorkerApiRequestSchema, request);
+    const response = await this.sendRequest(payload);
 
-    if (!response.updateStatus?.success) {
+    if (response.response.case !== "updateStatus" || !response.response.value.success) {
       throw new Error("Unexpected response: updateStatus failed");
     }
 
@@ -135,30 +143,31 @@ export class ApiClient implements IApiClient {
   }
 
   /**
-   * Submits interview transcript and marks interview as completed
+   * Submits serialized protobuf transcript blob
    */
   async submitTranscript(
     interviewId: string,
-    transcript: TranscriptEntry[],
+    transcript: Uint8Array,
     endedAt: string,
   ): Promise<void> {
     console.log(
-      `[API] submitTranscript for interview ${interviewId} with ${transcript.length} entries`,
+      `[API] submitTranscript for interview ${interviewId} (${transcript.length} bytes)`,
     );
 
-    const response = await this.sendRequest({
-      submitTranscript: {
-        interviewId,
-        entries: transcript.map((entry) => ({
-          speaker: entry.speaker,
-          content: entry.content,
-          timestamp: entry.timestamp,
-        })),
-        endedAt,
+    const request = create(WorkerApiRequestSchema, {
+      request: {
+        case: "submitTranscript",
+        value: create(SubmitTranscriptRequestSchema, {
+          interviewId,
+          transcript,
+          endedAt,
+        }),
       },
     });
+    const payload = toBinary(WorkerApiRequestSchema, request);
+    const response = await this.sendRequest(payload);
 
-    if (!response.submitTranscript?.success) {
+    if (response.response.case !== "submitTranscript" || !response.response.value.success) {
       throw new Error("Unexpected response: submitTranscript failed");
     }
 
@@ -176,18 +185,23 @@ export class ApiClient implements IApiClient {
   ): Promise<void> {
     console.log(`[API] submitFeedback for interview ${interviewId}`);
 
-    const response = await this.sendRequest({
-      submitFeedback: {
-        interviewId,
-        summary: feedback.summary,
-        strengths: feedback.strengths,
-        contentAndStructure: feedback.contentAndStructure,
-        communicationAndDelivery: feedback.communicationAndDelivery,
-        presentation: feedback.presentation,
+    const request = create(WorkerApiRequestSchema, {
+      request: {
+        case: "submitFeedback",
+        value: create(SubmitFeedbackRequestSchema, {
+          interviewId,
+          summary: feedback.summary,
+          strengths: feedback.strengths,
+          contentAndStructure: feedback.contentAndStructure,
+          communicationAndDelivery: feedback.communicationAndDelivery,
+          presentation: feedback.presentation,
+        }),
       },
     });
+    const payload = toBinary(WorkerApiRequestSchema, request);
+    const response = await this.sendRequest(payload);
 
-    if (!response.submitFeedback?.success) {
+    if (response.response.case !== "submitFeedback" || !response.response.value.success) {
       throw new Error("Unexpected response: submitFeedback failed");
     }
 

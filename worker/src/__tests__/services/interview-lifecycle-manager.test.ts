@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { InterviewLifecycleManager } from "../../services/interview-lifecycle-manager";
 import { INTERVIEW_STATUS } from "../../constants";
-import type { IApiClient, TranscriptEntry } from "../../interfaces";
+import type { IApiClient, ITranscriptManager, InterviewContext } from "../../interfaces";
 
 // Mock generateFeedback
 vi.mock("../../utils/feedback", () => ({
@@ -15,10 +15,11 @@ describe("InterviewLifecycleManager", () => {
   let mockApiClient: IApiClient;
   const mockApiKey = "test-api-key";
   const mockInterviewId = "test-interview-id";
-  const mockContext = {
+  const mockContext: InterviewContext = {
     jobDescription: "Software Engineer",
     resume: "Experienced developer",
     persona: "professional interviewer",
+    durationMs: 1800000,
   };
 
   beforeEach(() => {
@@ -79,9 +80,19 @@ describe("InterviewLifecycleManager", () => {
   });
 
   describe("finalizeSession", () => {
-    const mockTranscript: TranscriptEntry[] = [
-      { speaker: "AI", content: "Hello", timestamp: "2024-01-01T00:00:00Z" },
-    ];
+    const mockSerializedTranscript = new Uint8Array([1, 2, 3, 4, 5]);
+    const mockTranscriptText = "USER: Hello\nAI: Hi there";
+
+    // Create a mock transcript manager
+    const createMockTranscriptManager = (): ITranscriptManager => ({
+      addUserTranscript: vi.fn(),
+      addAITranscript: vi.fn(),
+      markTurnComplete: vi.fn(),
+      serializeTranscript: vi.fn().mockReturnValue(mockSerializedTranscript),
+      formatAsText: vi.fn().mockReturnValue(mockTranscriptText),
+      clear: vi.fn(),
+    });
+
     const mockFeedback = {
       summary: "Good",
       strengths: "Coding",
@@ -91,24 +102,27 @@ describe("InterviewLifecycleManager", () => {
     };
 
     it("should submit transcript, generate feedback, and complete session", async () => {
+      const mockTranscriptManager = createMockTranscriptManager();
       vi.mocked(generateFeedback).mockResolvedValue(mockFeedback);
 
       await manager.finalizeSession(
         mockInterviewId,
-        mockTranscript,
+        mockTranscriptManager,
         mockContext,
       );
 
-      // 1. Submit Transcript
+      // 1. Submit Transcript (with serialized binary data)
+      expect(mockTranscriptManager.serializeTranscript).toHaveBeenCalled();
       expect(mockApiClient.submitTranscript).toHaveBeenCalledWith(
         mockInterviewId,
-        mockTranscript,
+        mockSerializedTranscript,
         expect.any(String), // endedAt timestamp
       );
 
-      // 2. Generate Feedback
+      // 2. Generate Feedback (with formatted text)
+      expect(mockTranscriptManager.formatAsText).toHaveBeenCalled();
       expect(generateFeedback).toHaveBeenCalledWith(
-        mockTranscript,
+        mockTranscriptText,
         mockContext,
         mockApiKey,
       );
@@ -127,11 +141,12 @@ describe("InterviewLifecycleManager", () => {
     });
 
     it("should complete session even if feedback generation fails", async () => {
+      const mockTranscriptManager = createMockTranscriptManager();
       vi.mocked(generateFeedback).mockRejectedValue(new Error("AI Error"));
 
       await manager.finalizeSession(
         mockInterviewId,
-        mockTranscript,
+        mockTranscriptManager,
         mockContext,
       );
 
@@ -147,13 +162,14 @@ describe("InterviewLifecycleManager", () => {
     });
 
     it("should set status to ERROR if transcript submission fails", async () => {
+      const mockTranscriptManager = createMockTranscriptManager();
       vi.mocked(mockApiClient.submitTranscript).mockRejectedValue(
         new Error("DB Error"),
       );
 
       await manager.finalizeSession(
         mockInterviewId,
-        mockTranscript,
+        mockTranscriptManager,
         mockContext,
       );
 

@@ -42,26 +42,23 @@ export const interviewWorkerRouter = createTRPCRouter({
     .input(
       z.object({
         interviewId: z.string(),
-        transcript: z.array(
-          z.object({
-            speaker: z.enum(["USER", "AI"]),
-            content: z.string(),
-            timestamp: z.string(),
-          }),
-        ),
+        transcript: z.string(), // Base64-encoded protobuf blob
         endedAt: z.string(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      // Decode base64 transcript to buffer
+      const transcriptBlob = Buffer.from(input.transcript, "base64");
+
       // Perform atomic transaction: save transcript + update status
       await ctx.db.$transaction([
-        ctx.db.transcriptEntry.createMany({
-          data: input.transcript.map((entry) => ({
+        ctx.db.transcriptEntry.upsert({
+          where: { interviewId: input.interviewId },
+          update: { transcript: transcriptBlob },
+          create: {
             interviewId: input.interviewId,
-            speaker: entry.speaker,
-            content: entry.content,
-            timestamp: new Date(entry.timestamp),
-          })),
+            transcript: transcriptBlob,
+          },
         }),
         ctx.db.interview.update({
           where: { id: input.interviewId },

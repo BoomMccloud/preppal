@@ -11,17 +11,19 @@ describe("GeminiMessageHandler", () => {
   let mockAudioConverter: IAudioConverter;
 
   beforeEach(() => {
-    // Create mocks
+    // Create mocks with all required interface methods
     mockTranscriptManager = {
       addUserTranscript: vi.fn(),
       addAITranscript: vi.fn(),
-      getTranscript: vi.fn(),
+      markTurnComplete: vi.fn(),
+      serializeTranscript: vi.fn().mockReturnValue(new Uint8Array()),
+      formatAsText: vi.fn().mockReturnValue(""),
       clear: vi.fn(),
     };
 
     mockAudioConverter = {
       binaryToBase64: vi.fn(),
-      base64ToBinary: vi.fn((base64) => new Uint8Array([1, 2, 3])),
+      base64ToBinary: vi.fn((_base64) => new Uint8Array([1, 2, 3])),
     };
 
     handler = new GeminiMessageHandler(

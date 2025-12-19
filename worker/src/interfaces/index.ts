@@ -39,13 +39,24 @@ export interface FeedbackData {
 }
 
 /**
- * Interface for transcript management operations
- * Implementation: worker/src/transcript-manager.ts (already matches this interface)
+ * Interface for transcript management operations with turn-based aggregation
+ * Implementation: worker/src/transcript-manager.ts
+ *
+ * Design: Aggregates streaming deltas into complete turns. Same speaker
+ * appends to current turn until markTurnComplete() is called or speaker changes.
  */
 export interface ITranscriptManager {
+  /** Add user transcript delta (appends to current user turn) */
   addUserTranscript(text: string): void;
+  /** Add AI transcript delta (appends to current AI turn) */
   addAITranscript(text: string): void;
-  getTranscript(): TranscriptEntry[];
+  /** Mark the current turn as complete (forces new turn on next add) */
+  markTurnComplete(): void;
+  /** Serialize transcript to protobuf binary for DB storage */
+  serializeTranscript(): Uint8Array;
+  /** Format transcript as plain text for feedback generation */
+  formatAsText(): string;
+  /** Clear all transcript entries */
   clear(): void;
 }
 
@@ -61,13 +72,14 @@ export interface IAudioConverter {
 
 /**
  * Interface for API communication with Next.js backend via tRPC
- * Implementation: worker/src/api-client.ts (already matches this interface)
+ * Implementation: worker/src/api-client.ts
  */
 export interface IApiClient {
   updateStatus(interviewId: string, status: string): Promise<void>;
+  /** Submit serialized protobuf transcript blob */
   submitTranscript(
     interviewId: string,
-    transcript: TranscriptEntry[],
+    transcript: Uint8Array,
     endedAt: string,
   ): Promise<void>;
   submitFeedback(interviewId: string, feedback: FeedbackData): Promise<void>;

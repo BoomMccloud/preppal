@@ -14,7 +14,6 @@ import type {
   IAudioConverter,
   GeminiMessage,
   InterviewContext,
-  TranscriptEntry,
 } from "../interfaces";
 import { buildSystemPrompt } from "../utils/build-system-prompt";
 
@@ -118,10 +117,10 @@ export class GeminiStreamHandler {
   }
 
   /**
-   * Returns the current transcript
+   * Returns the transcript manager for serialization/formatting
    */
-  getTranscript(): TranscriptEntry[] {
-    return this.transcriptManager.getTranscript();
+  getTranscriptManager(): ITranscriptManager {
+    return this.transcriptManager;
   }
 
   private handleOpen(): void {

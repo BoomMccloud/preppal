@@ -1,26 +1,45 @@
 /**
  * @file src/lib/audio/TranscriptManager.ts
- * @description Manages buffering and sentence detection for real-time transcripts.
+ * @description Rolling buffer caption manager for real-time transcripts.
+ * Uses closed-caption style display - appends text immediately and emits chunks.
  */
-import type { preppal } from "~/lib/interview_pb";
-
-type TranscriptUpdate = preppal.ITranscriptUpdate;
+import type { TranscriptUpdate } from "~/lib/proto/interview_pb";
 
 interface TranscriptManagerCallbacks {
-  onSentence: (speaker: string, sentence: string) => void;
+  /** Called when a chunk of text is ready for display */
+  onSentence: (speaker: string, text: string) => void;
 }
 
+/** Default max characters to keep in the buffer before emitting */
+const DEFAULT_MAX_LENGTH = 200;
+
+/**
+ * Manages rolling buffer captions for real-time transcript display.
+ *
+ * Design: Uses closed-caption style - text accumulates in a buffer and is
+ * emitted when the turn completes or buffer reaches max size. Simpler than
+ * sentence-boundary detection and provides immediate feedback.
+ */
 export class TranscriptManager {
-  private transcriptBuffers: Record<string, string> = {
+  private buffers: Record<string, string> = {
     USER: "",
     AI: "",
   };
   private callbacks: TranscriptManagerCallbacks;
+  private maxLength: number;
 
-  constructor(callbacks: TranscriptManagerCallbacks) {
+  constructor(
+    callbacks: TranscriptManagerCallbacks,
+    maxLength: number = DEFAULT_MAX_LENGTH,
+  ) {
     this.callbacks = callbacks;
+    this.maxLength = maxLength;
   }
 
+  /**
+   * Process incoming transcript update.
+   * Appends text to buffer and emits when turn completes or buffer is full.
+   */
   public process(update: TranscriptUpdate | null | undefined): void {
     if (!update?.speaker || !update?.text) {
       return;
@@ -28,35 +47,42 @@ export class TranscriptManager {
 
     const { speaker, text, turnComplete } = update;
 
-    // Ensure the buffer exists for this speaker
-    this.transcriptBuffers[speaker] ??= "";
+    // Ensure buffer exists
+    this.buffers[speaker] ??= "";
 
-    this.transcriptBuffers[speaker] += text;
+    // Append new text
+    this.buffers[speaker] += text;
 
-    // Split by sentence-ending punctuation followed by optional whitespace.
-    const sentences = (this.transcriptBuffers[speaker] ?? "").split(
-      /(?<=[.?!])\s*/,
-    );
-
-    if (sentences.length > 1) {
-      for (let i = 0; i < sentences.length - 1; i++) {
-        const sentence = sentences[i];
-        if (sentence) {
-          this.callbacks.onSentence(speaker, sentence.trim());
-        }
+    // Emit and clear if buffer exceeds limit
+    if ((this.buffers[speaker]?.length ?? 0) > this.maxLength) {
+      const content = this.buffers[speaker] ?? "";
+      if (content.trim()) {
+        this.callbacks.onSentence(speaker, content.trim());
       }
-      this.transcriptBuffers[speaker] = sentences[sentences.length - 1] ?? "";
+      this.buffers[speaker] = "";
     }
 
-    // If the turn is complete, flush the remaining buffer
-    const currentBuffer = this.transcriptBuffers[speaker] ?? "";
-    if (turnComplete && currentBuffer.trim()) {
-      this.callbacks.onSentence(speaker, currentBuffer.trim());
-      this.transcriptBuffers[speaker] = "";
+    // Emit and clear buffer on turn complete
+    if (turnComplete) {
+      const content = this.buffers[speaker] ?? "";
+      if (content.trim()) {
+        this.callbacks.onSentence(speaker, content.trim());
+      }
+      this.buffers[speaker] = "";
     }
   }
 
+  /**
+   * Get the current buffered text for a speaker.
+   */
   public getBufferedText(speaker: string): string {
-    return this.transcriptBuffers[speaker] ?? "";
+    return this.buffers[speaker] ?? "";
+  }
+
+  /**
+   * Clear all buffers.
+   */
+  public clear(): void {
+    this.buffers = { USER: "", AI: "" };
   }
 }

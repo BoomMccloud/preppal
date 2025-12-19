@@ -1,7 +1,7 @@
 // ABOUTME: Handles messages received from Gemini Live API
 // ABOUTME: Processes transcripts and audio, prepares messages for client
 
-import type { GeminiMessage, TranscriptEntry } from "../interfaces/index.js";
+import type { GeminiMessage } from "../interfaces/index.js";
 import type { ITranscriptManager } from "../interfaces/index.js";
 import type { IAudioConverter } from "../interfaces/index.js";
 import {
@@ -66,6 +66,11 @@ export class GeminiMessageHandler {
       this.transcriptManager.addAITranscript(text);
 
       const turnComplete = message.serverContent.turnComplete ?? false;
+
+      // Mark turn complete for transcript aggregation
+      if (turnComplete) {
+        this.transcriptManager.markTurnComplete();
+      }
 
       const transcriptMsg = createTranscriptUpdate(
         "AI",

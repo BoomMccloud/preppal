@@ -6,8 +6,8 @@ import {
   encodeServerMessage,
   createErrorResponse,
   createSessionEnded,
+  SessionEnded_Reason,
 } from "./messages";
-import { preppal } from "./lib/interview_pb.js";
 import { ApiClient } from "./api-client";
 import { InterviewLifecycleManager } from "./services/interview-lifecycle-manager";
 import { GeminiStreamHandler } from "./services/gemini-stream-handler";
@@ -219,7 +219,7 @@ export class GeminiSession implements DurableObject {
     this.streamHandler.disconnect();
 
     // Send session ended message with TIMEOUT reason
-    const endedMsg = createSessionEnded(preppal.SessionEnded.Reason.TIMEOUT);
+    const endedMsg = createSessionEnded(SessionEnded_Reason.TIMEOUT);
     this.safeSend(ws, encodeServerMessage(endedMsg));
     ws.close(WS_CLOSE_TIMEOUT, "Interview duration limit reached");
 
@@ -261,9 +261,9 @@ export class GeminiSession implements DurableObject {
 
       switch (messageType) {
         case "audio":
-          if (message.audioChunk?.audioContent) {
+          if (message.payload.case === "audioChunk" && message.payload.value.audioContent) {
             this.streamHandler.processUserAudio(
-              message.audioChunk.audioContent,
+              message.payload.value.audioContent,
             );
           }
           break;
@@ -303,9 +303,7 @@ export class GeminiSession implements DurableObject {
     this.streamHandler.disconnect();
 
     // Send session ended message and close WebSocket
-    const endedMsg = createSessionEnded(
-      preppal.SessionEnded.Reason.USER_INITIATED,
-    );
+    const endedMsg = createSessionEnded(SessionEnded_Reason.USER_INITIATED);
     this.safeSend(ws, encodeServerMessage(endedMsg));
     ws.close(WS_CLOSE_USER_INITIATED, "Interview ended by user");
 
@@ -351,9 +349,7 @@ export class GeminiSession implements DurableObject {
     }
 
     if (!this.userInitiatedClose) {
-      const endMsg = createSessionEnded(
-        preppal.SessionEnded.Reason.GEMINI_ENDED,
-      );
+      const endMsg = createSessionEnded(SessionEnded_Reason.GEMINI_ENDED);
       this.safeSend(ws, encodeServerMessage(endMsg));
       ws.close(WS_CLOSE_GEMINI_ENDED, "AI ended session");
     }
@@ -401,14 +397,14 @@ export class GeminiSession implements DurableObject {
 
   /**
    * Finalize session if not in debug mode
-   * Extracts transcript and delegates to lifecycle manager
+   * Passes transcript manager to lifecycle manager for serialization
    */
   private async finalizeSessionIfNotDebug(): Promise<void> {
     if (this.isDebug) return;
-    const transcript = this.streamHandler.getTranscript();
+    const transcriptManager = this.streamHandler.getTranscriptManager();
     await this.lifecycleManager.finalizeSession(
       this.interviewId!,
-      transcript,
+      transcriptManager,
       this.interviewContext,
     );
   }

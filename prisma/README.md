@@ -9,7 +9,7 @@
 #### 2. `JobDescription`
 
 - **Purpose:** To store a library of job descriptions that the user wants to practice for.
-- **Design:** This model allows a user to save, manage, and reuse job descriptions for multiple interview sessions. This avoids data duplication and provides a better user experience.
+- **Design:** This model allows a user to save, manage, and reuse job descriptions for multiple interview sessions. This avoids data duplication and provides a better user experience. **It is designed for recurring usage, enabling users to practice for the same role multiple times or with different resumes.**
 - **Relations:**
   - Belongs to one `User`.
   - Can be used as a template for many `Interview`s.
@@ -17,7 +17,7 @@
 #### 3. `Resume`
 
 - **Purpose:** To store a library of the user's resumes.
-- **Design:** This allows a user to have multiple versions of their resume tailored for different roles. They can select a specific resume for each interview.
+- **Design:** This allows a user to have multiple versions of their resume tailored for different roles. They can select a specific resume for each interview. **The schema supports matching a single saved resume across many different job descriptions, facilitating efficient recurring use.**
 - **Relations:**
   - Belongs to one `User`.
   - Can be used in many `Interview`s.
