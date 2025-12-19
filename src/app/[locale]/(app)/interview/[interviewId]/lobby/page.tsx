@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { redirect } from "next/navigation";
+import { Link, redirect } from "~/i18n/navigation";
 import { api } from "~/trpc/server";
 
 export default async function InterviewLobbyPage({

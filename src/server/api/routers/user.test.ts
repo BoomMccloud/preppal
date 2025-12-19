@@ -41,6 +41,7 @@ describe("user.getProfile", () => {
       email: "john@example.com",
       emailVerified: null,
       image: null,
+      uiLanguage: "en",
     });
 
     // Create tRPC caller with mock session
@@ -53,16 +54,17 @@ describe("user.getProfile", () => {
     // This will fail because user.getProfile doesn't exist yet
     const result = await caller.user.getProfile();
 
-    // Assert the procedure returns only name and email
+    // Assert the procedure returns name, email, and uiLanguage
     expect(result).toEqual({
       name: "John Doe",
       email: "john@example.com",
+      uiLanguage: "en",
     });
 
     // Verify Prisma was called correctly
     expect(db.user.findUnique).toHaveBeenCalledWith({
       where: { id: "test-user-id" },
-      select: { name: true, email: true },
+      select: { name: true, email: true, uiLanguage: true },
     });
   });
 });

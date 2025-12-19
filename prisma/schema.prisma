@@ -48,6 +48,7 @@ model User {
     email           String?   @unique
     emailVerified   DateTime?
     image           String?
+    uiLanguage      String    @default("en")  // UI language preference: en, es, zh
     accounts        Account[]
     sessions        Session[]
     // Relation: A user can have many interview sessions

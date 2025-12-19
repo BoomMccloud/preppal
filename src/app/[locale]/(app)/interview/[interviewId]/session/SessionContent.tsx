@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "~/i18n/navigation";
 import { api } from "~/trpc/react";
 import { useInterviewSocket } from "./useInterviewSocket";
 import { StatusIndicator } from "~/app/_components/StatusIndicator";

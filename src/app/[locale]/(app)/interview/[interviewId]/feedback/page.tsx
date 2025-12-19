@@ -1,10 +1,9 @@
-import { redirect } from "next/navigation";
+import { Link, redirect } from "~/i18n/navigation";
 import { api } from "~/trpc/server";
 import FeedbackTabs from "./feedback-tabs";
 import FeedbackCard from "./_components/FeedbackCard";
 import FeedbackActions from "./_components/FeedbackActions";
 import FeedbackPolling from "./_components/FeedbackPolling";
-import Link from "next/link";
 
 interface PageProps {
   params: Promise<{ interviewId: string }>;

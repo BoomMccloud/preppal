@@ -17,16 +17,35 @@ Implement full UI localization for the Preppal application using `next-intl`. Th
 
 ## Status Checklist
 
-- [ ] **1.1** Install and configure `next-intl`
-- [ ] **1.2** Create i18n configuration files
-- [ ] **1.3** Create middleware for locale-based routing
-- [ ] **1.4** Update Next.js config for locales
-- [ ] **1.5** Create translation files (`en.json`, `es.json`, `zh.json`)
-- [ ] **1.6** Add `uiLanguage` field to User model
-- [ ] **1.7** Restructure app directory for `[locale]` routing
-- [ ] **1.8** Create language switcher component
-- [ ] **1.9** Refactor hardcoded strings in UI components
-- [ ] **1.10** Update user router to handle language preference
+### Infrastructure (Complete)
+- [x] **1.1** Install and configure `next-intl`
+- [x] **1.2** Create i18n configuration files
+- [x] **1.3** Create middleware for locale-based routing
+- [x] **1.4** Update Next.js config for locales
+- [x] **1.5** Create translation files (`en.json`, `es.json`, `zh.json`)
+- [x] **1.6** Add `uiLanguage` field to User model
+- [x] **1.7** Restructure app directory for `[locale]` routing
+- [x] **1.8** Create language switcher component
+- [x] **1.10** Update user router to handle language preference
+
+### Bug Fixes (Required)
+- [ ] **1.12** Fix LanguageSwitcher to use locale-aware router (currently uses `window.location.href`)
+- [ ] **1.13** Fix `(app)/layout.tsx` redirect to use locale-aware redirect (currently redirects to `/signin` without locale)
+- [ ] **1.14** Fix all pages to use locale-aware `Link` from `~/i18n/navigation` instead of `next/link`
+
+### Core Feature (Required)
+- [ ] **1.9** Replace hardcoded strings with translations in all UI components
+  - [ ] `Navigation.tsx` - nav links, sign out
+  - [ ] `dashboard/page.tsx` - all dashboard text
+  - [ ] `create-interview/page.tsx` - form labels and buttons
+  - [ ] `profile/page.tsx` - profile labels
+  - [ ] `signin/page.tsx` and `SignInForm.tsx` - auth text
+  - [ ] `page.tsx` (landing) - hero text, CTAs
+  - [ ] `lobby/page.tsx` - lobby instructions
+  - [ ] `session/SessionContent.tsx` - session controls
+  - [ ] `feedback/page.tsx` and feedback components - feedback labels
+
+### Verification
 - [ ] **1.11** Run tests and verify all routes work
 
 ---
@@ -742,39 +761,98 @@ import { LanguageSwitcher } from "./LanguageSwitcher";
 
 ---
 
-### 1.9 Refactor Hardcoded Strings in UI Components
+### 1.12 Fix LanguageSwitcher to Use Locale-Aware Router
 
-**Example: Update Dashboard page**
+**Problem:** Current implementation uses `window.location.href` which causes a full page reload.
 
-**Before:** `src/app/[locale]/(app)/dashboard/page.tsx`
+**Current (broken):** `src/app/_components/LanguageSwitcher.tsx`
 ```typescript
-export default function DashboardPage() {
-  return (
-    <div>
-      <h1>Your Interviews</h1>
-      <p>No interviews yet. Create your first one!</p>
-    </div>
-  );
+import { usePathname } from "next/navigation";  // WRONG
+
+const handleChange = (newLocale: string) => {
+  // ...
+  window.location.href = newPath;  // Full page reload
+};
+```
+
+**Fix:** Use locale-aware navigation from `~/i18n/navigation`
+```typescript
+import { usePathname, useRouter } from "~/i18n/navigation";
+import { useTransition } from "react";
+
+export function LanguageSwitcher() {
+  const locale = useLocale();
+  const router = useRouter();
+  const pathname = usePathname();
+  const [isPending, startTransition] = useTransition();
+
+  const handleChange = (newLocale: string) => {
+    startTransition(() => {
+      router.replace(pathname, { locale: newLocale });
+    });
+  };
+  // ...
 }
 ```
 
-**After:**
+---
+
+### 1.13 Fix (app)/layout.tsx Redirect to Use Locale-Aware Redirect
+
+**Problem:** When an unauthenticated user accesses a protected route, they are redirected to `/signin` without the locale prefix, breaking the locale context.
+
+**Current (broken):** `src/app/[locale]/(app)/layout.tsx`
 ```typescript
-import { useTranslations } from "next-intl";
+import { redirect } from "next/navigation";  // WRONG - not locale-aware
 
-export default function DashboardPage() {
-  const t = useTranslations("dashboard");
-
-  return (
-    <div>
-      <h1>{t("title")}</h1>
-      <p>{t("noInterviews")}</p>
-    </div>
-  );
+if (!session) {
+  redirect("/signin");  // Goes to /signin, not /en/signin
 }
 ```
 
-**For Client Components:**
+**Fix:** Use locale-aware redirect from `~/i18n/navigation`
+```typescript
+import { redirect } from "~/i18n/navigation";
+
+if (!session) {
+  redirect("/signin");  // Now correctly goes to /en/signin, /es/signin, etc.
+}
+```
+
+---
+
+### 1.14 Fix All Pages to Use Locale-Aware Link
+
+**Problem:** Pages using `next/link` directly will lose the locale prefix when navigating.
+
+**Files to update:**
+- `src/app/[locale]/(app)/dashboard/page.tsx`
+- `src/app/[locale]/page.tsx` (landing)
+- Any other page using `import Link from "next/link"`
+
+**Current (broken):**
+```typescript
+import Link from "next/link";  // WRONG
+
+<Link href="/create-interview">Create Interview</Link>
+// Goes to /create-interview instead of /en/create-interview
+```
+
+**Fix:**
+```typescript
+import { Link } from "~/i18n/navigation";
+
+<Link href="/create-interview">Create Interview</Link>
+// Now correctly goes to /en/create-interview, /es/create-interview, etc.
+```
+
+---
+
+### 1.9 Replace Hardcoded Strings with Translations
+
+> **IMPORTANT:** This is a core requirement, not optional. Without this step, users will not see the UI in their selected language.
+
+**For Client Components** (most pages in this app):
 ```typescript
 "use client";
 
@@ -782,20 +860,145 @@ import { useTranslations } from "next-intl";
 
 export function MyClientComponent() {
   const t = useTranslations("common");
+  const tNav = useTranslations("navigation");
 
-  return <button>{t("save")}</button>;
+  return (
+    <div>
+      <button>{t("save")}</button>
+      <span>{tNav("dashboard")}</span>
+    </div>
+  );
 }
 ```
 
-**Components to update (priority order):**
-1. `Navigation.tsx` - nav links
-2. `dashboard/page.tsx` - dashboard text
-3. `create-interview/page.tsx` - form labels
-4. `profile/page.tsx` - profile labels
-5. `signin/page.tsx` - auth text
-6. `lobby/page.tsx` - lobby text
-7. `session/page.tsx` - session controls
-8. `feedback/page.tsx` - feedback labels
+**For Server Components** (async components):
+```typescript
+import { getTranslations } from "next-intl/server";
+
+export default async function MyServerComponent() {
+  const t = await getTranslations("dashboard");
+
+  return <h1>{t("title")}</h1>;
+}
+```
+
+---
+
+#### Files to Update (Priority Order)
+
+**1. Navigation.tsx** - `src/app/_components/Navigation.tsx`
+```typescript
+// Add at top
+import { useTranslations } from "next-intl";
+
+// In component
+const t = useTranslations("navigation");
+
+// Replace hardcoded labels
+const navLinks = [
+  { href: "/dashboard", label: t("dashboard") },
+  { href: "/create-interview", label: t("createInterview") },
+  { href: "/profile", label: t("profile") },
+];
+
+// Replace "Sign Out" with {t("signOut")}
+```
+
+**2. Landing page** - `src/app/[locale]/page.tsx`
+```typescript
+// Server component - use getTranslations
+import { getTranslations } from "next-intl/server";
+
+const t = await getTranslations("landing");
+const tNav = await getTranslations("navigation");
+const tAuth = await getTranslations("auth");
+
+// Replace:
+// "PrepPal" -> {t("common.appName")} or keep as brand name
+// "Your AI-powered interview preparation..." -> {t("subtitle")}
+// "Go to Dashboard" -> {tNav("dashboard")}
+// "Start Interview" -> {tNav("createInterview")}
+// "Sign in" -> {tNav("signIn")}
+// "Sign out" -> {tAuth("signOut")}
+```
+
+**3. Dashboard page** - `src/app/[locale]/(app)/dashboard/page.tsx`
+```typescript
+"use client";
+import { useTranslations } from "next-intl";
+
+const t = useTranslations("dashboard");
+const tCommon = useTranslations("common");
+
+// Replace:
+// "Dashboard" -> {t("title")}
+// "Welcome to your interview preparation hub" -> custom key needed
+// "Quick Start" -> custom key needed
+// "Start a new interview session" -> custom key needed
+// "Create Interview" -> {t("createNew")}
+// "Recent Sessions" -> custom key needed
+// "Loading sessions..." -> {tCommon("loading")}
+// "View Feedback" / "Enter Lobby" -> {t("actions.view")}
+// "Delete" -> {tCommon("delete")}
+// Confirmation dialog text
+```
+
+**4. Create Interview page** - `src/app/[locale]/(app)/create-interview/page.tsx`
+```typescript
+const t = useTranslations("createInterview");
+
+// Replace all form labels, placeholders, help text, and buttons
+```
+
+**5. Profile page** - `src/app/[locale]/(app)/profile/page.tsx`
+```typescript
+const t = useTranslations("profile");
+```
+
+**6. Sign In page** - `src/app/[locale]/signin/page.tsx` and `SignInForm.tsx`
+```typescript
+const t = useTranslations("auth");
+```
+
+**7. Lobby page** - `src/app/[locale]/(app)/interview/[interviewId]/lobby/page.tsx`
+```typescript
+const t = useTranslations("interview.lobby");
+```
+
+**8. Session page** - `src/app/[locale]/(app)/interview/[interviewId]/session/SessionContent.tsx`
+```typescript
+const t = useTranslations("interview.session");
+```
+
+**9. Feedback page** - `src/app/[locale]/(app)/interview/[interviewId]/feedback/page.tsx` and components
+```typescript
+const t = useTranslations("interview.feedback");
+```
+
+---
+
+#### Additional Translation Keys Needed
+
+Some strings in the current UI don't have corresponding translation keys. Add these to all three message files:
+
+```json
+{
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Welcome to your interview preparation hub",
+    "quickStart": "Quick Start",
+    "quickStartDescription": "Start a new interview session",
+    "recentSessions": "Recent Sessions",
+    "recentSessionsEmpty": "Your recent interview sessions will appear here",
+    "performance": "Performance",
+    "performanceDescription": "View your interview performance analytics",
+    "viewFeedback": "View Feedback",
+    "enterLobby": "Enter Lobby",
+    "confirmDelete": "Are you sure you want to delete this session?",
+    "loadError": "Failed to load sessions. Please try again."
+  }
+}
+```
 
 ---
 
@@ -888,24 +1091,45 @@ describe("Locale routing", () => {
 
 ## Files Summary
 
-| File | Action | Description |
-|------|--------|-------------|
-| `package.json` | Modify | Add `next-intl` dependency |
-| `next.config.ts` | Modify | Add `next-intl` plugin wrapper |
-| `src/middleware.ts` | Create/Modify | Locale routing middleware |
-| `src/i18n/routing.ts` | Create | Routing configuration |
-| `src/i18n/request.ts` | Create | Server request config |
-| `src/i18n/navigation.ts` | Create | Navigation utilities |
-| `messages/en.json` | Create | English translations |
-| `messages/es.json` | Create | Spanish translations |
-| `messages/zh.json` | Create | Chinese translations |
-| `prisma/schema.prisma` | Modify | Add `uiLanguage` to User |
-| `src/app/[locale]/layout.tsx` | Create | Locale layout wrapper |
-| `src/app/layout.tsx` | Modify | Simplify to root layout |
-| `src/app/_components/LanguageSwitcher.tsx` | Create | Language dropdown |
-| `src/app/_components/Navigation.tsx` | Modify | Add LanguageSwitcher, update Link |
-| `src/server/api/routers/user.ts` | Modify | Add uiLanguage to profile |
-| Various page files | Modify | Replace hardcoded strings with `t()` |
+### Infrastructure (Complete)
+| File | Action | Status | Description |
+|------|--------|--------|-------------|
+| `package.json` | Modify | ✅ | Add `next-intl` dependency |
+| `next.config.js` | Modify | ✅ | Add `next-intl` plugin wrapper |
+| `src/middleware.ts` | Create | ✅ | Locale routing middleware |
+| `src/i18n/routing.ts` | Create | ✅ | Routing configuration |
+| `src/i18n/request.ts` | Create | ✅ | Server request config |
+| `src/i18n/navigation.ts` | Create | ✅ | Navigation utilities |
+| `messages/en.json` | Create | ✅ | English translations |
+| `messages/es.json` | Create | ✅ | Spanish translations |
+| `messages/zh.json` | Create | ✅ | Chinese translations |
+| `prisma/schema.prisma` | Modify | ✅ | Add `uiLanguage` to User |
+| `src/app/[locale]/layout.tsx` | Create | ✅ | Locale layout wrapper |
+| `src/app/layout.tsx` | Modify | ✅ | Simplify to root layout |
+| `src/server/api/routers/user.ts` | Modify | ✅ | Add uiLanguage to profile |
+
+### Bug Fixes (Required)
+| File | Action | Status | Description |
+|------|--------|--------|-------------|
+| `src/app/_components/LanguageSwitcher.tsx` | Fix | ⚠️ | Use locale-aware router instead of `window.location.href` |
+| `src/app/[locale]/(app)/layout.tsx` | Fix | ⚠️ | Use locale-aware redirect from `~/i18n/navigation` |
+| `src/app/[locale]/(app)/dashboard/page.tsx` | Fix | ⚠️ | Use `Link` from `~/i18n/navigation` |
+| `src/app/[locale]/page.tsx` | Fix | ⚠️ | Use `Link` from `~/i18n/navigation` |
+
+### Core Feature - Replace Hardcoded Strings (Required)
+| File | Action | Status | Description |
+|------|--------|--------|-------------|
+| `src/app/_components/Navigation.tsx` | Modify | ⚠️ | Add translations for nav links |
+| `src/app/[locale]/page.tsx` | Modify | ⚠️ | Add translations for landing page |
+| `src/app/[locale]/(app)/dashboard/page.tsx` | Modify | ⚠️ | Add translations for dashboard |
+| `src/app/[locale]/(app)/create-interview/page.tsx` | Modify | ⚠️ | Add translations for form |
+| `src/app/[locale]/(app)/profile/page.tsx` | Modify | ⚠️ | Add translations for profile |
+| `src/app/[locale]/signin/page.tsx` | Modify | ⚠️ | Add translations for sign in |
+| `src/app/[locale]/signin/_components/SignInForm.tsx` | Modify | ⚠️ | Add translations for auth buttons |
+| `src/app/[locale]/(app)/interview/[interviewId]/lobby/page.tsx` | Modify | ⚠️ | Add translations for lobby |
+| `src/app/[locale]/(app)/interview/[interviewId]/session/SessionContent.tsx` | Modify | ⚠️ | Add translations for session |
+| `src/app/[locale]/(app)/interview/[interviewId]/feedback/page.tsx` | Modify | ⚠️ | Add translations for feedback |
+| `messages/*.json` | Modify | ⚠️ | Add missing translation keys |
 
 ---
 

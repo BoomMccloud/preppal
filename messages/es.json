@@ -1,0 +1,112 @@
+{
+  "common": {
+    "appName": "PrepPal",
+    "loading": "Cargando...",
+    "error": "Ocurrió un error",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "confirm": "Confirmar",
+    "back": "Volver",
+    "terms": "Términos",
+    "privacy": "Privacidad"
+  },
+  "navigation": {
+    "dashboard": "Panel",
+    "createInterview": "Crear Entrevista",
+    "profile": "Perfil",
+    "signOut": "Cerrar Sesion",
+    "signIn": "Iniciar Sesion"
+  },
+  "landing": {
+    "title": "Practica Entrevistas con IA",
+    "subtitle": "Tu compañero de preparación de entrevistas con IA. Practica con entrevistas simuladas realistas y recibe retroalimentación detallada para mejorar tu desempeño.",
+    "cta": "Comenzar",
+    "welcomeBack": "¡Bienvenido de nuevo, {name}!",
+    "goToDashboard": "Ir al Panel",
+    "startInterview": "Iniciar Entrevista"
+  },
+  "dashboard": {
+    "title": "Tus Entrevistas",
+    "noInterviews": "Aun no tienes entrevistas. Crea tu primera!",
+    "createNew": "Crear Nueva Entrevista",
+    "status": {
+      "pending": "Pendiente",
+      "inProgress": "En Progreso",
+      "completed": "Completada",
+      "error": "Error"
+    },
+    "actions": {
+      "view": "Ver",
+      "delete": "Eliminar",
+      "retry": "Reintentar"
+    }
+  },
+  "createInterview": {
+    "title": "Crear Nueva Entrevista",
+    "jobDescription": "Descripcion del Puesto",
+    "jobDescriptionPlaceholder": "Pega la descripcion del puesto aqui...",
+    "jobDescriptionHelp": "Pega la oferta de trabajo completa para ayudar a la IA",
+    "resume": "Tu Curriculum",
+    "resumePlaceholder": "Pega tu curriculum aqui...",
+    "resumeHelp": "Tu curriculum ayuda a personalizar la experiencia",
+    "persona": "Personalidad del Entrevistador",
+    "personaPlaceholder": "ej., Reclutador Tecnico Senior",
+    "personaHelp": "Personaliza como se comporta el entrevistador IA",
+    "submit": "Iniciar Entrevista",
+    "submitting": "Creando..."
+  },
+  "interview": {
+    "lobby": {
+      "title": "Sala de Espera",
+      "preparing": "Preparando tu entrevista...",
+      "ready": "Listo para comenzar?",
+      "instructions": "Asegurate de que tu microfono funcione y estes en un lugar tranquilo.",
+      "start": "Comenzar Entrevista",
+      "cancel": "Cancelar"
+    },
+    "session": {
+      "listening": "Escuchando...",
+      "speaking": "La IA esta hablando...",
+      "thinking": "Procesando...",
+      "endInterview": "Terminar Entrevista",
+      "mute": "Silenciar",
+      "unmute": "Activar"
+    },
+    "feedback": {
+      "title": "Retroalimentacion",
+      "generating": "Generando tu retroalimentacion...",
+      "summary": "Resumen",
+      "strengths": "Fortalezas",
+      "contentAndStructure": "Contenido y Estructura",
+      "communicationAndDelivery": "Comunicacion y Entrega",
+      "presentation": "Presentacion",
+      "improvements": "Areas de Mejora",
+      "tryAgain": "Intentar Otra Entrevista",
+      "backToDashboard": "Volver al Panel"
+    }
+  },
+  "profile": {
+    "title": "Tu Perfil",
+    "name": "Nombre",
+    "email": "Correo Electronico",
+    "uiLanguage": "Idioma de la Interfaz",
+    "uiLanguageHelp": "Elige tu idioma preferido para la interfaz",
+    "saveChanges": "Guardar Cambios",
+    "saving": "Guardando..."
+  },
+  "auth": {
+    "signInTitle": "Iniciar Sesion en Preppal",
+    "signInSubtitle": "Practica entrevistas con retroalimentacion de IA",
+    "signInWithGoogle": "Continuar con Google",
+    "signInWithGithub": "Continuar con GitHub",
+    "signOut": "Cerrar Sesion",
+    "signingOut": "Cerrando sesion..."
+  },
+  "errors": {
+    "generic": "Algo salio mal. Por favor intenta de nuevo.",
+    "notFound": "Pagina no encontrada",
+    "unauthorized": "Por favor inicia sesion para continuar",
+    "networkError": "Error de red. Verifica tu conexion."
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "common": {
+    "appName": "PrepPal",
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "confirm": "Confirm",
+    "back": "Back",
+    "terms": "Terms",
+    "privacy": "Privacy"
+  },
+  "navigation": {
+    "dashboard": "Dashboard",
+    "createInterview": "Create Interview",
+    "profile": "Profile",
+    "signOut": "Sign Out",
+    "signIn": "Sign In"
+  },
+  "landing": {
+    "title": "Practice Interviews with AI",
+    "subtitle": "Your AI-powered interview preparation companion. Practice with realistic mock interviews and receive detailed feedback to improve your performance.",
+    "cta": "Get Started",
+    "welcomeBack": "Welcome back, {name}!",
+    "goToDashboard": "Go to Dashboard",
+    "startInterview": "Start Interview"
+  },
+  "dashboard": {
+    "title": "Your Interviews",
+    "noInterviews": "No interviews yet. Create your first one!",
+    "createNew": "Create New Interview",
+    "status": {
+      "pending": "Pending",
+      "inProgress": "In Progress",
+      "completed": "Completed",
+      "error": "Error"
+    },
+    "actions": {
+      "view": "View",
+      "delete": "Delete",
+      "retry": "Retry"
+    }
+  },
+  "createInterview": {
+    "title": "Create New Interview",
+    "jobDescription": "Job Description",
+    "jobDescriptionPlaceholder": "Paste the job description here...",
+    "jobDescriptionHelp": "Paste the full job posting to help the AI ask relevant questions",
+    "resume": "Your Resume",
+    "resumePlaceholder": "Paste your resume here...",
+    "resumeHelp": "Your resume helps personalize the interview experience",
+    "persona": "Interviewer Persona",
+    "personaPlaceholder": "e.g., Senior Technical Recruiter",
+    "personaHelp": "Customize how the AI interviewer behaves",
+    "submit": "Start Interview",
+    "submitting": "Creating..."
+  },
+  "interview": {
+    "lobby": {
+      "title": "Interview Lobby",
+      "preparing": "Preparing your interview...",
+      "ready": "Ready to begin?",
+      "instructions": "Make sure your microphone is working and you're in a quiet environment.",
+      "start": "Start Interview",
+      "cancel": "Cancel"
+    },
+    "session": {
+      "listening": "Listening...",
+      "speaking": "AI is speaking...",
+      "thinking": "Processing...",
+      "endInterview": "End Interview",
+      "mute": "Mute",
+      "unmute": "Unmute"
+    },
+    "feedback": {
+      "title": "Interview Feedback",
+      "generating": "Generating your feedback...",
+      "summary": "Summary",
+      "strengths": "Strengths",
+      "contentAndStructure": "Content & Structure",
+      "communicationAndDelivery": "Communication & Delivery",
+      "presentation": "Presentation",
+      "improvements": "Areas for Improvement",
+      "tryAgain": "Try Another Interview",
+      "backToDashboard": "Back to Dashboard"
+    }
+  },
+  "profile": {
+    "title": "Your Profile",
+    "name": "Name",
+    "email": "Email",
+    "uiLanguage": "Interface Language",
+    "uiLanguageHelp": "Choose your preferred language for the interface",
+    "saveChanges": "Save Changes",
+    "saving": "Saving..."
+  },
+  "auth": {
+    "signInTitle": "Sign In to Preppal",
+    "signInSubtitle": "Practice interviews with AI feedback",
+    "signInWithGoogle": "Continue with Google",
+    "signInWithGithub": "Continue with GitHub",
+    "signOut": "Sign Out",
+    "signingOut": "Signing out..."
+  },
+  "errors": {
+    "generic": "Something went wrong. Please try again.",
+    "notFound": "Page not found",
+    "unauthorized": "Please sign in to continue",
+    "networkError": "Network error. Check your connection."
+  }
+}

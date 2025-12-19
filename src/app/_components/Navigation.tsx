@@ -1,8 +1,10 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import NextLink from "next/link";
+import { useTranslations } from "next-intl";
+import { Link, usePathname } from "~/i18n/navigation";
 import ThemeToggle from "./ThemeToggle";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 
 interface NavigationProps {
   userEmail?: string;
@@ -10,6 +12,7 @@ interface NavigationProps {
 
 export default function Navigation({ userEmail }: NavigationProps) {
   const pathname = usePathname();
+  const t = useTranslations("navigation");
 
   const isActive = (path: string) => {
     if (path === "/dashboard" && pathname === "/dashboard") return true;
@@ -18,9 +21,9 @@ export default function Navigation({ userEmail }: NavigationProps) {
   };
 
   const navLinks = [
-    { href: "/dashboard", label: "Dashboard" },
-    { href: "/create-interview", label: "Create Interview" },
-    { href: "/profile", label: "Profile" },
+    { href: "/dashboard", label: t("dashboard") },
+    { href: "/create-interview", label: t("createInterview") },
+    { href: "/profile", label: t("profile") },
   ];
 
   return (
@@ -53,18 +56,19 @@ export default function Navigation({ userEmail }: NavigationProps) {
           </div>
 
           <div className="flex items-center space-x-4">
+            <LanguageSwitcher />
             <ThemeToggle />
             {userEmail && (
               <span className="text-secondary-text hidden text-sm sm:block">
                 {userEmail}
               </span>
             )}
-            <Link
+            <NextLink
               href="/api/auth/signout"
               className="text-secondary-text hover:text-primary-text text-sm transition-colors"
             >
-              Sign Out
-            </Link>
+              {t("signOut")}
+            </NextLink>
           </div>
         </div>
 

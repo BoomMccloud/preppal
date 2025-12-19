@@ -1,0 +1,112 @@
+{
+  "common": {
+    "appName": "PrepPal",
+    "loading": "加载中...",
+    "error": "发生错误",
+    "save": "保存",
+    "cancel": "取消",
+    "delete": "删除",
+    "confirm": "确认",
+    "back": "返回",
+    "terms": "条款",
+    "privacy": "隐私"
+  },
+  "navigation": {
+    "dashboard": "控制台",
+    "createInterview": "创建面试",
+    "profile": "个人资料",
+    "signOut": "退出登录",
+    "signIn": "登录"
+  },
+  "landing": {
+    "title": "AI模拟面试练习",
+    "subtitle": "您的AI面试准备助手。通过逼真的模拟面试练习，获得详细反馈，提升面试表现。",
+    "cta": "立即开始",
+    "welcomeBack": "欢迎回来，{name}！",
+    "goToDashboard": "前往控制台",
+    "startInterview": "开始面试"
+  },
+  "dashboard": {
+    "title": "您的面试",
+    "noInterviews": "暂无面试记录。创建您的第一个面试吧！",
+    "createNew": "创建新面试",
+    "status": {
+      "pending": "待处理",
+      "inProgress": "进行中",
+      "completed": "已完成",
+      "error": "错误"
+    },
+    "actions": {
+      "view": "查看",
+      "delete": "删除",
+      "retry": "重试"
+    }
+  },
+  "createInterview": {
+    "title": "创建新面试",
+    "jobDescription": "职位描述",
+    "jobDescriptionPlaceholder": "在此粘贴职位描述...",
+    "jobDescriptionHelp": "粘贴完整的招聘信息，帮助AI提出相关问题",
+    "resume": "您的简历",
+    "resumePlaceholder": "在此粘贴您的简历...",
+    "resumeHelp": "您的简历有助于个性化面试体验",
+    "persona": "面试官风格",
+    "personaPlaceholder": "例如：高级技术招聘官",
+    "personaHelp": "自定义AI面试官的行为方式",
+    "submit": "开始面试",
+    "submitting": "创建中..."
+  },
+  "interview": {
+    "lobby": {
+      "title": "面试大厅",
+      "preparing": "正在准备您的面试...",
+      "ready": "准备好开始了吗？",
+      "instructions": "请确保麦克风正常工作，并处于安静的环境中。",
+      "start": "开始面试",
+      "cancel": "取消"
+    },
+    "session": {
+      "listening": "正在聆听...",
+      "speaking": "AI正在回答...",
+      "thinking": "处理中...",
+      "endInterview": "结束面试",
+      "mute": "静音",
+      "unmute": "取消静音"
+    },
+    "feedback": {
+      "title": "面试反馈",
+      "generating": "正在生成您的反馈...",
+      "summary": "总结",
+      "strengths": "优势",
+      "contentAndStructure": "内容与结构",
+      "communicationAndDelivery": "沟通与表达",
+      "presentation": "展示能力",
+      "improvements": "改进领域",
+      "tryAgain": "再次尝试",
+      "backToDashboard": "返回控制台"
+    }
+  },
+  "profile": {
+    "title": "您的资料",
+    "name": "姓名",
+    "email": "电子邮箱",
+    "uiLanguage": "界面语言",
+    "uiLanguageHelp": "选择您偏好的界面语言",
+    "saveChanges": "保存更改",
+    "saving": "保存中..."
+  },
+  "auth": {
+    "signInTitle": "登录 Preppal",
+    "signInSubtitle": "通过AI反馈练习面试",
+    "signInWithGoogle": "使用 Google 账号继续",
+    "signInWithGithub": "使用 GitHub 账号继续",
+    "signOut": "退出登录",
+    "signingOut": "正在退出..."
+  },
+  "errors": {
+    "generic": "出了点问题，请重试。",
+    "notFound": "页面未找到",
+    "unauthorized": "请登录后继续",
+    "networkError": "网络错误，请检查连接。"
+  }
+}

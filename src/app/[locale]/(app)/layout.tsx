@@ -1,6 +1,6 @@
 import { auth } from "~/server/auth";
-import { redirect } from "next/navigation";
-import Navigation from "../_components/Navigation";
+import { redirect } from "~/i18n/navigation";
+import Navigation from "../../_components/Navigation";
 
 export default async function AppLayout({
   children,
