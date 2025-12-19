@@ -32,6 +32,7 @@ export class GeminiStreamHandler {
   private audioConverter: IAudioConverter;
   private messageHandler: GeminiMessageHandler;
 
+  private isConnected = false;
   private audioChunksReceivedCount = 0;
   private audioResponsesReceivedCount = 0;
 
@@ -70,6 +71,8 @@ export class GeminiStreamHandler {
       },
     });
 
+    this.isConnected = true;
+
     // Send initial greeting
     this.geminiClient.sendClientContent({
       turns: [
@@ -83,9 +86,11 @@ export class GeminiStreamHandler {
   }
 
   /**
-   * Processes an incoming user audio chunk
+   * Processes an incoming user audio chunk.
+   * Safe to call after disconnect - will silently return.
    */
-  async processUserAudio(chunk: Uint8Array): Promise<void> {
+  processUserAudio(chunk: Uint8Array): void {
+    if (!this.isConnected) return;
     if (!chunk || chunk.length === 0) return;
 
     this.audioChunksReceivedCount++;
@@ -108,6 +113,7 @@ export class GeminiStreamHandler {
    * Closes the Gemini connection
    */
   disconnect(): void {
+    this.isConnected = false;
     this.geminiClient.close();
   }
 

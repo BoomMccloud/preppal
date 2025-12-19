@@ -262,9 +262,7 @@ export class GeminiSession implements DurableObject {
       switch (messageType) {
         case "audio":
           if (message.audioChunk?.audioContent) {
-            await this.streamHandler.processUserAudio(
-              message.audioChunk.audioContent,
-            );
+            this.streamHandler.processUserAudio(message.audioChunk.audioContent);
           }
           break;
         case "end":

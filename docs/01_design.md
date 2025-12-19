@@ -364,6 +364,17 @@ AI responds:
    Frontend → Navigate to /interview/{id}/feedback
 ```
 
+### D. Reliability & Completion "Golden Path"
+The completion process is designed to guarantee data integrity even if the feedback generation fails.
+
+1.  **The "Heavy Lift" Signal (`submitTranscript`)**:
+    *   **Atomicity:** This is the critical "Point of No Return". The backend performs a transaction that saves the transcript **AND** updates the status to `COMPLETED` simultaneously.
+    *   **Guarantee:** If this call succeeds, the interview is legally "finished" and safe.
+2.  **The "Enrichment" Signal (`submitFeedback`)**:
+    *   **Best Effort:** The Worker asks Gemini for structured feedback. If this fails or times out, the interview *remains* `COMPLETED` (just without the summary/strengths), preventing data loss.
+3.  **The "Handshake" Signal (`updateStatus`)**:
+    *   **Confirmation:** A final call to confirm the Worker is shutting down cleanly.
+
 ---
 
 ## File Structure

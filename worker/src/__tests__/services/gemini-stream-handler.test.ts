@@ -206,6 +206,22 @@ describe("GeminiStreamHandler", () => {
       handler.disconnect();
       expect(mockGeminiClient.close).toHaveBeenCalled();
     });
+
+    it("should ignore audio after disconnect (self-protecting)", async () => {
+      // First, connect to set isConnected = true
+      await handler.connect(mockContext);
+      mockGeminiClient.sendRealtimeInput.mockClear();
+
+      // Disconnect
+      handler.disconnect();
+
+      // Try to send audio after disconnect
+      const mockAudioChunk = new Uint8Array([1, 2, 3]);
+      handler.processUserAudio(mockAudioChunk);
+
+      // Should NOT call sendRealtimeInput
+      expect(mockGeminiClient.sendRealtimeInput).not.toHaveBeenCalled();
+    });
   });
 
   // Note: Testing the internal callbacks (onopen, onmessage, etc.) passed to GeminiClient
