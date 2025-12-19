@@ -26,3 +26,16 @@
 - **NextAuth Login:** We will add the LinkedIn provider. This will provide the user's `name`, `email`, and `profile picture`.
 - **Resume Data:** Since the LinkedIn API typically restricts full profile data (work history, education), the primary method for resume import will remain **PDF parsing** (using the LinkedIn "Save to PDF" feature as the source).
 - **Workflow:** Users log in via LinkedIn for convenience, then upload their LinkedIn-exported PDF to populate their Preppal profile.
+
+### Interview Panels
+**Goal:** Allow users to define a sequence of interview stages (e.g., HR, Tech, Hiring Manager, Senior Management) for a specific job application to simulate a full hiring loop.
+
+**Implementation Details:**
+- **Schema:**
+    - `InterviewPanel`: Represents the overall sequence (e.g., "FAANG Senior Engineer Loop").
+    - `InterviewPanelStage`: Links a `Persona` to a position in the panel sequence.
+    - `InterviewSession`: Update to optionally link to a `PanelStage` to track progress within a loop.
+- **Workflow:**
+    - Users can select pre-defined templates (e.g., "Standard Tech Loop") or create custom sequences by selecting multiple personas.
+    - Progress is tracked across stages, allowing users to visualize their journey through the hiring process.
+- **Aggregation:** A "Panel Summary" report that aggregates feedback across all stages to provide a holistic view of the candidate's performance and "hiring readiness".
