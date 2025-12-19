@@ -42,7 +42,7 @@ Before adding ANY mock to a test:
 ## 4. Complete Test Inventory
 
 > Last updated: 2025-12-19
-> Total: **66 tests** across **11 files** (all passing)
+> Total: **67 tests** across **12 files** (all passing)
 
 ### A. Golden Path Test (CRITICAL) ⭐
 
@@ -53,6 +53,25 @@ The single most important test that proves the app works end-to-end.
 | [src/test/integration/golden-path.test.ts](../../src/test/integration/golden-path.test.ts) | 1 | User can create interview → Worker processes it → User views feedback |
 
 **If this test passes, you can deploy with confidence.**
+
+---
+
+### A2. Gemini Implementation Smoke Test ⭐
+
+Tests our `GeminiClient` implementation against the real Gemini Live API. **Catches implementation bugs.**
+
+| File | Tests | What it proves |
+|------|-------|----------------|
+| [worker/src/__tests__/integration/gemini-smoke.test.ts](../../worker/src/__tests__/integration/gemini-smoke.test.ts) | 1 | `GeminiClient.connect()`, `sendClientContent()`, `close()` work correctly |
+
+**Requires:** `GEMINI_API_KEY` in `.env` (skipped if not set)
+
+**Why this exists:** Multiple times, changes to the worker broke Gemini connectivity. This test catches:
+- Bugs in `GeminiClient` wrapper code
+- Wrong model name in `GEMINI_MODEL` constant
+- Invalid config structure (responseModalities, transcription settings)
+- SDK API changes that break our implementation
+- Broken `sendClientContent()` message format
 
 ---
 
@@ -122,10 +141,11 @@ The following mock-heavy tests were deleted on 2025-12-19 because they tested mo
 | Category | Files | Tests | Health |
 |----------|-------|-------|--------|
 | Golden Path | 1 | 1 | ⭐ Critical |
+| Gemini Smoke | 1 | 1 | ⭐ Critical |
 | Integration (real DB) | 3 | 22 | ✅ Excellent |
 | Pure Logic | 3 | 33 | ✅ Excellent |
 | UI Components | 4 | 10 | ✅ Good |
-| **Total** | **11** | **66** | ✅ Healthy |
+| **Total** | **12** | **67** | ✅ Healthy |
 
 ---
 
