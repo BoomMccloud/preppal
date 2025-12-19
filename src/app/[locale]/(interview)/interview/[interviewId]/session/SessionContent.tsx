@@ -87,6 +87,7 @@ export function SessionContent({
   } = useInterviewSocket({
     interviewId,
     guestToken,
+    duration: interview?.duration ?? "STANDARD",
     onSessionEnded: () => {
       const feedbackUrl = guestToken
         ? `/interview/${interviewId}/feedback?token=${guestToken}`

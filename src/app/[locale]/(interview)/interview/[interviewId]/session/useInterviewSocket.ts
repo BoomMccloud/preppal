@@ -4,6 +4,11 @@ import { AudioRecorder } from "~/lib/audio/AudioRecorder";
 import { AudioPlayer } from "~/lib/audio/AudioPlayer";
 import { preppal } from "~/lib/interview_pb";
 import { TranscriptManager } from "~/lib/audio/TranscriptManager";
+import {
+  INTERVIEW_DURATION_MS,
+  SAFETY_TIMEOUT_GRACE_MS,
+  type InterviewDuration,
+} from "~/lib/constants/interview";
 
 type SessionState = "initializing" | "connecting" | "live" | "ending" | "error";
 
@@ -16,6 +21,7 @@ interface TranscriptEntry {
 interface UseInterviewSocketProps {
   interviewId: string;
   guestToken?: string;
+  duration: InterviewDuration;
   onSessionEnded: () => void;
 }
 
@@ -35,6 +41,7 @@ interface UseInterviewSocketReturn {
 export function useInterviewSocket({
   interviewId,
   guestToken,
+  duration,
   onSessionEnded,
 }: UseInterviewSocketProps): UseInterviewSocketReturn {
   const [state, setState] = useState<SessionState>("initializing");
@@ -61,6 +68,7 @@ export function useInterviewSocket({
   const wsRef = useRef<WebSocket | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const audioPlayerRef = useRef<AudioPlayer | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const hasInitiatedConnection = useRef(false);
   const [connectAttempts, setConnectAttempts] = useState(0);
   const [activeConnections, setActiveConnections] = useState(0);
@@ -121,11 +129,20 @@ export function useInterviewSocket({
 
   // State machine for managing audio resources
   useEffect(() => {
-    let audioRecorder: AudioRecorder | null = null;
-
     const setupAudio = async () => {
       if (state === "live") {
         console.log("State is LIVE, setting up audio...");
+
+        // Create AbortController for this session
+        abortControllerRef.current = new AbortController();
+
+        // Combine user abort signal with safety timeout
+        // Safety timeout is longer than worker's timeout (authoritative source)
+        const durationMs = INTERVIEW_DURATION_MS[duration];
+        const signal = AbortSignal.any([
+          abortControllerRef.current.signal,
+          AbortSignal.timeout(durationMs + SAFETY_TIMEOUT_GRACE_MS),
+        ]);
 
         try {
           // Setup AudioPlayer
@@ -136,8 +153,8 @@ export function useInterviewSocket({
           await audioPlayerRef.current.start();
           console.log("[AudioPlayer] Successfully started");
 
-          // Setup AudioRecorder
-          audioRecorder = new AudioRecorder();
+          // Setup AudioRecorder with AbortSignal
+          const audioRecorder = new AudioRecorder();
           console.log("[AudioRecorder] Starting recorder...");
           let chunkCount = 0;
           await audioRecorder.start((audioChunk) => {
@@ -169,7 +186,7 @@ export function useInterviewSocket({
                 `[AudioRecorder] WebSocket not open (state: ${wsRef.current?.readyState}), cannot send audio chunk`,
               );
             }
-          });
+          }, signal);
           console.log(
             "[AudioRecorder] Successfully started and capturing audio",
           );
@@ -191,17 +208,16 @@ export function useInterviewSocket({
 
     return () => {
       stopTimer();
-      if (audioRecorder) {
-        console.log("Cleaning up audio recorder...");
-        void audioRecorder.stop();
-      }
+      // Abort the audio recorder via signal - this handles all cleanup
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = null;
       if (audioPlayerRef.current) {
         console.log("Cleaning up audio player...");
         audioPlayerRef.current.stop();
         audioPlayerRef.current = null;
       }
     };
-  }, [state]);
+  }, [state, duration]);
 
   const connectWebSocket = (token: string) => {
     // Close any existing connection before creating a new one
@@ -282,10 +298,14 @@ export function useInterviewSocket({
         const reasonCode = message.sessionEnded.reason ?? 0;
         const reasonName = reasonMap[reasonCode] ?? `UNKNOWN(${reasonCode})`;
         console.log(`[WebSocket] Session ended with reason: ${reasonName}`);
+        // Worker signaled session end - trigger abort to clean up AudioRecorder
+        abortControllerRef.current?.abort();
         setState("ending");
         onSessionEnded();
       } else if (message.error) {
         console.log(`[WebSocket] Error from server:`, message.error);
+        // Worker signaled an error - also trigger abort
+        abortControllerRef.current?.abort();
         setError(message.error?.message ?? "Unknown error");
         setState("error");
       }
@@ -293,6 +313,8 @@ export function useInterviewSocket({
 
     ws.onerror = (event) => {
       console.error(`[WebSocket] Error:`, event);
+      // WebSocket error - ensure cleanup
+      abortControllerRef.current?.abort();
       setError("Connection error.");
       setState("error");
     };
@@ -303,6 +325,8 @@ export function useInterviewSocket({
         `[WebSocket] Closed: (Active: ${activeConnections - 1})`,
         event,
       );
+      // WebSocket closed - ensure cleanup
+      abortControllerRef.current?.abort();
       if (["live", "connecting"].includes(stateRef.current)) {
         setError("Connection lost.");
         setState("error");
@@ -312,6 +336,8 @@ export function useInterviewSocket({
 
   const endInterview = () => {
     if (wsRef.current && state === "live") {
+      // User initiated end - trigger abort to clean up audio
+      abortControllerRef.current?.abort();
       setState("ending");
       try {
         const message = preppal.ClientToServerMessage.create({
