@@ -27,6 +27,7 @@ export class InterviewLifecycleManager {
       jobDescription: "",
       resume: "",
       persona: "professional interviewer",
+      durationMs: 30 * 60 * 1000, // Default 30 minutes
     };
 
     try {

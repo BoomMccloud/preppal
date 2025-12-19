@@ -65,6 +65,11 @@
     "persona": "Personalidad del Entrevistador",
     "personaPlaceholder": "ej., Reclutador Tecnico Senior",
     "personaHelp": "Personaliza como se comporta el entrevistador IA",
+    "duration": "Duración de la Entrevista",
+    "durationSHORT": "10 min",
+    "durationSTANDARD": "30 min",
+    "durationEXTENDED": "60 min",
+    "durationHelp": "Elige cuánto tiempo debe durar tu entrevista de práctica",
     "submit": "Iniciar Entrevista",
     "submitting": "Creando..."
   },

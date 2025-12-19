@@ -102,6 +102,10 @@ model Interview {
   // Can be a simple role or a full custom prompt in the future
   persona String?
 
+  // --- INTERVIEW DURATION ---
+  // How long the interview should last (enforced by the worker)
+  duration InterviewDuration @default(STANDARD)
+
   // Relation to the resume used for this interview (optional)
   resumeId String?
   resume   Resume? @relation(fields: [resumeId], references: [id], onDelete: SetNull)
@@ -204,4 +208,11 @@ enum InterviewStatus {
 enum SpeakerRole {
   USER
   AI
+}
+
+// Enum for interview duration options
+enum InterviewDuration {
+  SHORT    // 10 minutes
+  STANDARD // 30 minutes
+  EXTENDED // 60 minutes
 }

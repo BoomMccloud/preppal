@@ -1366,6 +1366,9 @@ export namespace preppal {
 
     /** GetContextResponse persona */
     persona?: string | null;
+
+    /** GetContextResponse durationMs */
+    durationMs?: number | null;
   }
 
   /** Represents a GetContextResponse. */
@@ -1384,6 +1387,9 @@ export namespace preppal {
 
     /** GetContextResponse persona. */
     public persona: string;
+
+    /** GetContextResponse durationMs. */
+    public durationMs: number;
 
     /**
      * Creates a new GetContextResponse instance using the specified properties.

@@ -33,10 +33,13 @@ export class GeminiSession implements DurableObject {
   private isDebug = false;
   private userInitiatedClose = false;
   private sessionEnded = false;
+  private durationTimeoutId?: ReturnType<typeof setTimeout>;
+  private readonly DEFAULT_DURATION_MS = 30 * 60 * 1000; // 30 minutes
   private interviewContext: InterviewContext = {
     jobDescription: "",
     resume: "",
     persona: "professional interviewer",
+    durationMs: 30 * 60 * 1000, // Default 30 minutes
   };
 
   // Dependencies (injected via constructor)
@@ -147,6 +150,7 @@ export class GeminiSession implements DurableObject {
         resume: request.headers.get("X-Debug-Resume") ?? "",
         persona:
           request.headers.get("X-Debug-Persona") ?? "professional interviewer",
+        durationMs: 30 * 60 * 1000, // Default 30 minutes for debug mode
       };
       console.log(
         `[GeminiSession] Debug context loaded: persona="${this.interviewContext.persona}"`,
@@ -175,6 +179,57 @@ export class GeminiSession implements DurableObject {
 
     // 3. Setup Client Listeners
     this.setupWebSocketListeners(ws);
+
+    // 4. Start duration timeout
+    this.startDurationTimeout(ws);
+  }
+
+  /**
+   * Start the duration timeout to enforce interview time limit
+   */
+  private startDurationTimeout(ws: WebSocket): void {
+    // Use context duration, fallback to default if not set
+    const timeoutMs =
+      this.interviewContext.durationMs || this.DEFAULT_DURATION_MS;
+    console.log(
+      `[GeminiSession] Setting duration timeout: ${timeoutMs}ms (${timeoutMs / 60000} minutes) for interview ${this.interviewId}`,
+    );
+
+    this.durationTimeoutId = setTimeout(() => {
+      console.log(
+        `[GeminiSession] Duration timeout reached for interview ${this.interviewId}`,
+      );
+      void this.handleTimeoutEnd(ws);
+    }, timeoutMs);
+  }
+
+  /**
+   * Handle session end due to duration timeout
+   */
+  private async handleTimeoutEnd(ws: WebSocket): Promise<void> {
+    if (this.sessionEnded) return;
+
+    console.log(
+      `[GeminiSession] Ending interview ${this.interviewId} due to timeout`,
+    );
+
+    this.sessionEnded = true;
+    this.streamHandler.disconnect();
+
+    // Send session ended message with TIMEOUT reason
+    const endedMsg = createSessionEnded(preppal.SessionEnded.Reason.TIMEOUT);
+    this.safeSend(ws, encodeServerMessage(endedMsg));
+    ws.close(WS_CLOSE_NORMAL, "Interview duration limit reached");
+
+    // Finalize session
+    if (!this.isDebug) {
+      const transcript = this.streamHandler.getTranscript();
+      await this.lifecycleManager.finalizeSession(
+        this.interviewId!,
+        transcript,
+        this.interviewContext,
+      );
+    }
   }
 
   /**
@@ -344,6 +399,13 @@ export class GeminiSession implements DurableObject {
       `[GeminiSession] Cleaning up session for interview ${this.interviewId}`,
     );
     this.sessionEnded = true;
+
+    // Clear duration timeout to prevent memory leaks
+    if (this.durationTimeoutId) {
+      clearTimeout(this.durationTimeoutId);
+      this.durationTimeoutId = undefined;
+    }
+
     if (this.streamHandler) {
       this.streamHandler.disconnect();
     }

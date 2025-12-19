@@ -273,7 +273,15 @@ export function useInterviewSocket({
           }
         }
       } else if (message.sessionEnded) {
-        console.log(`[WebSocket] Session ended`);
+        const reasonMap: Record<number, string> = {
+          0: "UNSPECIFIED",
+          1: "USER_INITIATED",
+          2: "GEMINI_ENDED",
+          3: "TIMEOUT",
+        };
+        const reasonCode = message.sessionEnded.reason ?? 0;
+        const reasonName = reasonMap[reasonCode] ?? `UNKNOWN(${reasonCode})`;
+        console.log(`[WebSocket] Session ended with reason: ${reasonName}`);
         setState("ending");
         onSessionEnded();
       } else if (message.error) {

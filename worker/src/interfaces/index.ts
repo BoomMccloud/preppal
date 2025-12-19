@@ -16,13 +16,14 @@ export interface TranscriptEntry {
 }
 
 /**
- * Interview context containing job description, resume, and persona
+ * Interview context containing job description, resume, persona, and duration
  * Used for personalized interview questions and feedback generation
  */
 export interface InterviewContext {
   jobDescription: string;
   resume: string;
   persona: string;
+  durationMs: number;
 }
 
 /**

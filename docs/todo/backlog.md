@@ -27,6 +27,19 @@
 - **Resume Data:** Since the LinkedIn API typically restricts full profile data (work history, education), the primary method for resume import will remain **PDF parsing** (using the LinkedIn "Save to PDF" feature as the source).
 - **Workflow:** Users log in via LinkedIn for convenience, then upload their LinkedIn-exported PDF to populate their Preppal profile.
 
+### Interview Duration Limits
+**Goal:** Allow users to select a fixed interview duration to help with time management and create more focused practice sessions.
+
+**Implementation Details:**
+- **Schema:** Add an `InterviewDuration` enum with values: `SHORT` (10 min), `STANDARD` (30 min), `EXTENDED` (60 min). Maximum duration is 1 hour.
+- **Database:** Add a `duration` field to the `InterviewSession` model with a default of `STANDARD`.
+- **Metadata:** Include `durationMs` (duration in milliseconds) in the interview metadata when creating a session. This allows the worker to know the time limit without needing to query the database.
+- **Enforcement (Layered):**
+    - **Worker (Primary):** Use `setTimeout` to schedule session termination when `durationMs` elapses. When triggered, gracefully close the Gemini connection and notify the client. Clear the timeout if the session ends early.
+    - **Frontend (UX):** Display a countdown timer, warn the user when time is low (e.g., "2 minutes remaining"), and handle the session-end event from the worker.
+    - **Backend (Validation):** Validate that only valid enum values are accepted when creating a session.
+- **UI:** Add a duration selector during interview setup (dropdown or radio buttons).
+
 ### Interview Panels
 **Goal:** Allow users to define a sequence of interview stages (e.g., HR, Tech, Hiring Manager, Senior Management) for a specific job application to simulate a full hiring loop.
 

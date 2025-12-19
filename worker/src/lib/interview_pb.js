@@ -3198,6 +3198,7 @@ export const preppal = ($root.preppal = (() => {
      * @property {string|null} [jobDescription] GetContextResponse jobDescription
      * @property {string|null} [resume] GetContextResponse resume
      * @property {string|null} [persona] GetContextResponse persona
+     * @property {number|null} [durationMs] GetContextResponse durationMs
      */
 
     /**
@@ -3239,6 +3240,14 @@ export const preppal = ($root.preppal = (() => {
     GetContextResponse.prototype.persona = "";
 
     /**
+     * GetContextResponse durationMs.
+     * @member {number} durationMs
+     * @memberof preppal.GetContextResponse
+     * @instance
+     */
+    GetContextResponse.prototype.durationMs = 0;
+
+    /**
      * Creates a new GetContextResponse instance using the specified properties.
      * @function create
      * @memberof preppal.GetContextResponse
@@ -3278,6 +3287,11 @@ export const preppal = ($root.preppal = (() => {
         Object.hasOwnProperty.call(message, "persona")
       )
         writer.uint32(/* id 3, wireType 2 =*/ 26).string(message.persona);
+      if (
+        message.durationMs != null &&
+        Object.hasOwnProperty.call(message, "durationMs")
+      )
+        writer.uint32(/* id 4, wireType 0 =*/ 32).int32(message.durationMs);
       return writer;
     };
 
@@ -3328,6 +3342,10 @@ export const preppal = ($root.preppal = (() => {
             message.persona = reader.string();
             break;
           }
+          case 4: {
+            message.durationMs = reader.int32();
+            break;
+          }
           default:
             reader.skipType(tag & 7);
             break;
@@ -3372,6 +3390,9 @@ export const preppal = ($root.preppal = (() => {
         if (!$util.isString(message.resume)) return "resume: string expected";
       if (message.persona != null && message.hasOwnProperty("persona"))
         if (!$util.isString(message.persona)) return "persona: string expected";
+      if (message.durationMs != null && message.hasOwnProperty("durationMs"))
+        if (!$util.isInteger(message.durationMs))
+          return "durationMs: integer expected";
       return null;
     };
 
@@ -3390,6 +3411,7 @@ export const preppal = ($root.preppal = (() => {
         message.jobDescription = String(object.jobDescription);
       if (object.resume != null) message.resume = String(object.resume);
       if (object.persona != null) message.persona = String(object.persona);
+      if (object.durationMs != null) message.durationMs = object.durationMs | 0;
       return message;
     };
 
@@ -3409,6 +3431,7 @@ export const preppal = ($root.preppal = (() => {
         object.jobDescription = "";
         object.resume = "";
         object.persona = "";
+        object.durationMs = 0;
       }
       if (
         message.jobDescription != null &&
@@ -3419,6 +3442,8 @@ export const preppal = ($root.preppal = (() => {
         object.resume = message.resume;
       if (message.persona != null && message.hasOwnProperty("persona"))
         object.persona = message.persona;
+      if (message.durationMs != null && message.hasOwnProperty("durationMs"))
+        object.durationMs = message.durationMs;
       return object;
     };
 

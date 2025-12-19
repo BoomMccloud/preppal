@@ -7,9 +7,21 @@ import {
   workerProcedure,
 } from "~/server/api/trpc";
 import { TRPCError } from "@trpc/server";
-import { Prisma, type PrismaClient, type Interview } from "@prisma/client";
+import {
+  Prisma,
+  type PrismaClient,
+  type Interview,
+  type InterviewDuration,
+} from "@prisma/client";
 import { SignJWT } from "jose";
 import { env } from "~/env";
+
+// Duration mapping in milliseconds
+const DURATION_MS: Record<InterviewDuration, number> = {
+  SHORT: 10 * 60 * 1000, // 10 minutes
+  STANDARD: 30 * 60 * 1000, // 30 minutes
+  EXTENDED: 60 * 60 * 1000, // 60 minutes
+};
 import { randomBytes } from "crypto";
 
 /** Generate a URL-safe random token for guest access */
@@ -79,6 +91,10 @@ export const interviewRouter = createTRPCRouter({
         resume: ResumeInput,
         idempotencyKey: z.string().min(1),
         persona: z.string().optional(),
+        duration: z
+          .enum(["SHORT", "STANDARD", "EXTENDED"])
+          .optional()
+          .default("STANDARD"),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -140,6 +156,7 @@ export const interviewRouter = createTRPCRouter({
             idempotencyKey: input.idempotencyKey,
             status: "PENDING",
             persona: input.persona,
+            duration: input.duration,
           },
         });
 
@@ -575,6 +592,7 @@ export const interviewRouter = createTRPCRouter({
           jobDescriptionSnapshot: true,
           resumeSnapshot: true,
           persona: true,
+          duration: true,
         },
       });
 
@@ -589,6 +607,7 @@ export const interviewRouter = createTRPCRouter({
         jobDescription: interview.jobDescriptionSnapshot ?? "",
         resume: interview.resumeSnapshot ?? "",
         persona: interview.persona ?? "professional interviewer",
+        durationMs: DURATION_MS[interview.duration],
       };
     }),
 

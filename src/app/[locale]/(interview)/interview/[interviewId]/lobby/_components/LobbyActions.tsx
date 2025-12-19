@@ -129,7 +129,9 @@ export default function LobbyActions({
                 disabled={createGuestLink.isPending}
                 className="bg-secondary hover:bg-secondary/80 text-primary-text border-secondary-text/10 rounded-md border px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50"
               >
-                {createGuestLink.isPending ? t("regenerating") : t("regenerate")}
+                {createGuestLink.isPending
+                  ? t("regenerating")
+                  : t("regenerate")}
               </button>
             </div>
           </div>

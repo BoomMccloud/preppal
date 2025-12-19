@@ -65,6 +65,11 @@
     "persona": "面试官风格",
     "personaPlaceholder": "例如：高级技术招聘官",
     "personaHelp": "自定义AI面试官的行为方式",
+    "duration": "面试时长",
+    "durationSHORT": "10 分钟",
+    "durationSTANDARD": "30 分钟",
+    "durationEXTENDED": "60 分钟",
+    "durationHelp": "选择您的模拟面试时长",
     "submit": "开始面试",
     "submitting": "创建中..."
   },

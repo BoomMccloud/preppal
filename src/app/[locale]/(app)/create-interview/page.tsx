@@ -14,6 +14,9 @@ export default function CreateInterviewPage() {
   const [jobDescription, setJobDescription] = useState("");
   const [resume, setResume] = useState("");
   const [persona, setPersona] = useState("professional interviewer");
+  const [duration, setDuration] = useState<"SHORT" | "STANDARD" | "EXTENDED">(
+    "STANDARD",
+  );
   const [error, setError] = useState<string | null>(null);
 
   // Generate idempotency key once when component mounts
@@ -53,6 +56,7 @@ export default function CreateInterviewPage() {
       },
       idempotencyKey,
       persona: persona.trim() || undefined,
+      duration,
     });
   };
 
@@ -110,6 +114,31 @@ export default function CreateInterviewPage() {
             />
             <p className="text-secondary-text mt-1 text-sm">
               {t("personaHelp")}
+            </p>
+          </div>
+
+          <div>
+            <label className="text-primary-text mb-2 block text-lg font-medium">
+              {t("duration")}
+            </label>
+            <div className="flex gap-3">
+              {(["SHORT", "STANDARD", "EXTENDED"] as const).map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => setDuration(d)}
+                  className={`flex-1 rounded-md px-4 py-3 font-medium transition-colors ${
+                    duration === d
+                      ? "bg-accent text-primary"
+                      : "bg-secondary border-secondary-text text-primary-text hover:bg-opacity-80 border"
+                  }`}
+                >
+                  {t(`duration${d}`)}
+                </button>
+              ))}
+            </div>
+            <p className="text-secondary-text mt-1 text-sm">
+              {t("durationHelp")}
             </p>
           </div>
 

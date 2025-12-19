@@ -65,6 +65,11 @@
     "persona": "Interviewer Persona",
     "personaPlaceholder": "e.g., Senior Technical Recruiter",
     "personaHelp": "Customize how the AI interviewer behaves",
+    "duration": "Interview Duration",
+    "durationSHORT": "10 min",
+    "durationSTANDARD": "30 min",
+    "durationEXTENDED": "60 min",
+    "durationHelp": "Choose how long your practice interview should last",
     "submit": "Start Interview",
     "submitting": "Creating..."
   },

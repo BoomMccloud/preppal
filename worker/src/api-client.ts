@@ -68,7 +68,7 @@ export class ApiClient implements IApiClient {
   }
 
   /**
-   * Fetches interview context (job description, resume, persona)
+   * Fetches interview context (job description, resume, persona, duration)
    */
   async getContext(interviewId: string): Promise<InterviewContext> {
     console.log(`[API] getContext for interview ${interviewId}`);
@@ -82,12 +82,19 @@ export class ApiClient implements IApiClient {
     }
 
     const ctx = response.getContext;
-    console.log(`[API] getContext returning persona: "${ctx.persona}"`);
+    // Use || instead of ?? because protobuf defaults int32 to 0, not null
+    const DEFAULT_DURATION_MS = 30 * 60 * 1000;
+    const durationMs = ctx.durationMs || DEFAULT_DURATION_MS;
+
+    console.log(
+      `[API] getContext returning persona: "${ctx.persona}", durationMs: ${durationMs}`,
+    );
 
     return {
       jobDescription: ctx.jobDescription ?? "",
       resume: ctx.resume ?? "",
       persona: ctx.persona ?? "professional interviewer",
+      durationMs,
     };
   }
 

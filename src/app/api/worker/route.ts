@@ -4,7 +4,12 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { preppal } from "~/lib/interview_pb";
 import { db } from "~/server/db";
-import { type Prisma, type SpeakerRole, InterviewStatus } from "@prisma/client";
+import {
+  type Prisma,
+  type SpeakerRole,
+  InterviewStatus,
+  InterviewDuration,
+} from "@prisma/client";
 
 /**
  * Validates worker authentication via shared secret
@@ -48,6 +53,13 @@ function protobufResponse(data: Uint8Array, status = 200): NextResponse {
 
 // ---- Handler Functions ----
 
+// Duration enum to milliseconds mapping
+const DURATION_MS_MAP: Record<InterviewDuration, number> = {
+  [InterviewDuration.SHORT]: 10 * 60 * 1000, // 10 minutes
+  [InterviewDuration.STANDARD]: 30 * 60 * 1000, // 30 minutes
+  [InterviewDuration.EXTENDED]: 60 * 60 * 1000, // 60 minutes
+};
+
 async function handleGetContext(
   req: preppal.IGetContextRequest,
 ): Promise<preppal.IWorkerApiResponse> {
@@ -57,6 +69,7 @@ async function handleGetContext(
       jobDescriptionSnapshot: true,
       resumeSnapshot: true,
       persona: true,
+      duration: true,
     },
   });
 
@@ -66,11 +79,14 @@ async function handleGetContext(
     };
   }
 
+  const durationMs = DURATION_MS_MAP[interview.duration] ?? 30 * 60 * 1000;
+
   return {
     getContext: {
       jobDescription: interview.jobDescriptionSnapshot ?? "",
       resume: interview.resumeSnapshot ?? "",
       persona: interview.persona ?? "professional interviewer",
+      durationMs,
     },
   };
 }

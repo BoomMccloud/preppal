@@ -13,7 +13,10 @@ interface SessionContentProps {
   guestToken?: string;
 }
 
-export function SessionContent({ interviewId, guestToken }: SessionContentProps) {
+export function SessionContent({
+  interviewId,
+  guestToken,
+}: SessionContentProps) {
   const router = useRouter();
   const t = useTranslations("interview.session");
   const tCommon = useTranslations("common");
