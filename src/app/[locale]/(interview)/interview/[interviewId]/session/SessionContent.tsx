@@ -8,6 +8,8 @@ import { useInterviewSocket } from "./useInterviewSocket";
 import { StatusIndicator } from "~/app/_components/StatusIndicator";
 import { AIAvatar } from "~/app/_components/AIAvatar";
 
+const IS_DEV = process.env.NODE_ENV === "development";
+
 interface SessionContentProps {
   interviewId: string;
   guestToken?: string;
@@ -21,8 +23,10 @@ export function SessionContent({
   const t = useTranslations("interview.session");
   const tCommon = useTranslations("common");
   const transcriptEndRef = useRef<HTMLDivElement>(null);
-  const [debugInfo, setDebugInfo] = useState<string>("");
   const [shouldPoll, setShouldPoll] = useState(true);
+
+  // Debug state - only used in development
+  const [debugInfo, setDebugInfo] = useState<string>("");
 
   // Check interview status - block if not PENDING
   const {
@@ -47,16 +51,18 @@ export function SessionContent({
     }
   }, [interviewError, interview?.status]);
 
+  // Debug query - only enabled in development
   const { data: interviewStatus } = api.debug.getInterviewStatus.useQuery(
     { interviewId },
     {
-      enabled: !!interviewId,
-      refetchInterval: 5000, // Refetch every 5 seconds
+      enabled: IS_DEV && !!interviewId,
+      refetchInterval: 5000,
     },
   );
 
+  // Debug handler - only used in development
   const handleCheckStatus = () => {
-    // Display the current interview status from the query
+    if (!IS_DEV) return;
     const statusInfo = {
       interview: interview ?? null,
       interviewStatus: interviewStatus ?? null,
@@ -87,7 +93,6 @@ export function SessionContent({
   } = useInterviewSocket({
     interviewId,
     guestToken,
-    duration: interview?.duration ?? "STANDARD",
     onSessionEnded: () => {
       const feedbackUrl = guestToken
         ? `/interview/${interviewId}/feedback?token=${guestToken}`
@@ -123,22 +128,26 @@ export function SessionContent({
       <div className="flex h-screen items-center justify-center">
         <div className="text-lg">
           <div>{t("connecting")}</div>
-          <div className="mt-4">
-            <button
-              onClick={handleCheckStatus}
-              className="rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
-            >
-              {t("checkInterviewStatus")}
-            </button>
-          </div>
-          {debugInfo && (
-            <div className="mt-4 rounded bg-gray-100 p-2">
-              <pre className="text-xs">{debugInfo}</pre>
-            </div>
+          {IS_DEV && (
+            <>
+              <div className="mt-4">
+                <button
+                  onClick={handleCheckStatus}
+                  className="rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
+                >
+                  {t("checkInterviewStatus")}
+                </button>
+              </div>
+              {debugInfo && (
+                <div className="mt-4 rounded bg-gray-100 p-2">
+                  <pre className="text-xs">{debugInfo}</pre>
+                </div>
+              )}
+              <div className="mt-4 text-sm text-gray-500">
+                {t("currentStatus", { status: interview?.status ?? "Unknown" })}
+              </div>
+            </>
           )}
-          <div className="mt-4 text-sm text-gray-500">
-            {t("currentStatus", { status: interview?.status ?? "Unknown" })}
-          </div>
         </div>
       </div>
     );
@@ -172,33 +181,33 @@ export function SessionContent({
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold">{t("title")}</h1>
           <div className="flex items-center gap-4">
-            <button
-              onClick={handleCheckStatus}
-              className="rounded bg-blue-500 px-3 py-1 text-sm text-white hover:bg-blue-600"
-            >
-              {t("checkStatus")}
-            </button>
-            <div className="flex flex-col items-end gap-1">
-              <div className="text-xs text-gray-600">
-                WS: {wsDebugInfo.connectAttempts} attempts |{" "}
-                <span
-                  className={
-                    wsDebugInfo.activeConnections > 1
-                      ? "font-bold text-red-600"
-                      : "text-green-600"
-                  }
+            {IS_DEV && (
+              <>
+                <button
+                  onClick={handleCheckStatus}
+                  className="rounded bg-blue-500 px-3 py-1 text-sm text-white hover:bg-blue-600"
                 >
-                  {wsDebugInfo.activeConnections} active
-                </span>
-              </div>
-              <StatusIndicator
-                status={isAiSpeaking ? "speaking" : "listening"}
-              />
-            </div>
+                  {t("checkStatus")}
+                </button>
+                <div className="text-xs text-gray-600">
+                  WS: {wsDebugInfo.connectAttempts} attempts |{" "}
+                  <span
+                    className={
+                      wsDebugInfo.activeConnections > 1
+                        ? "font-bold text-red-600"
+                        : "text-green-600"
+                    }
+                  >
+                    {wsDebugInfo.activeConnections} active
+                  </span>
+                </div>
+              </>
+            )}
+            <StatusIndicator status={isAiSpeaking ? "speaking" : "listening"} />
             <div className="font-mono text-lg">{formatTime(elapsedTime)}</div>
           </div>
         </div>
-        {debugInfo && (
+        {IS_DEV && debugInfo && (
           <div className="mt-2 rounded bg-gray-100 p-2">
             <pre className="text-xs">{debugInfo}</pre>
           </div>
@@ -220,11 +229,13 @@ export function SessionContent({
             {transcript.length === 0 ? (
               <div className="text-center text-gray-500">
                 <p>{t("waitingToBegin")}</p>
-                <p className="mt-2 text-sm">
-                  {t("currentStatus", {
-                    status: interview?.status ?? "Unknown",
-                  })}
-                </p>
+                {IS_DEV && (
+                  <p className="mt-2 text-sm">
+                    {t("currentStatus", {
+                      status: interview?.status ?? "Unknown",
+                    })}
+                  </p>
+                )}
               </div>
             ) : (
               transcript.map((entry, index) => (

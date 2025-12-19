@@ -25,7 +25,6 @@ export class RawAudioClient {
   private ws: WebSocket | null = null;
   private player: AudioPlayer;
   private recorder: AudioRecorder;
-  private abortController: AbortController | null = null;
   private callbacks: RawClientCallbacks;
   private connectAttempts = 0;
   private activeConnections = 0;
@@ -73,12 +72,7 @@ export class RawAudioClient {
       );
       this.callbacks.onConnectionStateChange?.("connected");
       try {
-        // Create AbortController for this session
-        this.abortController = new AbortController();
-        await this.recorder.start(
-          this.handleAudioData,
-          this.abortController.signal,
-        );
+        await this.recorder.start(this.handleAudioData);
         this.callbacks.onRecordingStateChange?.(true);
       } catch (err) {
         console.error("Failed to start recording", err);
@@ -115,9 +109,7 @@ export class RawAudioClient {
   }
 
   private cleanup = () => {
-    // Abort the recorder via signal - this handles all audio cleanup
-    this.abortController?.abort();
-    this.abortController = null;
+    this.recorder.stop();
     this.callbacks.onRecordingStateChange?.(false);
     this.player.stop();
     this.ws = null;

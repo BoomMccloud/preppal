@@ -1,9 +1,8 @@
 /**
- * AudioRecorder - Handles microphone capture with cancellation support via AbortSignal.
+ * AudioRecorder - Handles microphone capture for audio streaming.
  *
- * Uses the web standard AbortSignal API for cancellable async operations, ensuring
- * proper cleanup of MediaStream and AudioContext resources even when cancelled
- * mid-initialization (e.g., user navigates away during getUserMedia prompt).
+ * Captures audio from the microphone, resamples to 16kHz, and delivers
+ * PCM chunks via callback. Call stop() to release resources.
  */
 export class AudioRecorder {
   private audioContext: AudioContext | null = null;
@@ -11,27 +10,20 @@ export class AudioRecorder {
   private workletNode: AudioWorkletNode | null = null;
 
   /**
-   * Starts audio recording with cancellation support.
+   * Starts audio recording.
    *
    * @param onAudioData - Callback receiving resampled audio chunks (16kHz PCM)
-   * @param signal - AbortSignal for cancellation. When aborted, all resources are cleaned up.
-   * @throws AbortError if cancelled during initialization (handled gracefully)
-   * @throws Error for other failures (e.g., permission denied)
+   * @throws Error if microphone permission denied or audio setup fails
    */
-  async start(
-    onAudioData: (chunk: ArrayBuffer) => void,
-    signal: AbortSignal,
-  ): Promise<void> {
+  async start(onAudioData: (chunk: ArrayBuffer) => void): Promise<void> {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      signal.throwIfAborted();
 
       this.stream = stream;
       this.audioContext = new AudioContext();
 
       // IMPORTANT: The worklet file must be served publicly
       await this.audioContext.audioWorklet.addModule("/audio-processor.js");
-      signal.throwIfAborted();
 
       const source = this.audioContext.createMediaStreamSource(this.stream);
 
@@ -54,21 +46,18 @@ export class AudioRecorder {
       source.connect(this.workletNode);
       // We don't connect to the destination, to avoid the user hearing themselves.
     } catch (error) {
-      this.cleanup();
-      if (error instanceof DOMException && error.name === "AbortError") {
-        console.log("AudioRecorder: Aborted during initialization");
-        return;
-      }
+      this.stop();
       console.error("Failed to start audio recording:", error);
       throw error;
     }
   }
 
   /**
-   * Cleans up all audio resources (stream tracks, worklet node, audio context).
+   * Stops recording and releases all audio resources.
    * Safe to call multiple times.
    */
-  private cleanup(): void {
+  stop(): void {
+    console.log("[AudioRecorder] Stopping...");
     this.workletNode?.disconnect();
     this.workletNode = null;
     this.stream?.getTracks().forEach((track) => track.stop());

@@ -1,17 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "~/trpc/react";
-import { AudioRecorder } from "~/lib/audio/AudioRecorder";
-import { AudioPlayer } from "~/lib/audio/AudioPlayer";
+import { AudioSession } from "~/lib/audio/AudioSession";
 import { preppal } from "~/lib/interview_pb";
 import { TranscriptManager } from "~/lib/audio/TranscriptManager";
 import {
-  INTERVIEW_DURATION_MS,
-  SAFETY_TIMEOUT_GRACE_MS,
   WS_CLOSE_USER_INITIATED,
   WS_CLOSE_TIMEOUT,
   WS_CLOSE_GEMINI_ENDED,
   WS_CLOSE_ERROR,
-  type InterviewDuration,
 } from "~/lib/constants/interview";
 
 type SessionState = "initializing" | "connecting" | "live" | "ending" | "error";
@@ -25,7 +21,6 @@ interface TranscriptEntry {
 interface UseInterviewSocketProps {
   interviewId: string;
   guestToken?: string;
-  duration: InterviewDuration;
   onSessionEnded: () => void;
 }
 
@@ -45,7 +40,6 @@ interface UseInterviewSocketReturn {
 export function useInterviewSocket({
   interviewId,
   guestToken,
-  duration,
   onSessionEnded,
 }: UseInterviewSocketProps): UseInterviewSocketReturn {
   const [state, setState] = useState<SessionState>("initializing");
@@ -71,8 +65,7 @@ export function useInterviewSocket({
 
   const wsRef = useRef<WebSocket | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const audioPlayerRef = useRef<AudioPlayer | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
+  const audioSessionRef = useRef<AudioSession | null>(null);
   const hasInitiatedConnection = useRef(false);
   const [connectAttempts, setConnectAttempts] = useState(0);
   const [activeConnections, setActiveConnections] = useState(0);
@@ -97,11 +90,11 @@ export function useInterviewSocket({
   useEffect(() => {
     const lastEntry = transcript[transcript.length - 1];
     if (lastEntry?.speaker === "USER" && isAiSpeaking) {
-      if (audioPlayerRef.current) {
+      if (audioSessionRef.current) {
         console.log(
           "[Barge-in] User started speaking, clearing AI audio queue.",
         );
-        audioPlayerRef.current.clear(); // This will trigger onPlaybackStateChange(false)
+        audioSessionRef.current.clearPlaybackQueue();
       }
     }
   }, [transcript, isAiSpeaking]);
@@ -132,36 +125,23 @@ export function useInterviewSocket({
   };
 
   // State machine for managing audio resources
+  // IMPORTANT: The cleanup function is the SINGLE source of truth for stopping audio.
+  // All exit paths (user end, server end, error, unmount) change state, which triggers cleanup.
   useEffect(() => {
     const setupAudio = async () => {
       if (state === "live") {
         console.log("State is LIVE, setting up audio...");
 
-        // Create AbortController for this session
-        abortControllerRef.current = new AbortController();
-
-        // Combine user abort signal with safety timeout
-        // Safety timeout is longer than worker's timeout (authoritative source)
-        const durationMs = INTERVIEW_DURATION_MS[duration];
-        const signal = AbortSignal.any([
-          abortControllerRef.current.signal,
-          AbortSignal.timeout(durationMs + SAFETY_TIMEOUT_GRACE_MS),
-        ]);
-
         try {
-          // Setup AudioPlayer
-          audioPlayerRef.current = new AudioPlayer(24000);
-          audioPlayerRef.current.onPlaybackStateChange = (isPlaying) => {
+          let chunkCount = 0;
+          const audioSession = new AudioSession();
+          audioSessionRef.current = audioSession;
+
+          audioSession.onPlaybackStateChange = (isPlaying) => {
             setIsAiSpeaking(isPlaying);
           };
-          await audioPlayerRef.current.start();
-          console.log("[AudioPlayer] Successfully started");
 
-          // Setup AudioRecorder with AbortSignal
-          const audioRecorder = new AudioRecorder();
-          console.log("[AudioRecorder] Starting recorder...");
-          let chunkCount = 0;
-          await audioRecorder.start((audioChunk) => {
+          await audioSession.start((audioChunk) => {
             chunkCount++;
             if (chunkCount <= 3) {
               console.log(
@@ -190,10 +170,7 @@ export function useInterviewSocket({
                 `[AudioRecorder] WebSocket not open (state: ${wsRef.current?.readyState}), cannot send audio chunk`,
               );
             }
-          }, signal);
-          console.log(
-            "[AudioRecorder] Successfully started and capturing audio",
-          );
+          });
 
           startTimer();
         } catch (err) {
@@ -212,16 +189,10 @@ export function useInterviewSocket({
 
     return () => {
       stopTimer();
-      // Abort the audio recorder via signal - this handles all cleanup
-      abortControllerRef.current?.abort();
-      abortControllerRef.current = null;
-      if (audioPlayerRef.current) {
-        console.log("Cleaning up audio player...");
-        audioPlayerRef.current.stop();
-        audioPlayerRef.current = null;
-      }
+      audioSessionRef.current?.stop();
+      audioSessionRef.current = null;
     };
-  }, [state, duration]);
+  }, [state]);
 
   const connectWebSocket = (token: string) => {
     // Close any existing connection before creating a new one
@@ -286,11 +257,9 @@ export function useInterviewSocket({
           setPendingTranscript(pending);
         }
       } else if (message.audioResponse) {
-        if (audioPlayerRef.current) {
-          const audioData = message.audioResponse.audioContent;
-          if (audioData && audioData.length > 0) {
-            void audioPlayerRef.current.enqueue(audioData);
-          }
+        const audioData = message.audioResponse.audioContent;
+        if (audioData && audioData.length > 0) {
+          audioSessionRef.current?.enqueueAudio(audioData);
         }
       } else if (message.sessionEnded) {
         const reasonMap: Record<number, string> = {
@@ -302,14 +271,10 @@ export function useInterviewSocket({
         const reasonCode = message.sessionEnded.reason ?? 0;
         const reasonName = reasonMap[reasonCode] ?? `UNKNOWN(${reasonCode})`;
         console.log(`[WebSocket] Session ended with reason: ${reasonName}`);
-        // Worker signaled session end - trigger abort to clean up AudioRecorder
-        abortControllerRef.current?.abort();
         setState("ending");
         onSessionEnded();
       } else if (message.error) {
         console.log(`[WebSocket] Error from server:`, message.error);
-        // Worker signaled an error - also trigger abort
-        abortControllerRef.current?.abort();
         setError(message.error?.message ?? "Unknown error");
         setState("error");
       }
@@ -317,8 +282,6 @@ export function useInterviewSocket({
 
     ws.onerror = (event) => {
       console.error(`[WebSocket] Error:`, event);
-      // WebSocket error - ensure cleanup
-      abortControllerRef.current?.abort();
       setError("Connection error.");
       setState("error");
     };
@@ -328,8 +291,6 @@ export function useInterviewSocket({
       console.log(
         `[WebSocket] Closed with code ${event.code}: ${event.reason} (Active: ${activeConnections - 1})`,
       );
-      // WebSocket closed - ensure cleanup
-      abortControllerRef.current?.abort();
 
       // Handle close based on code - close codes are the authoritative signal
       switch (event.code) {
@@ -357,9 +318,7 @@ export function useInterviewSocket({
 
   const endInterview = () => {
     if (wsRef.current && state === "live") {
-      // User initiated end - trigger abort to clean up audio
-      abortControllerRef.current?.abort();
-      setState("ending");
+      setState("ending"); // State change triggers useEffect cleanup → stop()
       try {
         const message = preppal.ClientToServerMessage.create({
           endRequest: {},
