@@ -37,64 +37,157 @@ Before adding ANY mock to a test:
 - You can't explain why a mock is needed
 - Mocking "just to be safe"
 
-## 4. The New Testing Pyramid
+---
 
-### A. Integration Tests (High Value) ✅ DONE
-**What:** Tests that use real tRPC callers against a real database.
-**Infrastructure:** Runs against **Neon PostgreSQL** (same as production).
-**Files:**
-- `src/test/integration/auth.test.ts` - 13 tests
-- `src/test/integration/dashboard.test.ts` - 7 tests
-- `src/test/integration/feedback.test.ts` - 5 tests
+## 4. Complete Test Inventory
 
-**Why these work:** They catch real bugs because:
+> Last updated: 2025-12-19
+> Total: **130 tests** across **16 files** (all passing)
+
+### A. Integration Tests (HIGH VALUE) ✅
+
+These tests use real database and real tRPC callers. **Keep and expand.**
+
+| File | Tests | Mocking | Value | Notes |
+|------|-------|---------|-------|-------|
+| [src/test/integration/auth.test.ts](../../src/test/integration/auth.test.ts) | 10 | Minimal (env only) | **High** | Tests real auth flows, data isolation |
+| [src/test/integration/dashboard.test.ts](../../src/test/integration/dashboard.test.ts) | 7 | Minimal (env only) | **High** | Tests real tRPC + DB interactions |
+| [src/test/integration/feedback.test.ts](../../src/test/integration/feedback.test.ts) | 5 | Minimal (env only) | **High** | Tests real feedback retrieval flows |
+
+**Why these work:** They catch real bugs because they use:
 - Real database queries (schema mismatches caught)
 - Real tRPC procedures (authorization logic tested)
 - Real Prisma client (relationship issues caught)
 
-### B. Logic & Protocol Tests (Keep) ✅ DONE
-**What:** Pure logic tests that don't need mocking.
-**Files:**
-- `src/lib/interview/protocol.test.ts` - Protobuf encoding/decoding
-- `src/lib/audio/TranscriptManager.test.ts` - Audio utilities
-- `src/lib/interview/handleServerMessage.test.ts` - Message handling
+---
 
-**Why these work:** They test pure functions with real inputs/outputs.
+### B. Pure Logic Tests (HIGH VALUE) ✅
 
-### C. Worker Tests (Keep with Caution) ⚠️
-**What:** Tests in `worker/src/__tests__/`
-**Status:** These are heavily mocked - they verify "did you call the mock correctly"
-**Risk:** May give false confidence. Consider replacing with integration tests that hit real Worker endpoints.
+These tests verify pure functions with no mocking required. **Keep as-is.**
 
-### D. UI Tests ❌ REMOVED
-**What was removed:** 8 component tests that couldn't load due to `next-intl` issues.
-**Why:** Broken tests provide no value. UI smoke tests can be added back when module issues are resolved.
+| File | Tests | Mocking | Value | Notes |
+|------|-------|---------|-------|-------|
+| [worker/src/__tests__/transcript-manager.test.ts](../../worker/src/__tests__/transcript-manager.test.ts) | 21 | None | **High** | Pure logic: turn aggregation, serialization, formatting |
+| [worker/src/__tests__/messages.test.ts](../../worker/src/__tests__/messages.test.ts) | 8 | None | **High** | Protobuf encoding/decoding, no external deps |
+| [worker/src/__tests__/handlers/websocket-message-handler.test.ts](../../worker/src/__tests__/handlers/websocket-message-handler.test.ts) | 4 | None | **High** | Pure protobuf message type identification |
 
-## 5. Implementation Status
+**Why these work:** They test pure functions with real inputs/outputs, no mocks needed.
 
-### ✅ Completed
-- [x] Infrastructure: Using Neon PostgreSQL via `DATABASE_URL` from `.env`
-- [x] Global setup: `src/test/global-setup.ts` cleans DB before test runs
-- [x] Integration tests: All 3 files use real DB, real tRPC callers
-- [x] Removed broken tests: 8 UI tests deleted (module resolution issues)
-- [x] Removed outdated tests: Gemini onerror callback test (implementation changed)
-- [x] Fixed test setup: `src/test/setup.ts` no longer overrides `DATABASE_URL`
+---
 
-### ⏳ Remaining (Optional)
-- [ ] Golden Path test: Single comprehensive test of full user journey
-- [ ] Worker integration tests: Replace mock-heavy tests with real endpoint tests
-- [ ] CI Setup: Ensure GitHub Actions uses correct `DATABASE_URL`
+### C. Heavily Mocked Tests (PROBLEMATIC) ⚠️
 
-## 6. Current Test Suite
+These tests mock so much that they verify mock behavior, not real behavior.
 
-| Category | Files | Tests | Mocking Level | Value |
-|----------|-------|-------|---------------|-------|
-| Integration (tRPC + DB) | 3 | 25 | Minimal | High |
-| Protocol/Logic | 5 | 32 | None | High |
-| Worker | 5 | 45 | Heavy | Medium |
-| Audio utilities | 3 | 25 | Light | High |
-| Other | 9 | 52 | Varies | Medium |
-| **Total** | **25** | **179** | | |
+| File | Tests | Mocking | Value | Issues |
+|------|-------|---------|-------|--------|
+| [src/server/api/routers/interview.test.ts](../../src/server/api/routers/interview.test.ts) | 30 | **Heavy** | Low | Mocks entire DB + auth; verifies `findUnique` calls |
+| [src/server/api/routers/user.test.ts](../../src/server/api/routers/user.test.ts) | 1 | **Heavy** | Low | Mocks DB; tests mock return value |
+| [worker/src/__tests__/api-client.test.ts](../../worker/src/__tests__/api-client.test.ts) | 11 | **Heavy** | Medium | Mocks global fetch; tests protobuf encoding (useful) but also mock responses |
+| [worker/src/__tests__/services/interview-lifecycle-manager.test.ts](../../worker/src/__tests__/services/interview-lifecycle-manager.test.ts) | 7 | **Heavy** | Medium | Mocks ApiClient + generateFeedback; tests orchestration logic |
+| [worker/src/__tests__/handlers/gemini-message-handler.test.ts](../../worker/src/__tests__/handlers/gemini-message-handler.test.ts) | 8 | Heavy | Medium | Mocks TranscriptManager + AudioConverter interfaces |
+| [worker/src/__tests__/gemini-client.test.ts](../../worker/src/__tests__/gemini-client.test.ts) | 8 | Heavy | Low | Mocks entire @google/genai SDK; tests state management only |
+
+#### Specific Problems in interview.test.ts
+
+```typescript
+// ❌ BAD: Lines 112-126 test mock behavior
+expect(db.interview.findUnique).toHaveBeenCalledWith({
+  where: { idempotencyKey: "test-key-123" },
+});
+
+const createCall = vi.mocked(db.interview.create).mock.calls[0]?.[0];
+expect(createCall?.data.userId).toBe("test-user-id");
+```
+
+This will pass even if the real implementation is broken because:
+1. We're testing that the mock was called correctly
+2. We're not testing what the database actually stores
+3. If Prisma schema changes, these tests still pass
+
+#### Specific Problems in user.test.ts
+
+```typescript
+// ❌ BAD: The entire test mocks DB and verifies mock
+vi.mocked(db.user.findUnique).mockResolvedValue({...});
+expect(result).toEqual({ name: "John Doe", ... });
+expect(db.user.findUnique).toHaveBeenCalledWith({...});
+```
+
+This provides zero confidence because:
+1. We're returning exactly what we expect from the mock
+2. The real `findUnique` query isn't tested
+3. Schema changes won't break this test
+
+---
+
+### D. Component Tests (UNKNOWN STATUS) ❓
+
+| File | Tests | Mocking | Value | Notes |
+|------|-------|---------|-------|-------|
+| [src/app/_components/AudioVisualizer.test.tsx](../../src/app/_components/AudioVisualizer.test.tsx) | 1 | None | Medium | Tests CSS transform based on prop |
+| [src/app/_components/StatusIndicator.test.tsx](../../src/app/_components/StatusIndicator.test.tsx) | 5 | Unknown | Medium | Component rendering tests |
+| [src/app/_components/TranscriptDisplay.test.tsx](../../src/app/_components/TranscriptDisplay.test.tsx) | 2 | Unknown | Medium | Component rendering tests |
+| [src/app/[locale]/(app)/profile/page.test.tsx](../../src/app/[locale]/(app)/profile/page.test.tsx) | 2 | Unknown | Medium | Page component tests |
+
+**Status:** These are simple rendering tests. Not critical, but not harmful either.
+
+---
+
+### E. E2E Tests (NOT RUNNING) ❌
+
+| File | Tests | Status |
+|------|-------|--------|
+| [src/test/e2e/audio-journey.spec.ts](../../src/test/e2e/audio-journey.spec.ts) | ? | Not included in `pnpm test` |
+| [src/test/e2e/core-journey.spec.ts](../../src/test/e2e/core-journey.spec.ts) | ? | Not included in `pnpm test` |
+
+**Status:** Playwright E2E tests exist but aren't run with Vitest. May have environment issues.
+
+---
+
+## 5. Test Summary by Health
+
+| Category | Files | Tests | Health |
+|----------|-------|-------|--------|
+| Integration (real DB) | 3 | 22 | ✅ Excellent |
+| Pure Logic | 3 | 33 | ✅ Excellent |
+| Mock-Heavy | 6 | 65 | ⚠️ Problematic |
+| UI Components | 4 | 10 | ❓ Unknown |
+| E2E | 2 | ? | ❌ Not Running |
+| **Total** | **18** | **130** | Mixed |
+
+---
+
+## 6. Recommendations
+
+### Immediate Actions
+
+1. **Do NOT trust mock-heavy tests for refactoring**
+   - `interview.test.ts` (30 tests) provides false confidence
+   - `user.test.ts` (1 test) is essentially useless
+
+2. **Rely on integration tests for confidence**
+   - `auth.test.ts`, `dashboard.test.ts`, `feedback.test.ts` test real behavior
+
+3. **Worker tests need review**
+   - `api-client.test.ts` - useful for protobuf but mocks fetch
+   - `interview-lifecycle-manager.test.ts` - tests orchestration, moderate value
+
+### Future Work
+
+1. **Convert interview.test.ts to integration tests**
+   - Move test cases to `src/test/integration/interview.test.ts`
+   - Use real DB, real tRPC callers
+   - Keep same assertions but remove mocks
+
+2. **Delete user.test.ts**
+   - The single test is redundant with `dashboard.test.ts` which already tests `getProfile`
+
+3. **Add worker integration tests**
+   - Test real Worker endpoints with real API calls
+   - Replace mock-heavy tests with real HTTP calls
+
+---
 
 ## 7. Guidelines for New Tests
 
@@ -121,7 +214,7 @@ Before adding ANY mock to a test:
 ### Example: Good vs Bad Test
 
 ```typescript
-// ❌ BAD: Tests mock behavior
+// ❌ BAD: Tests mock behavior (interview.test.ts pattern)
 it("should call findUnique with correct id", async () => {
   const mockDb = { interview: { findUnique: vi.fn() } };
   await getInterview(mockDb, "123");
@@ -130,7 +223,7 @@ it("should call findUnique with correct id", async () => {
   });
 });
 
-// ✅ GOOD: Tests real behavior
+// ✅ GOOD: Tests real behavior (integration test pattern)
 it("should return interview with feedback", async () => {
   // Real data in real DB
   const user = await db.user.create({ data: { email: "test@test.com" } });
@@ -147,9 +240,14 @@ it("should return interview with feedback", async () => {
 });
 ```
 
+---
+
 ## 8. Definition of Done
-- [x] `pnpm test` passes with 179 tests
-- [x] Tests run against real Neon PostgreSQL database
+
+- [x] `pnpm test` passes with 130 tests
+- [x] Tests run against real Neon PostgreSQL database (integration tests)
 - [x] No Playwright dependency required
 - [x] Broken/flaky tests removed
+- [x] Complete test inventory documented
+- [ ] Mock-heavy tests converted to integration tests
 - [ ] Documentation for TDD workflow updated
