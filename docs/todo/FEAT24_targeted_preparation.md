@@ -25,6 +25,69 @@ Users preparing for a specific opportunity need more than generic practice:
 
 ## 4. Solution Design
 
+### 4.0 Dashboard Integration
+
+Target roles are surfaced directly on the dashboard, making them the first thing users see. This encourages repeat practice and reduces friction to start a session.
+
+**Dashboard with Targets:**
+```
+┌─────────────────────────────────────────────────────┐
+│  Dashboard                                          │
+│                                                     │
+│  Your Target Roles                                  │
+│  ┌─────────────────────┐  ┌─────────────────────┐   │
+│  │ Stripe              │  │ Google              │   │
+│  │ Senior SWE          │  │ Product Manager     │   │
+│  │                     │  │                     │   │
+│  │ 3 sessions          │  │ 1 session           │   │
+│  │ Last: 2 days ago    │  │ Last: 1 week ago    │   │
+│  │                     │  │                     │   │
+│  │ [Practice]          │  │ [Practice]          │   │
+│  └─────────────────────┘  └─────────────────────┘   │
+│                                                     │
+│  ┌─────────────────────┐                            │
+│  │  + Add New Target   │                            │
+│  │                     │                            │
+│  │  Paste a job link   │                            │
+│  │  or describe a role │                            │
+│  └─────────────────────┘                            │
+│                                                     │
+│  ─────────────────────────────────────────────────  │
+│                                                     │
+│  Quick Practice                                     │
+│  [Start without a specific role →]                  │
+│                                                     │
+└─────────────────────────────────────────────────────┘
+```
+
+**Empty State (New Users):**
+```
+┌─────────────────────────────────────────────────────┐
+│  Dashboard                                          │
+│                                                     │
+│  Welcome to Preppal!                                │
+│                                                     │
+│  ┌───────────────────────────────────────────────┐  │
+│  │  🎯 Add Your First Target Role                │  │
+│  │                                               │  │
+│  │  Paste a job posting link or describe the    │  │
+│  │  role you're preparing for.                  │  │
+│  │                                               │  │
+│  │  [ Paste job link or describe role...     ]  │  │
+│  │                                               │  │
+│  │  [Get Started]                                │  │
+│  └───────────────────────────────────────────────┘  │
+│                                                     │
+│  Or: [Try Quick Practice first →]                   │
+│                                                     │
+└─────────────────────────────────────────────────────┘
+```
+
+**Entry Points:**
+- **[Practice] button** on target card → Skip to Pre-Session Analysis (4.4)
+- **[+ Add New Target]** → Target Input flow (4.3)
+- **[Quick Practice]** → Path 1 (see FEAT23)
+
 ### 4.1 Prerequisites
 
 Before entering Targeted Preparation, user must have:
@@ -133,12 +196,15 @@ Post-session feedback references both resume and JD:
 
 ## 5. User Flow
 
+**Returning User (has targets):**
 ```
-[User selects "Targeted Preparation"]
+[User lands on Dashboard]
+            ↓
+[Sees target role cards with Practice buttons]
+            ↓
+[Clicks Practice on existing target]
             ↓
 [Resume check: uploaded? If not, prompt upload]
-            ↓
-[Target input: URL, upload, paste, generate, or library]
             ↓
 [Pre-session analysis: strengths, gaps, focus selection]
             ↓
@@ -146,7 +212,24 @@ Post-session feedback references both resume and JD:
             ↓
 [Gap-aware feedback with recommendations]
             ↓
-[Options: Practice again (same target) / New target / History]
+[Returns to Dashboard]
+```
+
+**New User / Adding Target:**
+```
+[User lands on Dashboard (empty state or clicks + Add New Target)]
+            ↓
+[Target input: URL, upload, paste, or generate]
+            ↓
+[Resume check: uploaded? If not, prompt upload]
+            ↓
+[Pre-session analysis: strengths, gaps, focus selection]
+            ↓
+[Interview session with full context]
+            ↓
+[Gap-aware feedback with recommendations]
+            ↓
+[Returns to Dashboard (now shows new target)]
 ```
 
 ## 6. Data Model
@@ -215,12 +298,14 @@ interface TargetedFeedback {
 
 | Component | Purpose |
 |-----------|---------|
-| `TargetedSetup.tsx` | Two-step setup: resume + target |
+| `TargetRolesSection.tsx` | Dashboard section showing target cards |
+| `TargetRoleCard.tsx` | Individual target card with Practice button |
+| `AddTargetCard.tsx` | Card/CTA to add a new target |
+| `EmptyDashboard.tsx` | First-time user onboarding state |
 | `TargetInput.tsx` | Multi-method target input (URL, upload, etc.) |
 | `MatchAnalysis.tsx` | Pre-session strengths/gaps display |
 | `FocusSelector.tsx` | Checkboxes for interview focus areas |
 | `TargetedFeedback.tsx` | Gap-aware feedback display |
-| `TargetLibrary.tsx` | Select from previous targets |
 
 ### 7.2 Backend Endpoints
 
