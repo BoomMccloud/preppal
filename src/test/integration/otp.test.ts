@@ -131,7 +131,9 @@ describe("OTP Auth Flow Integration", () => {
 
       // Clean up
       await db.emailVerification.deleteMany({
-        where: { id: { in: [validRecord.id, expiredRecord.id, usedRecord.id] } },
+        where: {
+          id: { in: [validRecord.id, expiredRecord.id, usedRecord.id] },
+        },
       });
     });
 
@@ -274,22 +276,24 @@ describe("OTP Auth Flow Integration", () => {
       const nonExistingEmail = `nonexistent-${Date.now()}@example.com`;
 
       // Both should be able to create verification records
-      const [existingVerification, nonExistingVerification] = await Promise.all([
-        db.emailVerification.create({
-          data: {
-            email: existingEmail,
-            codeHash: createHash("sha256").update("111111").digest("hex"),
-            expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-          },
-        }),
-        db.emailVerification.create({
-          data: {
-            email: nonExistingEmail,
-            codeHash: createHash("sha256").update("222222").digest("hex"),
-            expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-          },
-        }),
-      ]);
+      const [existingVerification, nonExistingVerification] = await Promise.all(
+        [
+          db.emailVerification.create({
+            data: {
+              email: existingEmail,
+              codeHash: createHash("sha256").update("111111").digest("hex"),
+              expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+            },
+          }),
+          db.emailVerification.create({
+            data: {
+              email: nonExistingEmail,
+              codeHash: createHash("sha256").update("222222").digest("hex"),
+              expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+            },
+          }),
+        ],
+      );
 
       // Both should have the same structure
       expect(existingVerification.id).toBeDefined();
@@ -299,7 +303,9 @@ describe("OTP Auth Flow Integration", () => {
 
       // Clean up
       await db.emailVerification.deleteMany({
-        where: { id: { in: [existingVerification.id, nonExistingVerification.id] } },
+        where: {
+          id: { in: [existingVerification.id, nonExistingVerification.id] },
+        },
       });
     });
   });
@@ -449,7 +455,11 @@ describe("OTP Flow Scenarios", () => {
 
       // New code should work
       const newResult = await db.emailVerification.findFirst({
-        where: { id: newVerification.id, usedAt: null, expiresAt: { gt: new Date() } },
+        where: {
+          id: newVerification.id,
+          usedAt: null,
+          expiresAt: { gt: new Date() },
+        },
       });
       expect(newResult).not.toBeNull();
 

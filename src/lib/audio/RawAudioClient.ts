@@ -126,7 +126,9 @@ export class RawAudioClient {
       const message = create(ClientToServerMessageSchema, {
         payload: {
           case: "audioChunk",
-          value: create(AudioChunkSchema, { audioContent: new Uint8Array(chunk) }),
+          value: create(AudioChunkSchema, {
+            audioContent: new Uint8Array(chunk),
+          }),
         },
       });
       const encodedMessage = toBinary(ClientToServerMessageSchema, message);

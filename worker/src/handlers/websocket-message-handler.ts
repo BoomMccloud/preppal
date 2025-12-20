@@ -21,9 +21,7 @@ export class WebSocketMessageHandler {
   /**
    * Determine message type for routing
    */
-  getMessageType(
-    message: ClientToServerMessage,
-  ): "audio" | "end" | "unknown" {
+  getMessageType(message: ClientToServerMessage): "audio" | "end" | "unknown" {
     if (message.payload.case === "audioChunk") {
       return "audio";
     } else if (message.payload.case === "endRequest") {

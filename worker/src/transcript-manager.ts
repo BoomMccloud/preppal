@@ -65,7 +65,7 @@ export class TranscriptManager implements ITranscriptManager {
         speaker: t.speaker,
         content: t.content,
         timestampMs: BigInt(t.timestamp.getTime()),
-      })
+      }),
     );
 
     const transcript = create(TranscriptSchema, { turns: protoTurns });

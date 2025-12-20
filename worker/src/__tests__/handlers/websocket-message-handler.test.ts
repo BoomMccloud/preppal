@@ -39,7 +39,9 @@ describe("WebSocketMessageHandler", () => {
 
     expect(decoded.payload.case).toBe("audioChunk");
     if (decoded.payload.case === "audioChunk") {
-      expect(decoded.payload.value.audioContent).toEqual(new Uint8Array([1, 2, 3]));
+      expect(decoded.payload.value.audioContent).toEqual(
+        new Uint8Array([1, 2, 3]),
+      );
     }
   });
 
