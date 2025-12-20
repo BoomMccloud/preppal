@@ -1,12 +1,14 @@
 # Current Task: Email OTP Authentication (FEAT25)
 
-## Status
+## Status: ✅ Complete
+
+All phases implemented and ready for manual testing.
 
 ### Phase 1: Setup ✅
 - [x] Add `RESEND_API_KEY`, `EMAIL_FROM` to `src/env.js`
 - [x] Add `EmailVerification` model to `prisma/schema.prisma`
 - [x] Install `resend` package
-- [ ] Run `pnpm db:push` (requires DATABASE_URL in environment)
+- [x] Run `pnpm db:push`
 
 ### Phase 2: Backend ✅
 - [x] Create `src/server/lib/rate-limit.ts` - In-memory rate limiter
@@ -16,29 +18,29 @@
 - [x] Register auth router in `src/server/api/root.ts`
 - [x] Add `email-otp` provider to `src/server/auth/config.ts`
 
-### Phase 3: Frontend (Pending)
-- [ ] Create `src/app/[locale]/signin/_components/OtpVerification.tsx`
-- [ ] Update `src/app/[locale]/signin/_components/SignInForm.tsx`
+### Phase 3: Frontend ✅
+- [x] Create `src/app/[locale]/signin/_components/OtpVerification.tsx`
+- [x] Update `src/app/[locale]/signin/_components/SignInForm.tsx`
 
-### Phase 4: Translations (Pending)
-- [ ] Add auth translation keys to `messages/en.json`
-- [ ] Add auth translation keys to `messages/es.json`
-- [ ] Add auth translation keys to `messages/zh.json`
+### Phase 4: Translations ✅
+- [x] Add auth translation keys to `messages/en.json`
+- [x] Add auth translation keys to `messages/es.json`
+- [x] Add auth translation keys to `messages/zh.json`
 
-### Phase 5: Testing (Pending)
+### Phase 5: Testing ✅
 - [x] Unit tests for OTP utilities (rate limiting, code generation, hashing)
 - [x] Integration tests for EmailVerification model
-- [ ] Update integration tests to call real tRPC procedures
+- [x] Integration tests calling real tRPC procedures (`auth.sendOtp`, `auth.verifyOtp`)
+
+### Phase 6: Documentation ✅
+- [x] Update `.env.example` with Resend configuration
 
 ## Branch
 `feat/email-otp-utils`
 
-## Commits
-1. `67555e8` - Add OTP utilities and rate limiter for email auth
-2. `ed88941` - Add email OTP authentication backend
-
-## Objective
-Implement passwordless email OTP authentication as an alternative to OAuth (Google/GitHub). This enables users in regions where OAuth providers are blocked (e.g., China) to sign in using their email address.
+## Next Steps
+1. Manual testing per checklist in FEAT25 spec (Section 12.8 Step 14)
+2. Create PR to merge into `main`
 
 ## Key Files Created/Modified
 
@@ -50,6 +52,12 @@ Implement passwordless email OTP authentication as an alternative to OAuth (Goog
 | `src/server/api/routers/auth.ts` | tRPC router with `sendOtp` and `verifyOtp` mutations |
 | `prisma/schema.prisma` | Added `EmailVerification` model |
 | `src/server/auth/config.ts` | Added `email-otp` credentials provider |
+| `src/app/[locale]/signin/_components/OtpVerification.tsx` | 6-digit code entry with auto-focus, paste, countdown |
+| `src/app/[locale]/signin/_components/SignInForm.tsx` | Updated with ViewState pattern for OTP flow |
+| `messages/en.json` | Added 14 auth translation keys |
+| `messages/es.json` | Added 14 auth translation keys (Spanish) |
+| `messages/zh.json` | Added 14 auth translation keys (Chinese) |
+| `.env.example` | Added Resend configuration documentation |
 
 ## Design Reference
 Full specification: [docs/todo/FEAT25_email_otp_login.md](./todo/FEAT25_email_otp_login.md)

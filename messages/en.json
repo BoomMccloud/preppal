@@ -199,7 +199,21 @@
     "password": "Password",
     "devCredentials": "Development credentials",
     "noProviders": "No authentication providers available",
-    "checkConfig": "Please check your configuration"
+    "checkConfig": "Please check your configuration",
+    "or": "or",
+    "continueWithEmail": "Continue with email",
+    "devLogin": "Development login",
+    "sendCode": "Send code",
+    "sending": "Sending...",
+    "checkYourEmail": "Check your email",
+    "codeSentTo": "We sent a code to {email}",
+    "codeExpiresIn": "Code expires in {time}",
+    "resendCode": "Resend code",
+    "useDifferentEmail": "Use different email",
+    "verifying": "Verifying...",
+    "verificationFailed": "Verification failed",
+    "resendFailed": "Failed to resend code",
+    "sendCodeFailed": "Failed to send code"
   },
   "errors": {
     "generic": "Something went wrong. Please try again.",
