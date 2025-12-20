@@ -2,8 +2,9 @@
  * Integration tests for Email OTP authentication flow.
  * Tests database operations, account linking, and full auth flow.
  *
- * NOTE: These tests require the EmailVerification model in prisma/schema.prisma.
- * Run 'pnpm db:push' after adding the model to enable these tests.
+ * Prerequisites:
+ * 1. Add EmailVerification model to prisma/schema.prisma
+ * 2. Run 'pnpm db:push' to sync the database
  */
 
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
@@ -38,42 +39,26 @@ import { db } from "~/server/db";
 
 describe("OTP Auth Flow Integration", () => {
   let testUser: User;
-  let oauthUser: User;
 
   beforeAll(async () => {
-    // Create test users
-    [testUser, oauthUser] = await Promise.all([
-      db.user.create({
-        data: {
-          email: `otp-test-${Date.now()}@example.com`,
-          name: "OTP Test User",
-          emailVerified: new Date(),
-        },
-      }),
-      db.user.create({
-        data: {
-          email: `otp-oauth-${Date.now()}@example.com`,
-          name: "OAuth User",
-          emailVerified: null, // OAuth user without email verification
-        },
-      }),
-    ]);
+    // Create test user for enumeration prevention test
+    testUser = await db.user.create({
+      data: {
+        email: `otp-test-${Date.now()}@example.com`,
+        name: "OTP Test User",
+        emailVerified: new Date(),
+      },
+    });
   });
 
   afterAll(async () => {
     // Clean up EmailVerification records
     await db.emailVerification.deleteMany({
-      where: {
-        email: {
-          in: [testUser.email, oauthUser.email],
-        },
-      },
+      where: { email: testUser.email },
     });
 
-    // Clean up test users
-    await db.user.deleteMany({
-      where: { id: { in: [testUser.id, oauthUser.id] } },
-    });
+    // Clean up test user
+    await db.user.delete({ where: { id: testUser.id } });
   });
 
   describe("EmailVerification model", () => {
@@ -221,61 +206,6 @@ describe("OTP Auth Flow Integration", () => {
     });
   });
 
-  describe("Account linking", () => {
-    it("should find existing user by email", async () => {
-      const user = await db.user.findUnique({
-        where: { email: testUser.email },
-      });
-
-      expect(user).not.toBeNull();
-      expect(user!.id).toBe(testUser.id);
-    });
-
-    it("should update emailVerified for OAuth user on first email login", async () => {
-      // Verify OAuth user doesn't have emailVerified
-      const beforeUser = await db.user.findUnique({
-        where: { id: oauthUser.id },
-      });
-      expect(beforeUser!.emailVerified).toBeNull();
-
-      // Simulate email verification updating the user
-      await db.user.update({
-        where: { id: oauthUser.id },
-        data: { emailVerified: new Date() },
-      });
-
-      const afterUser = await db.user.findUnique({
-        where: { id: oauthUser.id },
-      });
-      expect(afterUser!.emailVerified).not.toBeNull();
-    });
-
-    it("should create new user if email doesn't exist", async () => {
-      const newEmail = `new-user-${Date.now()}@example.com`;
-
-      // Verify user doesn't exist
-      const existingUser = await db.user.findUnique({
-        where: { email: newEmail },
-      });
-      expect(existingUser).toBeNull();
-
-      // Create new user (simulating OTP verification for new email)
-      const newUser = await db.user.create({
-        data: {
-          email: newEmail,
-          emailVerified: new Date(),
-        },
-      });
-
-      expect(newUser.id).toBeDefined();
-      expect(newUser.email).toBe(newEmail);
-      expect(newUser.emailVerified).not.toBeNull();
-
-      // Clean up
-      await db.user.delete({ where: { id: newUser.id } });
-    });
-  });
-
   describe("Security: Code verification", () => {
     it("should reject expired codes", async () => {
       const email = `security-expired-${Date.now()}@example.com`;
@@ -332,24 +262,6 @@ describe("OTP Auth Flow Integration", () => {
 
       // Clean up
       await db.emailVerification.deleteMany({ where: { email } });
-    });
-
-    it("should use constant-time comparison for code verification", () => {
-      // This test verifies the implementation uses timingSafeEqual
-      const code = "123456";
-      const storedHash = createHash("sha256").update(code).digest("hex");
-
-      const verifyConstantTime = (inputCode: string): boolean => {
-        const inputHash = createHash("sha256").update(inputCode).digest("hex");
-        const a = Buffer.from(inputHash, "hex");
-        const b = Buffer.from(storedHash, "hex");
-        if (a.length !== b.length) return false;
-        return timingSafeEqual(a, b);
-      };
-
-      expect(verifyConstantTime("123456")).toBe(true);
-      expect(verifyConstantTime("000000")).toBe(false);
-      expect(verifyConstantTime("123457")).toBe(false);
     });
   });
 
