@@ -1,6 +1,5 @@
 # Podman podman build -f docker/Dockerfile -t preppal .
 
-
 # syntax=docker.io/docker/dockerfile:1
 
 FROM node:20-alpine AS base
@@ -24,6 +23,11 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+
+# --- INSERT THIS ---
+ARG NEXT_PUBLIC_WORKER_URL
+ENV NEXT_PUBLIC_WORKER_URL=${NEXT_PUBLIC_WORKER_URL}
+# -------------------
 
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV SKIP_ENV_VALIDATION=1
