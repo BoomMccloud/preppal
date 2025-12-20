@@ -17,7 +17,7 @@
     "test": "vitest",
     "test:ci": "vitest run",
     "proto:generate": "rm -rf src/lib/proto worker/src/lib/proto && buf generate",
-    "podman:build": "podman build --platform linux/amd64 -f docker/Dockerfile --build-arg NEXT_PUBLIC_WORKER_URL=\"$(grep NEXT_PUBLIC_WORKER_URL .env | cut -d '=' -f2)\" -t docker.io/boommccloud/preppal:latest .",
+    "podman:build": "podman build --no-cache --platform linux/amd64 -f docker/Dockerfile --build-arg NEXT_PUBLIC_WORKER_URL=\"$(grep NEXT_PUBLIC_WORKER_URL .env | cut -d '=' -f2)\" -t docker.io/boommccloud/preppal:latest .",
     "podman:push": "podman push docker.io/boommccloud/preppal:latest"
   },
   "dependencies": {
