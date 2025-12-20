@@ -1,5 +1,43 @@
 # Feature Specification: Email One-Time Code Login
 
+## Implementation Status
+
+> **Branch:** `feat/email-otp-utils`
+> **Last Updated:** 2025-12-20
+
+| Phase | Status | Notes |
+|-------|--------|-------|
+| **Phase 1: Setup** | ✅ Complete | Env vars, Prisma schema, resend package |
+| **Phase 2: Backend** | ✅ Complete | Rate limiter, OTP utils, email service, auth router |
+| **Phase 3: Frontend** | ⬜ Pending | OtpVerification.tsx, SignInForm.tsx updates |
+| **Phase 4: Translations** | ⬜ Pending | en.json, es.json, zh.json |
+| **Phase 5: Testing** | 🔶 Partial | Unit tests done, integration tests need tRPC calls |
+
+### Completed Files
+
+| File | Description |
+|------|-------------|
+| `src/server/lib/rate-limit.ts` | In-memory rate limiter (5 attempts/15 min) |
+| `src/server/lib/otp.ts` | OTP generation, SHA-256 hashing, constant-time verification |
+| `src/server/lib/email.ts` | Resend email service (logs to console in dev) |
+| `src/server/api/routers/auth.ts` | `sendOtp` and `verifyOtp` tRPC procedures |
+| `src/server/auth/config.ts` | Added `email-otp` credentials provider |
+| `src/server/api/root.ts` | Registered auth router |
+| `src/env.js` | Added `RESEND_API_KEY`, `EMAIL_FROM` |
+| `prisma/schema.prisma` | Added `EmailVerification` model |
+| `src/test/unit/otp-utils.test.ts` | Unit tests for rate limiting and OTP utils |
+| `src/test/integration/otp.test.ts` | Integration tests for EmailVerification model |
+
+### Remaining Work
+
+1. Run `pnpm db:push` to sync database schema
+2. Create `OtpVerification.tsx` component (skeleton in Section 12.3)
+3. Update `SignInForm.tsx` with email input flow (skeleton in Section 12.3)
+4. Add translation keys to all locale files (Section 12.8 Phase 4)
+5. Update integration tests to call actual tRPC procedures
+
+---
+
 ## 1. Overview
 
 A passwordless authentication experience using email-based one-time codes (OTP). Users receive a secure, time-limited code via email to sign in without managing passwords.
