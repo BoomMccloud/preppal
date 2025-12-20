@@ -13,9 +13,10 @@ const store = new Map<string, RateLimitEntry>();
 const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 const MAX_ATTEMPTS = 5;
 
-export function checkRateLimit(
-  email: string
-): { allowed: boolean; retryAfterMs?: number } {
+export function checkRateLimit(email: string): {
+  allowed: boolean;
+  retryAfterMs?: number;
+} {
   const now = Date.now();
   const key = email.toLowerCase();
   const entry = store.get(key);

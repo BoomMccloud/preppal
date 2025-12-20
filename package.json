@@ -37,6 +37,7 @@
     "protobufjs": "^7.5.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "resend": "^6.6.0",
     "server-only": "^0.0.1",
     "superjson": "^2.2.1",
     "ws": "^8.18.3",

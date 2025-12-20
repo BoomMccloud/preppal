@@ -30,7 +30,7 @@ export function hashCode(code: string): string {
  */
 export function verifyCodeConstantTime(
   inputHash: string,
-  storedHash: string
+  storedHash: string,
 ): boolean {
   const a = Buffer.from(inputHash, "hex");
   const b = Buffer.from(storedHash, "hex");

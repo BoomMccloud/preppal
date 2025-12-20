@@ -65,6 +65,18 @@ model VerificationToken {
     @@unique([identifier, token])
 }
 
+// Email OTP verification for passwordless authentication
+model EmailVerification {
+    id        String    @id @default(cuid())
+    email     String
+    codeHash  String
+    expiresAt DateTime
+    createdAt DateTime  @default(now())
+    usedAt    DateTime?
+
+    @@index([email])
+}
+
 // The core model for an interview session
 model Interview {
   id        String   @id @default(cuid())

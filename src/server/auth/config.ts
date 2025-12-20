@@ -140,6 +140,30 @@ export const authConfig = {
           }),
         ]
       : []),
+    // Email OTP provider for passwordless authentication (works in all environments)
+    CredentialsProvider({
+      id: "email-otp",
+      name: "Email",
+      credentials: {
+        userId: { type: "text" },
+      },
+      async authorize(credentials) {
+        if (!credentials?.userId) return null;
+
+        const user = await db.user.findUnique({
+          where: { id: credentials.userId as string },
+        });
+
+        if (!user) return null;
+
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          image: user.image,
+        };
+      },
+    }),
     // Add Google provider only if credentials are available
     ...(env.AUTH_GOOGLE_ID && env.AUTH_GOOGLE_SECRET ? [GoogleProvider] : []),
   ],
