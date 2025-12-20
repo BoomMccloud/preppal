@@ -30,9 +30,6 @@
     "debug:check-status": "tsx scripts/check-interview-status.ts",
     "debug:update-status": "tsx scripts/update-interview-status.ts"
   },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
-  },
   "dependencies": {
     "@auth/prisma-adapter": "^2.7.2",
     "@bufbuild/protobuf": "^2.10.2",

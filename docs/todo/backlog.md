@@ -27,6 +27,18 @@
 - **Workflow:** Users upload their resume (or LinkedIn "Save to PDF" export) to populate their Preppal profile and provide context for the interview session.
 
 
+### Email One-Time Code Login
+**Goal:** Provide a passwordless login experience using a one-time code sent via email.
+
+**Implementation Details:**
+- **Provider:** Use a service like Zensend (or similar) to send emails.
+- **Workflow:** 
+    1. User enters email on the sign-in page.
+    2. Server generates a secure one-time code and sends it via email.
+    3. User enters the correct code to log in.
+- **Security:** Short-lived codes and rate limiting for requests.
+
+
 ### Interview Panels
 **Goal:** Allow users to define a sequence of interview stages (e.g., HR, Tech, Hiring Manager, Senior Management) for a specific job application to simulate a full hiring loop.
 
