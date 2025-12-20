@@ -166,3 +166,54 @@ Preppal consists of three main components:
 -   **WebSocket Connection Fails**: Verify `NEXT_PUBLIC_WORKER_URL` and `JWT_SECRET` consistency.
 -   **Database Errors**: Ensure `DATABASE_URL` is correct and migrations are applied.
 -   **Auth Errors**: Verify `AUTH_SECRET` and OAuth credentials.
+
+---
+
+## 3. Private Docker Deployment
+
+This section covers deploying the web application as a Docker container for private/self-hosted environments. This is an alternative to the Vercel deployment described above.
+
+### 3.1 Prerequisites
+-   **Container Runtime**: Podman or Docker installed.
+-   **Database**: Neon PostgreSQL (or any PostgreSQL instance).
+-   **Container Registry**: Access to push images (e.g., Docker Hub).
+-   **Container Orchestration**: Dockge, Portainer, or similar for managing containers.
+
+### 3.2 Building the Docker Image
+
+The `NEXT_PUBLIC_WORKER_URL` must be provided at build time since it's baked into the Next.js client bundle.
+
+```bash
+# Load NEXT_PUBLIC_WORKER_URL from .env and build
+podman build \
+  -f docker/Dockerfile \
+  --build-arg NEXT_PUBLIC_WORKER_URL="$(grep NEXT_PUBLIC_WORKER_URL .env | cut -d '=' -f2)" \
+  -t docker.io/boommccloud/preppal:latest .
+```
+
+Or specify the URL directly:
+```bash
+podman build \
+  -f docker/Dockerfile \
+  --build-arg NEXT_PUBLIC_WORKER_URL="wss://your-worker.your-domain.workers.dev" \
+  -t docker.io/boommccloud/preppal:latest .
+```
+
+### 3.3 Pushing to Registry
+
+```bash
+podman push docker.io/boommccloud/preppal:latest
+```
+
+### 3.4 Runtime Environment Variables
+
+When running the container (e.g., in Dockge), provide these environment variables:
+
+| Variable | Description |
+| :--- | :--- |
+| `DATABASE_URL` | Neon PostgreSQL connection string. |
+| `AUTH_SECRET` | Random 32+ character string. |
+| `JWT_SECRET` | Must match Worker's `JWT_SECRET`. |
+| `WORKER_SHARED_SECRET` | Must match Worker's secret. |
+
+**Note:** `NEXT_PUBLIC_WORKER_URL` is baked in at build time and does not need to be set at runtime.
