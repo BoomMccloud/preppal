@@ -55,7 +55,7 @@ Preppal uses a distributed architecture that separates business logic from real-
 | **API (Non-real-time)** | tRPC for user-facing endpoints |
 | **Worker-Backend API** | Protocol Buffers over HTTP POST |
 | **Data Serialization** | Protocol Buffers (all real-time + worker communication) |
-| **Authentication** | NextAuth.js v5 Beta (Google OAuth + dev credentials) |
+| **Authentication** | NextAuth.js v5 Beta (Google OAuth, Email OTP, dev credentials) |
 | **Audio Processing** | Web Audio API with AudioWorklet (16kHz PCM) |
 
 ---
@@ -97,6 +97,12 @@ Preppal uses a distributed architecture that separates business logic from real-
 **Responsibilities**:
 
 - **tRPC API** (`src/server/api/routers/`): Handles all standard CRUD operations and business logic.
+
+  **Auth Router** (`auth.ts`):
+  | Endpoint | Auth | Description |
+  |----------|------|-------------|
+  | `sendOtp` | Public | Sends 6-digit verification code to email |
+  | `verifyOtp` | Public | Verifies code (internal use mostly) |
 
   **Interview Router** (`interview.ts`):
   | Endpoint | Auth | Description |

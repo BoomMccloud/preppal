@@ -24,10 +24,10 @@ Preppal is an application that uses the Gemini Live API to help users practice i
 
 ## Architectural Concepts
 
-This project is divided into several key architectural components. For more detailed information, please refer to the specific `agent.md` file in each directory.
+This project is divided into several key architectural components. For more detailed information, please refer to the specific `README.md` file in each directory.
 
-- **[Frontend (`src/app`)](./src/app/agent.md)**: Built with Next.js and React Server Components.
-- **[Backend (`src/server/api`)](./src/server/api/agent.md)**: Built with tRPC for a typesafe API.
+- **[Frontend (`src/app`)](./src/app/README.md)**: Built with Next.js and React Server Components.
+- **[Backend (`src/server/api`)](./src/server/api/README.md)**: Built with tRPC for a typesafe API.
 - **[Database (`prisma`)](./prisma/README.md)**: Schema managed with Prisma using PostgreSQL.
 - **[Protocols (`proto`)](./proto/README.md)**: Protobuf definitions for real-time communication.
 - **[Cloudflare Worker (`worker/`)](./worker/README.md)**: Handles real-time communication with the Gemini Live API.

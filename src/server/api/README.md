@@ -2,6 +2,8 @@
 
 This defines the following strongly-typed API endpoints optimized for the UI state separation pattern (Zustand handles UI state, tRPC handles business data):
 
+- **`auth.sendOtp`**: `mutation` - Sends a 6-digit verification code to the provided email.
+- **`auth.verifyOtp`**: `mutation` - Verifies a code and returns a token (used internally).
 - **`user.getProfile`**: `query` - Gets the current user's data.
 - **`interview.createSession`**: `mutation` - Creates a new interview entry before starting.
 - **`interview.getCurrent`**: `query` - Gets the active/most recent interview for UI state coordination.
@@ -10,7 +12,43 @@ This defines the following strongly-typed API endpoints optimized for the UI sta
 - **`interview.getFeedback`**: `query` - Gets the feedback for an interview.
 - **`interview.generateWsToken`**: `mutation` - Generates a WebSocket token for a live interview session.
 
-## 1. `user` Router
+## 1. `auth` Router
+
+Handles passwordless authentication via Email OTP.
+
+```typescript
+import { z } from "zod";
+import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
+
+export const authRouter = createTRPCRouter({
+  /**
+   * Sends a 6-digit verification code to the provided email.
+   * Rate limited to prevent abuse.
+   */
+  sendOtp: publicProcedure
+    .input(z.object({ email: z.string().email() }))
+    .output(z.object({ success: z.boolean(), expiresAt: z.date() }))
+    .mutation(async ({ ctx, input }) => {
+      // Implementation to generate OTP, save to db, and send email via Resend
+      // ...
+    }),
+
+  /**
+   * Verifies the provided code.
+   * In a real flow, the UI would sign in via NextAuth credentials provider
+   * which verifies the code internally, but this is useful for testing/validation.
+   */
+  verifyOtp: publicProcedure
+    .input(z.object({ email: z.string().email(), code: z.string().length(6) }))
+    .output(z.object({ success: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      // Implementation to verify code against db
+      // ...
+    }),
+});
+```
+
+## 2. `user` Router
 
 Handles user profile management. All procedures in this router are protected and require the user to be authenticated.
 

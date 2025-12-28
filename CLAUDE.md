@@ -43,7 +43,7 @@ In development, OTP codes are logged to console. For production, configure `RESE
 - `pnpm dev`: Start the development server.
 - `pnpm test`: Run unit and integration tests with Vitest.
 - `pnpm check`: Run linting and type checking.
-- `pnpm format:write`: Format code using Prettier.
+- `pnpm format`: Format code using Prettier.
 - `pnpm db:push`: Push Prisma schema changes to the database.
 
 ## Agent Instructions
@@ -54,6 +54,6 @@ In development, OTP codes are logged to console. For production, configure `RESE
 - **Add descriptions** at the beginning of each new or modified file.
 - **Maintain small files**: Keep files to 300 lines of code or less; refactor if they grow larger.
 - **Minimize new code**: Prefer boilerplates or reference implementations from within the project.
-- **Ensure code quality**: Run `pnpm format:write && pnpm check` before submitting changes.
+- **Ensure code quality**: Run `pnpm format && pnpm check` before submitting changes.
 - **Update documentation** (including this file and `docs/`) upon completing a task.
 - **Confirm with Mr. User** Before making changes, tell Mr. User what the plan is, where it is documented, and ask for explicit instructions to proceed
