@@ -2,15 +2,22 @@
 // @generated from file transcript.proto (package preppal.transcript, syntax proto3)
 /* eslint-disable */
 
-import type { GenEnum, GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
+import type {
+  GenEnum,
+  GenFile,
+  GenMessage,
+} from "@bufbuild/protobuf/codegenv2";
 import { enumDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
 import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file transcript.proto.
  */
-export const file_transcript: GenFile = /*@__PURE__*/
-  fileDesc("ChB0cmFuc2NyaXB0LnByb3RvEhJwcmVwcGFsLnRyYW5zY3JpcHQiNQoKVHJhbnNjcmlwdBInCgV0dXJucxgBIAMoCzIYLnByZXBwYWwudHJhbnNjcmlwdC5UdXJuIlsKBFR1cm4SLAoHc3BlYWtlchgBIAEoDjIbLnByZXBwYWwudHJhbnNjcmlwdC5TcGVha2VyEg8KB2NvbnRlbnQYAiABKAkSFAoMdGltZXN0YW1wX21zGAMgASgDKjQKB1NwZWFrZXISFwoTU1BFQUtFUl9VTlNQRUNJRklFRBAAEggKBFVTRVIQARIGCgJBSRACYgZwcm90bzM");
+export const file_transcript: GenFile =
+  /*@__PURE__*/
+  fileDesc(
+    "ChB0cmFuc2NyaXB0LnByb3RvEhJwcmVwcGFsLnRyYW5zY3JpcHQiNQoKVHJhbnNjcmlwdBInCgV0dXJucxgBIAMoCzIYLnByZXBwYWwudHJhbnNjcmlwdC5UdXJuIlsKBFR1cm4SLAoHc3BlYWtlchgBIAEoDjIbLnByZXBwYWwudHJhbnNjcmlwdC5TcGVha2VyEg8KB2NvbnRlbnQYAiABKAkSFAoMdGltZXN0YW1wX21zGAMgASgDKjQKB1NwZWFrZXISFwoTU1BFQUtFUl9VTlNQRUNJRklFRBAAEggKBFVTRVIQARIGCgJBSRACYgZwcm90bzM",
+  );
 
 /**
  * Complete transcript for an interview session
@@ -29,7 +36,8 @@ export type Transcript = Message<"preppal.transcript.Transcript"> & {
  * Describes the message preppal.transcript.Transcript.
  * Use `create(TranscriptSchema)` to create a new message.
  */
-export const TranscriptSchema: GenMessage<Transcript> = /*@__PURE__*/
+export const TranscriptSchema: GenMessage<Transcript> =
+  /*@__PURE__*/
   messageDesc(file_transcript, 0);
 
 /**
@@ -60,7 +68,8 @@ export type Turn = Message<"preppal.transcript.Turn"> & {
  * Describes the message preppal.transcript.Turn.
  * Use `create(TurnSchema)` to create a new message.
  */
-export const TurnSchema: GenMessage<Turn> = /*@__PURE__*/
+export const TurnSchema: GenMessage<Turn> =
+  /*@__PURE__*/
   messageDesc(file_transcript, 1);
 
 /**
@@ -88,6 +97,6 @@ export enum Speaker {
 /**
  * Describes the enum preppal.transcript.Speaker.
  */
-export const SpeakerSchema: GenEnum<Speaker> = /*@__PURE__*/
+export const SpeakerSchema: GenEnum<Speaker> =
+  /*@__PURE__*/
   enumDesc(file_transcript, 0);
-

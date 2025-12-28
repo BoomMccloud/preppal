@@ -10,7 +10,9 @@ const prisma = new PrismaClient();
 
 // Load protobuf schema dynamically to avoid ESM issues with generated code
 async function loadTranscriptProto() {
-  const root = await protobuf.load(path.join(__dirname, "../proto/transcript.proto"));
+  const root = await protobuf.load(
+    path.join(__dirname, "../proto/transcript.proto"),
+  );
   return {
     Transcript: root.lookupType("preppal.transcript.Transcript"),
     Turn: root.lookupType("preppal.transcript.Turn"),

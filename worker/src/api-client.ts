@@ -114,8 +114,7 @@ export class ApiClient implements IApiClient {
       ERROR: InterviewStatus.ERROR,
     };
 
-    const protoStatus =
-      statusMap[status] ?? InterviewStatus.STATUS_UNSPECIFIED;
+    const protoStatus = statusMap[status] ?? InterviewStatus.STATUS_UNSPECIFIED;
 
     const request = create(WorkerApiRequestSchema, {
       request: {
@@ -133,7 +132,10 @@ export class ApiClient implements IApiClient {
     const payload = toBinary(WorkerApiRequestSchema, request);
     const response = await this.sendRequest(payload);
 
-    if (response.response.case !== "updateStatus" || !response.response.value.success) {
+    if (
+      response.response.case !== "updateStatus" ||
+      !response.response.value.success
+    ) {
       throw new Error("Unexpected response: updateStatus failed");
     }
 
@@ -167,7 +169,10 @@ export class ApiClient implements IApiClient {
     const payload = toBinary(WorkerApiRequestSchema, request);
     const response = await this.sendRequest(payload);
 
-    if (response.response.case !== "submitTranscript" || !response.response.value.success) {
+    if (
+      response.response.case !== "submitTranscript" ||
+      !response.response.value.success
+    ) {
       throw new Error("Unexpected response: submitTranscript failed");
     }
 
@@ -201,7 +206,10 @@ export class ApiClient implements IApiClient {
     const payload = toBinary(WorkerApiRequestSchema, request);
     const response = await this.sendRequest(payload);
 
-    if (response.response.case !== "submitFeedback" || !response.response.value.success) {
+    if (
+      response.response.case !== "submitFeedback" ||
+      !response.response.value.success
+    ) {
       throw new Error("Unexpected response: submitFeedback failed");
     }
 

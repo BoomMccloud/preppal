@@ -19,6 +19,8 @@ export const env = createEnv({
       .default("development"),
     JWT_SECRET: z.string().min(32),
     WORKER_SHARED_SECRET: z.string().min(32),
+    RESEND_API_KEY: z.string().optional(),
+    EMAIL_FROM: z.string().email().optional(),
   },
 
   /**
@@ -43,6 +45,8 @@ export const env = createEnv({
     NODE_ENV: process.env.NODE_ENV,
     JWT_SECRET: process.env.JWT_SECRET,
     WORKER_SHARED_SECRET: process.env.WORKER_SHARED_SECRET,
+    RESEND_API_KEY: process.env.RESEND_API_KEY,
+    EMAIL_FROM: process.env.EMAIL_FROM,
     NEXT_PUBLIC_WORKER_URL: process.env.NEXT_PUBLIC_WORKER_URL,
   },
   /**

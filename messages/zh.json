@@ -199,7 +199,21 @@
     "password": "密码",
     "devCredentials": "开发凭据",
     "noProviders": "没有可用的身份验证提供商",
-    "checkConfig": "请检查配置"
+    "checkConfig": "请检查配置",
+    "or": "或",
+    "continueWithEmail": "使用邮箱继续",
+    "devLogin": "开发登录",
+    "sendCode": "发送验证码",
+    "sending": "发送中...",
+    "checkYourEmail": "请查收邮件",
+    "codeSentTo": "我们已发送验证码至 {email}",
+    "codeExpiresIn": "验证码将在 {time} 后过期",
+    "resendCode": "重新发送验证码",
+    "useDifferentEmail": "使用其他邮箱",
+    "verifying": "验证中...",
+    "verificationFailed": "验证失败",
+    "resendFailed": "重新发送失败",
+    "sendCodeFailed": "发送验证码失败"
   },
   "errors": {
     "generic": "出了点问题，请重试。",

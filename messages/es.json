@@ -199,7 +199,21 @@
     "password": "Contraseña",
     "devCredentials": "Credenciales de desarrollo",
     "noProviders": "No hay proveedores de autenticación disponibles",
-    "checkConfig": "Por favor verifica la configuración"
+    "checkConfig": "Por favor verifica la configuración",
+    "or": "o",
+    "continueWithEmail": "Continuar con correo",
+    "devLogin": "Inicio de sesión de desarrollo",
+    "sendCode": "Enviar código",
+    "sending": "Enviando...",
+    "checkYourEmail": "Revisa tu correo",
+    "codeSentTo": "Enviamos un código a {email}",
+    "codeExpiresIn": "El código expira en {time}",
+    "resendCode": "Reenviar código",
+    "useDifferentEmail": "Usar otro correo",
+    "verifying": "Verificando...",
+    "verificationFailed": "Verificación fallida",
+    "resendFailed": "Error al reenviar código",
+    "sendCodeFailed": "Error al enviar código"
   },
   "errors": {
     "generic": "Algo salio mal. Por favor intenta de nuevo.",

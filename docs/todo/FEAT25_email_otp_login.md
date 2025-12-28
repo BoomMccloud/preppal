@@ -1,5 +1,53 @@
 # Feature Specification: Email One-Time Code Login
 
+## Implementation Status
+
+> **Branch:** `feat/email-otp-utils`
+> **Last Updated:** 2025-12-20
+
+| Phase | Status | Notes |
+|-------|--------|-------|
+| **Phase 1: Setup** | ✅ Complete | Env vars, Prisma schema, resend package, db:push |
+| **Phase 2: Backend** | ✅ Complete | Rate limiter, OTP utils, email service, auth router |
+| **Phase 3: Frontend** | ✅ Complete | OtpVerification.tsx, SignInForm.tsx with ViewState pattern |
+| **Phase 4: Translations** | ✅ Complete | en.json, es.json, zh.json (14 new keys each) |
+| **Phase 5: Testing** | ✅ Complete | 39 tests (18 unit + 21 integration with tRPC calls) |
+| **Phase 6: Documentation** | ✅ Complete | .env.example updated with Resend config |
+
+### Completed Files
+
+| File | Description |
+|------|-------------|
+| `src/server/lib/rate-limit.ts` | In-memory rate limiter (5 attempts/15 min) |
+| `src/server/lib/otp.ts` | OTP generation, SHA-256 hashing, constant-time verification |
+| `src/server/lib/email.ts` | Resend email service (logs to console in dev) |
+| `src/server/api/routers/auth.ts` | `sendOtp` and `verifyOtp` tRPC procedures |
+| `src/server/auth/config.ts` | Added `email-otp` credentials provider |
+| `src/server/api/root.ts` | Registered auth router |
+| `src/env.js` | Added `RESEND_API_KEY`, `EMAIL_FROM` |
+| `prisma/schema.prisma` | Added `EmailVerification` model |
+| `src/test/unit/otp-utils.test.ts` | Unit tests for rate limiting and OTP utils |
+| `src/test/integration/otp.test.ts` | Integration tests for EmailVerification model |
+| `src/app/[locale]/signin/_components/OtpVerification.tsx` | 6-digit code entry with auto-focus, paste, countdown |
+| `src/app/[locale]/signin/_components/SignInForm.tsx` | Updated with ViewState pattern for email OTP flow |
+| `messages/en.json` | Added 14 auth translation keys |
+| `messages/es.json` | Added 14 auth translation keys (Spanish) |
+| `messages/zh.json` | Added 14 auth translation keys (Chinese) |
+| `.env.example` | Added Resend configuration documentation |
+
+### Remaining Work
+
+1. ~~Run `pnpm db:push` to sync database schema~~ ✅
+2. ~~Create `OtpVerification.tsx` component~~ ✅
+3. ~~Update `SignInForm.tsx` with email input flow~~ ✅
+4. ~~Add translation keys to all locale files~~ ✅
+5. ~~Update integration tests to call actual tRPC procedures~~ ✅
+6. ~~Update `.env.example` with Resend configuration~~ ✅
+
+**All implementation phases complete. Ready for manual testing and PR.**
+
+---
+
 ## 1. Overview
 
 A passwordless authentication experience using email-based one-time codes (OTP). Users receive a secure, time-limited code via email to sign in without managing passwords.

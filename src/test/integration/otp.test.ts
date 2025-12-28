@@ -2,11 +2,20 @@
  * Integration tests for Email OTP authentication flow.
  * Tests database operations, account linking, and full auth flow.
  *
- * NOTE: These tests require the EmailVerification model in prisma/schema.prisma.
- * Run 'pnpm db:push' after adding the model to enable these tests.
+ * Prerequisites:
+ * 1. Add EmailVerification model to prisma/schema.prisma
+ * 2. Run 'pnpm db:push' to sync the database
  */
 
-import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+  vi,
+} from "vitest";
 import type { User } from "@prisma/client";
 import { createHash, timingSafeEqual } from "crypto";
 
@@ -31,6 +40,9 @@ vi.mock("~/server/lib/email", () => ({
 }));
 
 import { db } from "~/server/db";
+import { appRouter } from "~/server/api/root";
+import { _clear as clearRateLimits } from "~/server/lib/rate-limit";
+import { hashCode } from "~/server/lib/otp";
 
 // =============================================================================
 // Integration Tests: OTP Auth Flow
@@ -38,42 +50,26 @@ import { db } from "~/server/db";
 
 describe("OTP Auth Flow Integration", () => {
   let testUser: User;
-  let oauthUser: User;
 
   beforeAll(async () => {
-    // Create test users
-    [testUser, oauthUser] = await Promise.all([
-      db.user.create({
-        data: {
-          email: `otp-test-${Date.now()}@example.com`,
-          name: "OTP Test User",
-          emailVerified: new Date(),
-        },
-      }),
-      db.user.create({
-        data: {
-          email: `otp-oauth-${Date.now()}@example.com`,
-          name: "OAuth User",
-          emailVerified: null, // OAuth user without email verification
-        },
-      }),
-    ]);
+    // Create test user for enumeration prevention test
+    testUser = await db.user.create({
+      data: {
+        email: `otp-test-${Date.now()}@example.com`,
+        name: "OTP Test User",
+        emailVerified: new Date(),
+      },
+    });
   });
 
   afterAll(async () => {
     // Clean up EmailVerification records
     await db.emailVerification.deleteMany({
-      where: {
-        email: {
-          in: [testUser.email, oauthUser.email],
-        },
-      },
+      where: { email: testUser.email },
     });
 
-    // Clean up test users
-    await db.user.deleteMany({
-      where: { id: { in: [testUser.id, oauthUser.id] } },
-    });
+    // Clean up test user
+    await db.user.delete({ where: { id: testUser.id } });
   });
 
   describe("EmailVerification model", () => {
@@ -146,7 +142,9 @@ describe("OTP Auth Flow Integration", () => {
 
       // Clean up
       await db.emailVerification.deleteMany({
-        where: { id: { in: [validRecord.id, expiredRecord.id, usedRecord.id] } },
+        where: {
+          id: { in: [validRecord.id, expiredRecord.id, usedRecord.id] },
+        },
       });
     });
 
@@ -221,61 +219,6 @@ describe("OTP Auth Flow Integration", () => {
     });
   });
 
-  describe("Account linking", () => {
-    it("should find existing user by email", async () => {
-      const user = await db.user.findUnique({
-        where: { email: testUser.email },
-      });
-
-      expect(user).not.toBeNull();
-      expect(user!.id).toBe(testUser.id);
-    });
-
-    it("should update emailVerified for OAuth user on first email login", async () => {
-      // Verify OAuth user doesn't have emailVerified
-      const beforeUser = await db.user.findUnique({
-        where: { id: oauthUser.id },
-      });
-      expect(beforeUser!.emailVerified).toBeNull();
-
-      // Simulate email verification updating the user
-      await db.user.update({
-        where: { id: oauthUser.id },
-        data: { emailVerified: new Date() },
-      });
-
-      const afterUser = await db.user.findUnique({
-        where: { id: oauthUser.id },
-      });
-      expect(afterUser!.emailVerified).not.toBeNull();
-    });
-
-    it("should create new user if email doesn't exist", async () => {
-      const newEmail = `new-user-${Date.now()}@example.com`;
-
-      // Verify user doesn't exist
-      const existingUser = await db.user.findUnique({
-        where: { email: newEmail },
-      });
-      expect(existingUser).toBeNull();
-
-      // Create new user (simulating OTP verification for new email)
-      const newUser = await db.user.create({
-        data: {
-          email: newEmail,
-          emailVerified: new Date(),
-        },
-      });
-
-      expect(newUser.id).toBeDefined();
-      expect(newUser.email).toBe(newEmail);
-      expect(newUser.emailVerified).not.toBeNull();
-
-      // Clean up
-      await db.user.delete({ where: { id: newUser.id } });
-    });
-  });
-
   describe("Security: Code verification", () => {
     it("should reject expired codes", async () => {
       const email = `security-expired-${Date.now()}@example.com`;
@@ -333,24 +276,6 @@ describe("OTP Auth Flow Integration", () => {
       // Clean up
       await db.emailVerification.deleteMany({ where: { email } });
     });
-
-    it("should use constant-time comparison for code verification", () => {
-      // This test verifies the implementation uses timingSafeEqual
-      const code = "123456";
-      const storedHash = createHash("sha256").update(code).digest("hex");
-
-      const verifyConstantTime = (inputCode: string): boolean => {
-        const inputHash = createHash("sha256").update(inputCode).digest("hex");
-        const a = Buffer.from(inputHash, "hex");
-        const b = Buffer.from(storedHash, "hex");
-        if (a.length !== b.length) return false;
-        return timingSafeEqual(a, b);
-      };
-
-      expect(verifyConstantTime("123456")).toBe(true);
-      expect(verifyConstantTime("000000")).toBe(false);
-      expect(verifyConstantTime("123457")).toBe(false);
-    });
   });
 
   describe("Security: Enumeration prevention", () => {
@@ -362,22 +287,24 @@ describe("OTP Auth Flow Integration", () => {
       const nonExistingEmail = `nonexistent-${Date.now()}@example.com`;
 
       // Both should be able to create verification records
-      const [existingVerification, nonExistingVerification] = await Promise.all([
-        db.emailVerification.create({
-          data: {
-            email: existingEmail,
-            codeHash: createHash("sha256").update("111111").digest("hex"),
-            expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-          },
-        }),
-        db.emailVerification.create({
-          data: {
-            email: nonExistingEmail,
-            codeHash: createHash("sha256").update("222222").digest("hex"),
-            expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-          },
-        }),
-      ]);
+      const [existingVerification, nonExistingVerification] = await Promise.all(
+        [
+          db.emailVerification.create({
+            data: {
+              email: existingEmail,
+              codeHash: createHash("sha256").update("111111").digest("hex"),
+              expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+            },
+          }),
+          db.emailVerification.create({
+            data: {
+              email: nonExistingEmail,
+              codeHash: createHash("sha256").update("222222").digest("hex"),
+              expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+            },
+          }),
+        ],
+      );
 
       // Both should have the same structure
       expect(existingVerification.id).toBeDefined();
@@ -387,7 +314,9 @@ describe("OTP Auth Flow Integration", () => {
 
       // Clean up
       await db.emailVerification.deleteMany({
-        where: { id: { in: [existingVerification.id, nonExistingVerification.id] } },
+        where: {
+          id: { in: [existingVerification.id, nonExistingVerification.id] },
+        },
       });
     });
   });
@@ -537,12 +466,331 @@ describe("OTP Flow Scenarios", () => {
 
       // New code should work
       const newResult = await db.emailVerification.findFirst({
-        where: { id: newVerification.id, usedAt: null, expiresAt: { gt: new Date() } },
+        where: {
+          id: newVerification.id,
+          usedAt: null,
+          expiresAt: { gt: new Date() },
+        },
       });
       expect(newResult).not.toBeNull();
 
       // Clean up
       await db.emailVerification.deleteMany({ where: { email } });
+    });
+  });
+});
+
+// =============================================================================
+// tRPC Procedure Tests: auth.sendOtp and auth.verifyOtp
+// =============================================================================
+
+describe("tRPC Auth Procedures", () => {
+  // Create an unauthenticated caller (these are public procedures)
+  const createCaller = () =>
+    appRouter.createCaller({
+      db,
+      session: null,
+      headers: new Headers(),
+    });
+
+  beforeEach(() => {
+    // Clear rate limits before each test
+    clearRateLimits();
+  });
+
+  describe("auth.sendOtp", () => {
+    it("should send OTP and return success with expiresAt", async () => {
+      const email = `trpc-send-${Date.now()}@example.com`;
+      const caller = createCaller();
+
+      const result = await caller.auth.sendOtp({ email });
+
+      expect(result.success).toBe(true);
+      expect(result.expiresAt).toBeInstanceOf(Date);
+      expect(result.expiresAt.getTime()).toBeGreaterThan(Date.now());
+
+      // Verify record was created in database
+      const verification = await db.emailVerification.findFirst({
+        where: { email, usedAt: null },
+      });
+      expect(verification).not.toBeNull();
+
+      // Clean up
+      await db.emailVerification.deleteMany({ where: { email } });
+    });
+
+    it("should invalidate previous codes when sending new one", async () => {
+      const email = `trpc-invalidate-${Date.now()}@example.com`;
+      const caller = createCaller();
+
+      // Send first code
+      await caller.auth.sendOtp({ email });
+      const firstVerification = await db.emailVerification.findFirst({
+        where: { email, usedAt: null },
+      });
+      expect(firstVerification).not.toBeNull();
+
+      // Send second code
+      await caller.auth.sendOtp({ email });
+
+      // First code should now be marked as used
+      const firstAfter = await db.emailVerification.findUnique({
+        where: { id: firstVerification!.id },
+      });
+      expect(firstAfter!.usedAt).not.toBeNull();
+
+      // Should have exactly one valid code
+      const validCodes = await db.emailVerification.findMany({
+        where: { email, usedAt: null },
+      });
+      expect(validCodes).toHaveLength(1);
+
+      // Clean up
+      await db.emailVerification.deleteMany({ where: { email } });
+    });
+
+    it("should rate limit after 5 attempts", async () => {
+      const email = `trpc-ratelimit-${Date.now()}@example.com`;
+      const caller = createCaller();
+
+      // Make 5 successful requests
+      for (let i = 0; i < 5; i++) {
+        await caller.auth.sendOtp({ email });
+      }
+
+      // 6th request should be rate limited
+      await expect(caller.auth.sendOtp({ email })).rejects.toMatchObject({
+        code: "TOO_MANY_REQUESTS",
+      });
+
+      // Clean up
+      await db.emailVerification.deleteMany({ where: { email } });
+    }, 15000); // Extended timeout: 6 tRPC calls ~8-10 seconds
+  });
+
+  describe("auth.verifyOtp", () => {
+    it("should verify correct code and create new user", async () => {
+      const email = `trpc-verify-new-${Date.now()}@example.com`;
+      const code = "123456";
+      const caller = createCaller();
+
+      // Create verification record directly (simulating sendOtp)
+      await db.emailVerification.create({
+        data: {
+          email,
+          codeHash: hashCode(code),
+          expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        },
+      });
+
+      // Verify the code
+      const result = await caller.auth.verifyOtp({ email, code });
+
+      expect(result.success).toBe(true);
+      expect(result.userId).toBeDefined();
+
+      // Verify user was created
+      const user = await db.user.findUnique({ where: { email } });
+      expect(user).not.toBeNull();
+      expect(user!.emailVerified).not.toBeNull();
+
+      // Clean up
+      await db.emailVerification.deleteMany({ where: { email } });
+      await db.user.delete({ where: { id: result.userId } });
+    });
+
+    it("should verify correct code and link existing user", async () => {
+      const email = `trpc-verify-existing-${Date.now()}@example.com`;
+      const code = "654321";
+
+      // Create existing user without emailVerified
+      const existingUser = await db.user.create({
+        data: { email, name: "Existing User" },
+      });
+      expect(existingUser.emailVerified).toBeNull();
+
+      // Create verification record
+      await db.emailVerification.create({
+        data: {
+          email,
+          codeHash: hashCode(code),
+          expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        },
+      });
+
+      const caller = createCaller();
+      const result = await caller.auth.verifyOtp({ email, code });
+
+      expect(result.success).toBe(true);
+      expect(result.userId).toBe(existingUser.id);
+
+      // Verify emailVerified was set
+      const updatedUser = await db.user.findUnique({ where: { email } });
+      expect(updatedUser!.emailVerified).not.toBeNull();
+
+      // Clean up
+      await db.emailVerification.deleteMany({ where: { email } });
+      await db.user.delete({ where: { id: existingUser.id } });
+    });
+
+    it("should reject wrong code", async () => {
+      const email = `trpc-wrong-code-${Date.now()}@example.com`;
+      const correctCode = "111111";
+      const wrongCode = "999999";
+
+      await db.emailVerification.create({
+        data: {
+          email,
+          codeHash: hashCode(correctCode),
+          expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        },
+      });
+
+      const caller = createCaller();
+
+      await expect(
+        caller.auth.verifyOtp({ email, code: wrongCode }),
+      ).rejects.toMatchObject({
+        code: "BAD_REQUEST",
+        message: "That code didn't work. Please check and try again.",
+      });
+
+      // Clean up
+      await db.emailVerification.deleteMany({ where: { email } });
+    });
+
+    it("should reject expired code", async () => {
+      const email = `trpc-expired-${Date.now()}@example.com`;
+      const code = "222222";
+
+      await db.emailVerification.create({
+        data: {
+          email,
+          codeHash: hashCode(code),
+          expiresAt: new Date(Date.now() - 1000), // Already expired
+        },
+      });
+
+      const caller = createCaller();
+
+      await expect(
+        caller.auth.verifyOtp({ email, code }),
+      ).rejects.toMatchObject({
+        code: "BAD_REQUEST",
+        message: "This code has expired. We'll send you a new one.",
+      });
+
+      // Clean up
+      await db.emailVerification.deleteMany({ where: { email } });
+    });
+
+    it("should reject already-used code", async () => {
+      const email = `trpc-used-${Date.now()}@example.com`;
+      const code = "333333";
+
+      await db.emailVerification.create({
+        data: {
+          email,
+          codeHash: hashCode(code),
+          expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+          usedAt: new Date(), // Already used
+        },
+      });
+
+      const caller = createCaller();
+
+      await expect(
+        caller.auth.verifyOtp({ email, code }),
+      ).rejects.toMatchObject({
+        code: "BAD_REQUEST",
+        message: "This code has expired. We'll send you a new one.",
+      });
+
+      // Clean up
+      await db.emailVerification.deleteMany({ where: { email } });
+    });
+
+    it("should rate limit verification attempts", async () => {
+      const email = `trpc-verify-ratelimit-${Date.now()}@example.com`;
+      const code = "444444";
+
+      await db.emailVerification.create({
+        data: {
+          email,
+          codeHash: hashCode(code),
+          expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        },
+      });
+
+      const caller = createCaller();
+
+      // Make 5 failed attempts with wrong code
+      for (let i = 0; i < 5; i++) {
+        try {
+          await caller.auth.verifyOtp({ email, code: "000000" });
+        } catch {
+          // Expected to fail with BAD_REQUEST
+        }
+      }
+
+      // 6th attempt should be rate limited even with correct code
+      await expect(
+        caller.auth.verifyOtp({ email, code }),
+      ).rejects.toMatchObject({
+        code: "TOO_MANY_REQUESTS",
+      });
+
+      // Clean up
+      await db.emailVerification.deleteMany({ where: { email } });
+    });
+  });
+
+  describe("Full flow: sendOtp → verifyOtp", () => {
+    it("should complete full authentication flow via tRPC", async () => {
+      const email = `trpc-full-flow-${Date.now()}@example.com`;
+      const caller = createCaller();
+
+      // Step 1: Send OTP
+      const sendResult = await caller.auth.sendOtp({ email });
+      expect(sendResult.success).toBe(true);
+
+      // Step 2: Get the code from database (in real flow, user gets it via email)
+      const verification = await db.emailVerification.findFirst({
+        where: { email, usedAt: null },
+        orderBy: { createdAt: "desc" },
+      });
+      expect(verification).not.toBeNull();
+
+      // Reverse the hash to find the code (for testing only)
+      // In practice, we need to intercept the code before it's hashed
+      // So let's create a new verification with known code
+      await db.emailVerification.deleteMany({ where: { email } });
+      const knownCode = "567890";
+      await db.emailVerification.create({
+        data: {
+          email,
+          codeHash: hashCode(knownCode),
+          expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        },
+      });
+
+      // Step 3: Verify OTP
+      const verifyResult = await caller.auth.verifyOtp({
+        email,
+        code: knownCode,
+      });
+      expect(verifyResult.success).toBe(true);
+      expect(verifyResult.userId).toBeDefined();
+
+      // Step 4: Verify user exists and is verified
+      const user = await db.user.findUnique({ where: { email } });
+      expect(user).not.toBeNull();
+      expect(user!.id).toBe(verifyResult.userId);
+      expect(user!.emailVerified).not.toBeNull();
+
+      // Clean up
+      await db.emailVerification.deleteMany({ where: { email } });
+      await db.user.delete({ where: { id: verifyResult.userId } });
     });
   });
 });

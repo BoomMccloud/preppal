@@ -2,15 +2,22 @@
 // @generated from file interview.proto (package preppal, syntax proto3)
 /* eslint-disable */
 
-import type { GenEnum, GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
+import type {
+  GenEnum,
+  GenFile,
+  GenMessage,
+} from "@bufbuild/protobuf/codegenv2";
 import { enumDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
 import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file interview.proto.
  */
-export const file_interview: GenFile = /*@__PURE__*/
-  fileDesc("Cg9pbnRlcnZpZXcucHJvdG8SB3ByZXBwYWwiegoVQ2xpZW50VG9TZXJ2ZXJNZXNzYWdlEioKC2F1ZGlvX2NodW5rGAEgASgLMhMucHJlcHBhbC5BdWRpb0NodW5rSAASKgoLZW5kX3JlcXVlc3QYAiABKAsyEy5wcmVwcGFsLkVuZFJlcXVlc3RIAEIJCgdwYXlsb2FkIiMKCkF1ZGlvQ2h1bmsSFQoNYXVkaW9fY29udGVudBgBIAEoDCIMCgpFbmRSZXF1ZXN0IuUBChVTZXJ2ZXJUb0NsaWVudE1lc3NhZ2USNgoRdHJhbnNjcmlwdF91cGRhdGUYASABKAsyGS5wcmVwcGFsLlRyYW5zY3JpcHRVcGRhdGVIABIwCg5hdWRpb19yZXNwb25zZRgCIAEoCzIWLnByZXBwYWwuQXVkaW9SZXNwb25zZUgAEicKBWVycm9yGAMgASgLMhYucHJlcHBhbC5FcnJvclJlc3BvbnNlSAASLgoNc2Vzc2lvbl9lbmRlZBgEIAEoCzIVLnByZXBwYWwuU2Vzc2lvbkVuZGVkSABCCQoHcGF5bG9hZCJaChBUcmFuc2NyaXB0VXBkYXRlEg8KB3NwZWFrZXIYASABKAkSDAoEdGV4dBgCIAEoCRIQCghpc19maW5hbBgDIAEoCBIVCg10dXJuX2NvbXBsZXRlGAQgASgIIiYKDUF1ZGlvUmVzcG9uc2USFQoNYXVkaW9fY29udGVudBgBIAEoDCIuCg1FcnJvclJlc3BvbnNlEgwKBGNvZGUYASABKAUSDwoHbWVzc2FnZRgCIAEoCSKRAQoMU2Vzc2lvbkVuZGVkEiwKBnJlYXNvbhgBIAEoDjIcLnByZXBwYWwuU2Vzc2lvbkVuZGVkLlJlYXNvbiJTCgZSZWFzb24SFgoSUkVBU09OX1VOU1BFQ0lGSUVEEAASEgoOVVNFUl9JTklUSUFURUQQARIQCgxHRU1JTklfRU5ERUQQAhILCgdUSU1FT1VUEAMigQIKEFdvcmtlckFwaVJlcXVlc3QSMQoLZ2V0X2NvbnRleHQYASABKAsyGi5wcmVwcGFsLkdldENvbnRleHRSZXF1ZXN0SAASNQoNdXBkYXRlX3N0YXR1cxgCIAEoCzIcLnByZXBwYWwuVXBkYXRlU3RhdHVzUmVxdWVzdEgAEj0KEXN1Ym1pdF90cmFuc2NyaXB0GAMgASgLMiAucHJlcHBhbC5TdWJtaXRUcmFuc2NyaXB0UmVxdWVzdEgAEjkKD3N1Ym1pdF9mZWVkYmFjaxgEIAEoCzIeLnByZXBwYWwuU3VibWl0RmVlZGJhY2tSZXF1ZXN0SABCCQoHcmVxdWVzdCKrAgoRV29ya2VyQXBpUmVzcG9uc2USMgoLZ2V0X2NvbnRleHQYASABKAsyGy5wcmVwcGFsLkdldENvbnRleHRSZXNwb25zZUgAEjYKDXVwZGF0ZV9zdGF0dXMYAiABKAsyHS5wcmVwcGFsLlVwZGF0ZVN0YXR1c1Jlc3BvbnNlSAASPgoRc3VibWl0X3RyYW5zY3JpcHQYAyABKAsyIS5wcmVwcGFsLlN1Ym1pdFRyYW5zY3JpcHRSZXNwb25zZUgAEjoKD3N1Ym1pdF9mZWVkYmFjaxgEIAEoCzIfLnByZXBwYWwuU3VibWl0RmVlZGJhY2tSZXNwb25zZUgAEiIKBWVycm9yGAUgASgLMhEucHJlcHBhbC5BcGlFcnJvckgAQgoKCHJlc3BvbnNlIikKEUdldENvbnRleHRSZXF1ZXN0EhQKDGludGVydmlld19pZBgBIAEoCSJjChJHZXRDb250ZXh0UmVzcG9uc2USFwoPam9iX2Rlc2NyaXB0aW9uGAEgASgJEg4KBnJlc3VtZRgCIAEoCRIPCgdwZXJzb25hGAMgASgJEhMKC2R1cmF0aW9uX21zGAQgASgFImcKE1VwZGF0ZVN0YXR1c1JlcXVlc3QSFAoMaW50ZXJ2aWV3X2lkGAEgASgJEigKBnN0YXR1cxgCIAEoDjIYLnByZXBwYWwuSW50ZXJ2aWV3U3RhdHVzEhAKCGVuZGVkX2F0GAMgASgJIicKFFVwZGF0ZVN0YXR1c1Jlc3BvbnNlEg8KB3N1Y2Nlc3MYASABKAgiVQoXU3VibWl0VHJhbnNjcmlwdFJlcXVlc3QSFAoMaW50ZXJ2aWV3X2lkGAEgASgJEhIKCnRyYW5zY3JpcHQYAiABKAwSEAoIZW5kZWRfYXQYAyABKAkiKwoYU3VibWl0VHJhbnNjcmlwdFJlc3BvbnNlEg8KB3N1Y2Nlc3MYASABKAgiqgEKFVN1Ym1pdEZlZWRiYWNrUmVxdWVzdBIUCgxpbnRlcnZpZXdfaWQYASABKAkSDwoHc3VtbWFyeRgCIAEoCRIRCglzdHJlbmd0aHMYAyABKAkSHQoVY29udGVudF9hbmRfc3RydWN0dXJlGAQgASgJEiIKGmNvbW11bmljYXRpb25fYW5kX2RlbGl2ZXJ5GAUgASgJEhQKDHByZXNlbnRhdGlvbhgGIAEoCSIpChZTdWJtaXRGZWVkYmFja1Jlc3BvbnNlEg8KB3N1Y2Nlc3MYASABKAgiKQoIQXBpRXJyb3ISDAoEY29kZRgBIAEoBRIPCgdtZXNzYWdlGAIgASgJKlQKD0ludGVydmlld1N0YXR1cxIWChJTVEFUVVNfVU5TUEVDSUZJRUQQABIPCgtJTl9QUk9HUkVTUxABEg0KCUNPTVBMRVRFRBACEgkKBUVSUk9SEANiBnByb3RvMw");
+export const file_interview: GenFile =
+  /*@__PURE__*/
+  fileDesc(
+    "Cg9pbnRlcnZpZXcucHJvdG8SB3ByZXBwYWwiegoVQ2xpZW50VG9TZXJ2ZXJNZXNzYWdlEioKC2F1ZGlvX2NodW5rGAEgASgLMhMucHJlcHBhbC5BdWRpb0NodW5rSAASKgoLZW5kX3JlcXVlc3QYAiABKAsyEy5wcmVwcGFsLkVuZFJlcXVlc3RIAEIJCgdwYXlsb2FkIiMKCkF1ZGlvQ2h1bmsSFQoNYXVkaW9fY29udGVudBgBIAEoDCIMCgpFbmRSZXF1ZXN0IuUBChVTZXJ2ZXJUb0NsaWVudE1lc3NhZ2USNgoRdHJhbnNjcmlwdF91cGRhdGUYASABKAsyGS5wcmVwcGFsLlRyYW5zY3JpcHRVcGRhdGVIABIwCg5hdWRpb19yZXNwb25zZRgCIAEoCzIWLnByZXBwYWwuQXVkaW9SZXNwb25zZUgAEicKBWVycm9yGAMgASgLMhYucHJlcHBhbC5FcnJvclJlc3BvbnNlSAASLgoNc2Vzc2lvbl9lbmRlZBgEIAEoCzIVLnByZXBwYWwuU2Vzc2lvbkVuZGVkSABCCQoHcGF5bG9hZCJaChBUcmFuc2NyaXB0VXBkYXRlEg8KB3NwZWFrZXIYASABKAkSDAoEdGV4dBgCIAEoCRIQCghpc19maW5hbBgDIAEoCBIVCg10dXJuX2NvbXBsZXRlGAQgASgIIiYKDUF1ZGlvUmVzcG9uc2USFQoNYXVkaW9fY29udGVudBgBIAEoDCIuCg1FcnJvclJlc3BvbnNlEgwKBGNvZGUYASABKAUSDwoHbWVzc2FnZRgCIAEoCSKRAQoMU2Vzc2lvbkVuZGVkEiwKBnJlYXNvbhgBIAEoDjIcLnByZXBwYWwuU2Vzc2lvbkVuZGVkLlJlYXNvbiJTCgZSZWFzb24SFgoSUkVBU09OX1VOU1BFQ0lGSUVEEAASEgoOVVNFUl9JTklUSUFURUQQARIQCgxHRU1JTklfRU5ERUQQAhILCgdUSU1FT1VUEAMigQIKEFdvcmtlckFwaVJlcXVlc3QSMQoLZ2V0X2NvbnRleHQYASABKAsyGi5wcmVwcGFsLkdldENvbnRleHRSZXF1ZXN0SAASNQoNdXBkYXRlX3N0YXR1cxgCIAEoCzIcLnByZXBwYWwuVXBkYXRlU3RhdHVzUmVxdWVzdEgAEj0KEXN1Ym1pdF90cmFuc2NyaXB0GAMgASgLMiAucHJlcHBhbC5TdWJtaXRUcmFuc2NyaXB0UmVxdWVzdEgAEjkKD3N1Ym1pdF9mZWVkYmFjaxgEIAEoCzIeLnByZXBwYWwuU3VibWl0RmVlZGJhY2tSZXF1ZXN0SABCCQoHcmVxdWVzdCKrAgoRV29ya2VyQXBpUmVzcG9uc2USMgoLZ2V0X2NvbnRleHQYASABKAsyGy5wcmVwcGFsLkdldENvbnRleHRSZXNwb25zZUgAEjYKDXVwZGF0ZV9zdGF0dXMYAiABKAsyHS5wcmVwcGFsLlVwZGF0ZVN0YXR1c1Jlc3BvbnNlSAASPgoRc3VibWl0X3RyYW5zY3JpcHQYAyABKAsyIS5wcmVwcGFsLlN1Ym1pdFRyYW5zY3JpcHRSZXNwb25zZUgAEjoKD3N1Ym1pdF9mZWVkYmFjaxgEIAEoCzIfLnByZXBwYWwuU3VibWl0RmVlZGJhY2tSZXNwb25zZUgAEiIKBWVycm9yGAUgASgLMhEucHJlcHBhbC5BcGlFcnJvckgAQgoKCHJlc3BvbnNlIikKEUdldENvbnRleHRSZXF1ZXN0EhQKDGludGVydmlld19pZBgBIAEoCSJjChJHZXRDb250ZXh0UmVzcG9uc2USFwoPam9iX2Rlc2NyaXB0aW9uGAEgASgJEg4KBnJlc3VtZRgCIAEoCRIPCgdwZXJzb25hGAMgASgJEhMKC2R1cmF0aW9uX21zGAQgASgFImcKE1VwZGF0ZVN0YXR1c1JlcXVlc3QSFAoMaW50ZXJ2aWV3X2lkGAEgASgJEigKBnN0YXR1cxgCIAEoDjIYLnByZXBwYWwuSW50ZXJ2aWV3U3RhdHVzEhAKCGVuZGVkX2F0GAMgASgJIicKFFVwZGF0ZVN0YXR1c1Jlc3BvbnNlEg8KB3N1Y2Nlc3MYASABKAgiVQoXU3VibWl0VHJhbnNjcmlwdFJlcXVlc3QSFAoMaW50ZXJ2aWV3X2lkGAEgASgJEhIKCnRyYW5zY3JpcHQYAiABKAwSEAoIZW5kZWRfYXQYAyABKAkiKwoYU3VibWl0VHJhbnNjcmlwdFJlc3BvbnNlEg8KB3N1Y2Nlc3MYASABKAgiqgEKFVN1Ym1pdEZlZWRiYWNrUmVxdWVzdBIUCgxpbnRlcnZpZXdfaWQYASABKAkSDwoHc3VtbWFyeRgCIAEoCRIRCglzdHJlbmd0aHMYAyABKAkSHQoVY29udGVudF9hbmRfc3RydWN0dXJlGAQgASgJEiIKGmNvbW11bmljYXRpb25fYW5kX2RlbGl2ZXJ5GAUgASgJEhQKDHByZXNlbnRhdGlvbhgGIAEoCSIpChZTdWJtaXRGZWVkYmFja1Jlc3BvbnNlEg8KB3N1Y2Nlc3MYASABKAgiKQoIQXBpRXJyb3ISDAoEY29kZRgBIAEoBRIPCgdtZXNzYWdlGAIgASgJKlQKD0ludGVydmlld1N0YXR1cxIWChJTVEFUVVNfVU5TUEVDSUZJRUQQABIPCgtJTl9QUk9HUkVTUxABEg0KCUNPTVBMRVRFRBACEgkKBUVSUk9SEANiBnByb3RvMw",
+  );
 
 /**
  * @generated from message preppal.ClientToServerMessage
@@ -19,26 +26,30 @@ export type ClientToServerMessage = Message<"preppal.ClientToServerMessage"> & {
   /**
    * @generated from oneof preppal.ClientToServerMessage.payload
    */
-  payload: {
-    /**
-     * @generated from field: preppal.AudioChunk audio_chunk = 1;
-     */
-    value: AudioChunk;
-    case: "audioChunk";
-  } | {
-    /**
-     * @generated from field: preppal.EndRequest end_request = 2;
-     */
-    value: EndRequest;
-    case: "endRequest";
-  } | { case: undefined; value?: undefined };
+  payload:
+    | {
+        /**
+         * @generated from field: preppal.AudioChunk audio_chunk = 1;
+         */
+        value: AudioChunk;
+        case: "audioChunk";
+      }
+    | {
+        /**
+         * @generated from field: preppal.EndRequest end_request = 2;
+         */
+        value: EndRequest;
+        case: "endRequest";
+      }
+    | { case: undefined; value?: undefined };
 };
 
 /**
  * Describes the message preppal.ClientToServerMessage.
  * Use `create(ClientToServerMessageSchema)` to create a new message.
  */
-export const ClientToServerMessageSchema: GenMessage<ClientToServerMessage> = /*@__PURE__*/
+export const ClientToServerMessageSchema: GenMessage<ClientToServerMessage> =
+  /*@__PURE__*/
   messageDesc(file_interview, 0);
 
 /**
@@ -59,7 +70,8 @@ export type AudioChunk = Message<"preppal.AudioChunk"> & {
  * Describes the message preppal.AudioChunk.
  * Use `create(AudioChunkSchema)` to create a new message.
  */
-export const AudioChunkSchema: GenMessage<AudioChunk> = /*@__PURE__*/
+export const AudioChunkSchema: GenMessage<AudioChunk> =
+  /*@__PURE__*/
   messageDesc(file_interview, 1);
 
 /**
@@ -67,14 +79,14 @@ export const AudioChunkSchema: GenMessage<AudioChunk> = /*@__PURE__*/
  *
  * @generated from message preppal.EndRequest
  */
-export type EndRequest = Message<"preppal.EndRequest"> & {
-};
+export type EndRequest = Message<"preppal.EndRequest"> & {};
 
 /**
  * Describes the message preppal.EndRequest.
  * Use `create(EndRequestSchema)` to create a new message.
  */
-export const EndRequestSchema: GenMessage<EndRequest> = /*@__PURE__*/
+export const EndRequestSchema: GenMessage<EndRequest> =
+  /*@__PURE__*/
   messageDesc(file_interview, 2);
 
 /**
@@ -84,38 +96,44 @@ export type ServerToClientMessage = Message<"preppal.ServerToClientMessage"> & {
   /**
    * @generated from oneof preppal.ServerToClientMessage.payload
    */
-  payload: {
-    /**
-     * @generated from field: preppal.TranscriptUpdate transcript_update = 1;
-     */
-    value: TranscriptUpdate;
-    case: "transcriptUpdate";
-  } | {
-    /**
-     * @generated from field: preppal.AudioResponse audio_response = 2;
-     */
-    value: AudioResponse;
-    case: "audioResponse";
-  } | {
-    /**
-     * @generated from field: preppal.ErrorResponse error = 3;
-     */
-    value: ErrorResponse;
-    case: "error";
-  } | {
-    /**
-     * @generated from field: preppal.SessionEnded session_ended = 4;
-     */
-    value: SessionEnded;
-    case: "sessionEnded";
-  } | { case: undefined; value?: undefined };
+  payload:
+    | {
+        /**
+         * @generated from field: preppal.TranscriptUpdate transcript_update = 1;
+         */
+        value: TranscriptUpdate;
+        case: "transcriptUpdate";
+      }
+    | {
+        /**
+         * @generated from field: preppal.AudioResponse audio_response = 2;
+         */
+        value: AudioResponse;
+        case: "audioResponse";
+      }
+    | {
+        /**
+         * @generated from field: preppal.ErrorResponse error = 3;
+         */
+        value: ErrorResponse;
+        case: "error";
+      }
+    | {
+        /**
+         * @generated from field: preppal.SessionEnded session_ended = 4;
+         */
+        value: SessionEnded;
+        case: "sessionEnded";
+      }
+    | { case: undefined; value?: undefined };
 };
 
 /**
  * Describes the message preppal.ServerToClientMessage.
  * Use `create(ServerToClientMessageSchema)` to create a new message.
  */
-export const ServerToClientMessageSchema: GenMessage<ServerToClientMessage> = /*@__PURE__*/
+export const ServerToClientMessageSchema: GenMessage<ServerToClientMessage> =
+  /*@__PURE__*/
   messageDesc(file_interview, 3);
 
 /**
@@ -155,7 +173,8 @@ export type TranscriptUpdate = Message<"preppal.TranscriptUpdate"> & {
  * Describes the message preppal.TranscriptUpdate.
  * Use `create(TranscriptUpdateSchema)` to create a new message.
  */
-export const TranscriptUpdateSchema: GenMessage<TranscriptUpdate> = /*@__PURE__*/
+export const TranscriptUpdateSchema: GenMessage<TranscriptUpdate> =
+  /*@__PURE__*/
   messageDesc(file_interview, 4);
 
 /**
@@ -176,7 +195,8 @@ export type AudioResponse = Message<"preppal.AudioResponse"> & {
  * Describes the message preppal.AudioResponse.
  * Use `create(AudioResponseSchema)` to create a new message.
  */
-export const AudioResponseSchema: GenMessage<AudioResponse> = /*@__PURE__*/
+export const AudioResponseSchema: GenMessage<AudioResponse> =
+  /*@__PURE__*/
   messageDesc(file_interview, 5);
 
 /**
@@ -204,7 +224,8 @@ export type ErrorResponse = Message<"preppal.ErrorResponse"> & {
  * Describes the message preppal.ErrorResponse.
  * Use `create(ErrorResponseSchema)` to create a new message.
  */
-export const ErrorResponseSchema: GenMessage<ErrorResponse> = /*@__PURE__*/
+export const ErrorResponseSchema: GenMessage<ErrorResponse> =
+  /*@__PURE__*/
   messageDesc(file_interview, 6);
 
 /**
@@ -223,7 +244,8 @@ export type SessionEnded = Message<"preppal.SessionEnded"> & {
  * Describes the message preppal.SessionEnded.
  * Use `create(SessionEndedSchema)` to create a new message.
  */
-export const SessionEndedSchema: GenMessage<SessionEnded> = /*@__PURE__*/
+export const SessionEndedSchema: GenMessage<SessionEnded> =
+  /*@__PURE__*/
   messageDesc(file_interview, 7);
 
 /**
@@ -260,7 +282,8 @@ export enum SessionEnded_Reason {
 /**
  * Describes the enum preppal.SessionEnded.Reason.
  */
-export const SessionEnded_ReasonSchema: GenEnum<SessionEnded_Reason> = /*@__PURE__*/
+export const SessionEnded_ReasonSchema: GenEnum<SessionEnded_Reason> =
+  /*@__PURE__*/
   enumDesc(file_interview, 7, 0);
 
 /**
@@ -272,38 +295,44 @@ export type WorkerApiRequest = Message<"preppal.WorkerApiRequest"> & {
   /**
    * @generated from oneof preppal.WorkerApiRequest.request
    */
-  request: {
-    /**
-     * @generated from field: preppal.GetContextRequest get_context = 1;
-     */
-    value: GetContextRequest;
-    case: "getContext";
-  } | {
-    /**
-     * @generated from field: preppal.UpdateStatusRequest update_status = 2;
-     */
-    value: UpdateStatusRequest;
-    case: "updateStatus";
-  } | {
-    /**
-     * @generated from field: preppal.SubmitTranscriptRequest submit_transcript = 3;
-     */
-    value: SubmitTranscriptRequest;
-    case: "submitTranscript";
-  } | {
-    /**
-     * @generated from field: preppal.SubmitFeedbackRequest submit_feedback = 4;
-     */
-    value: SubmitFeedbackRequest;
-    case: "submitFeedback";
-  } | { case: undefined; value?: undefined };
+  request:
+    | {
+        /**
+         * @generated from field: preppal.GetContextRequest get_context = 1;
+         */
+        value: GetContextRequest;
+        case: "getContext";
+      }
+    | {
+        /**
+         * @generated from field: preppal.UpdateStatusRequest update_status = 2;
+         */
+        value: UpdateStatusRequest;
+        case: "updateStatus";
+      }
+    | {
+        /**
+         * @generated from field: preppal.SubmitTranscriptRequest submit_transcript = 3;
+         */
+        value: SubmitTranscriptRequest;
+        case: "submitTranscript";
+      }
+    | {
+        /**
+         * @generated from field: preppal.SubmitFeedbackRequest submit_feedback = 4;
+         */
+        value: SubmitFeedbackRequest;
+        case: "submitFeedback";
+      }
+    | { case: undefined; value?: undefined };
 };
 
 /**
  * Describes the message preppal.WorkerApiRequest.
  * Use `create(WorkerApiRequestSchema)` to create a new message.
  */
-export const WorkerApiRequestSchema: GenMessage<WorkerApiRequest> = /*@__PURE__*/
+export const WorkerApiRequestSchema: GenMessage<WorkerApiRequest> =
+  /*@__PURE__*/
   messageDesc(file_interview, 8);
 
 /**
@@ -315,44 +344,51 @@ export type WorkerApiResponse = Message<"preppal.WorkerApiResponse"> & {
   /**
    * @generated from oneof preppal.WorkerApiResponse.response
    */
-  response: {
-    /**
-     * @generated from field: preppal.GetContextResponse get_context = 1;
-     */
-    value: GetContextResponse;
-    case: "getContext";
-  } | {
-    /**
-     * @generated from field: preppal.UpdateStatusResponse update_status = 2;
-     */
-    value: UpdateStatusResponse;
-    case: "updateStatus";
-  } | {
-    /**
-     * @generated from field: preppal.SubmitTranscriptResponse submit_transcript = 3;
-     */
-    value: SubmitTranscriptResponse;
-    case: "submitTranscript";
-  } | {
-    /**
-     * @generated from field: preppal.SubmitFeedbackResponse submit_feedback = 4;
-     */
-    value: SubmitFeedbackResponse;
-    case: "submitFeedback";
-  } | {
-    /**
-     * @generated from field: preppal.ApiError error = 5;
-     */
-    value: ApiError;
-    case: "error";
-  } | { case: undefined; value?: undefined };
+  response:
+    | {
+        /**
+         * @generated from field: preppal.GetContextResponse get_context = 1;
+         */
+        value: GetContextResponse;
+        case: "getContext";
+      }
+    | {
+        /**
+         * @generated from field: preppal.UpdateStatusResponse update_status = 2;
+         */
+        value: UpdateStatusResponse;
+        case: "updateStatus";
+      }
+    | {
+        /**
+         * @generated from field: preppal.SubmitTranscriptResponse submit_transcript = 3;
+         */
+        value: SubmitTranscriptResponse;
+        case: "submitTranscript";
+      }
+    | {
+        /**
+         * @generated from field: preppal.SubmitFeedbackResponse submit_feedback = 4;
+         */
+        value: SubmitFeedbackResponse;
+        case: "submitFeedback";
+      }
+    | {
+        /**
+         * @generated from field: preppal.ApiError error = 5;
+         */
+        value: ApiError;
+        case: "error";
+      }
+    | { case: undefined; value?: undefined };
 };
 
 /**
  * Describes the message preppal.WorkerApiResponse.
  * Use `create(WorkerApiResponseSchema)` to create a new message.
  */
-export const WorkerApiResponseSchema: GenMessage<WorkerApiResponse> = /*@__PURE__*/
+export const WorkerApiResponseSchema: GenMessage<WorkerApiResponse> =
+  /*@__PURE__*/
   messageDesc(file_interview, 9);
 
 /**
@@ -371,7 +407,8 @@ export type GetContextRequest = Message<"preppal.GetContextRequest"> & {
  * Describes the message preppal.GetContextRequest.
  * Use `create(GetContextRequestSchema)` to create a new message.
  */
-export const GetContextRequestSchema: GenMessage<GetContextRequest> = /*@__PURE__*/
+export const GetContextRequestSchema: GenMessage<GetContextRequest> =
+  /*@__PURE__*/
   messageDesc(file_interview, 10);
 
 /**
@@ -405,7 +442,8 @@ export type GetContextResponse = Message<"preppal.GetContextResponse"> & {
  * Describes the message preppal.GetContextResponse.
  * Use `create(GetContextResponseSchema)` to create a new message.
  */
-export const GetContextResponseSchema: GenMessage<GetContextResponse> = /*@__PURE__*/
+export const GetContextResponseSchema: GenMessage<GetContextResponse> =
+  /*@__PURE__*/
   messageDesc(file_interview, 11);
 
 /**
@@ -436,7 +474,8 @@ export type UpdateStatusRequest = Message<"preppal.UpdateStatusRequest"> & {
  * Describes the message preppal.UpdateStatusRequest.
  * Use `create(UpdateStatusRequestSchema)` to create a new message.
  */
-export const UpdateStatusRequestSchema: GenMessage<UpdateStatusRequest> = /*@__PURE__*/
+export const UpdateStatusRequestSchema: GenMessage<UpdateStatusRequest> =
+  /*@__PURE__*/
   messageDesc(file_interview, 12);
 
 /**
@@ -453,7 +492,8 @@ export type UpdateStatusResponse = Message<"preppal.UpdateStatusResponse"> & {
  * Describes the message preppal.UpdateStatusResponse.
  * Use `create(UpdateStatusResponseSchema)` to create a new message.
  */
-export const UpdateStatusResponseSchema: GenMessage<UpdateStatusResponse> = /*@__PURE__*/
+export const UpdateStatusResponseSchema: GenMessage<UpdateStatusResponse> =
+  /*@__PURE__*/
   messageDesc(file_interview, 13);
 
 /**
@@ -461,49 +501,53 @@ export const UpdateStatusResponseSchema: GenMessage<UpdateStatusResponse> = /*@_
  *
  * @generated from message preppal.SubmitTranscriptRequest
  */
-export type SubmitTranscriptRequest = Message<"preppal.SubmitTranscriptRequest"> & {
-  /**
-   * @generated from field: string interview_id = 1;
-   */
-  interviewId: string;
+export type SubmitTranscriptRequest =
+  Message<"preppal.SubmitTranscriptRequest"> & {
+    /**
+     * @generated from field: string interview_id = 1;
+     */
+    interviewId: string;
 
-  /**
-   * Protobuf binary blob (preppal.transcript.Transcript)
-   *
-   * @generated from field: bytes transcript = 2;
-   */
-  transcript: Uint8Array;
+    /**
+     * Protobuf binary blob (preppal.transcript.Transcript)
+     *
+     * @generated from field: bytes transcript = 2;
+     */
+    transcript: Uint8Array;
 
-  /**
-   * ISO 8601 timestamp
-   *
-   * @generated from field: string ended_at = 3;
-   */
-  endedAt: string;
-};
+    /**
+     * ISO 8601 timestamp
+     *
+     * @generated from field: string ended_at = 3;
+     */
+    endedAt: string;
+  };
 
 /**
  * Describes the message preppal.SubmitTranscriptRequest.
  * Use `create(SubmitTranscriptRequestSchema)` to create a new message.
  */
-export const SubmitTranscriptRequestSchema: GenMessage<SubmitTranscriptRequest> = /*@__PURE__*/
+export const SubmitTranscriptRequestSchema: GenMessage<SubmitTranscriptRequest> =
+  /*@__PURE__*/
   messageDesc(file_interview, 14);
 
 /**
  * @generated from message preppal.SubmitTranscriptResponse
  */
-export type SubmitTranscriptResponse = Message<"preppal.SubmitTranscriptResponse"> & {
-  /**
-   * @generated from field: bool success = 1;
-   */
-  success: boolean;
-};
+export type SubmitTranscriptResponse =
+  Message<"preppal.SubmitTranscriptResponse"> & {
+    /**
+     * @generated from field: bool success = 1;
+     */
+    success: boolean;
+  };
 
 /**
  * Describes the message preppal.SubmitTranscriptResponse.
  * Use `create(SubmitTranscriptResponseSchema)` to create a new message.
  */
-export const SubmitTranscriptResponseSchema: GenMessage<SubmitTranscriptResponse> = /*@__PURE__*/
+export const SubmitTranscriptResponseSchema: GenMessage<SubmitTranscriptResponse> =
+  /*@__PURE__*/
   messageDesc(file_interview, 15);
 
 /**
@@ -547,24 +591,27 @@ export type SubmitFeedbackRequest = Message<"preppal.SubmitFeedbackRequest"> & {
  * Describes the message preppal.SubmitFeedbackRequest.
  * Use `create(SubmitFeedbackRequestSchema)` to create a new message.
  */
-export const SubmitFeedbackRequestSchema: GenMessage<SubmitFeedbackRequest> = /*@__PURE__*/
+export const SubmitFeedbackRequestSchema: GenMessage<SubmitFeedbackRequest> =
+  /*@__PURE__*/
   messageDesc(file_interview, 16);
 
 /**
  * @generated from message preppal.SubmitFeedbackResponse
  */
-export type SubmitFeedbackResponse = Message<"preppal.SubmitFeedbackResponse"> & {
-  /**
-   * @generated from field: bool success = 1;
-   */
-  success: boolean;
-};
+export type SubmitFeedbackResponse =
+  Message<"preppal.SubmitFeedbackResponse"> & {
+    /**
+     * @generated from field: bool success = 1;
+     */
+    success: boolean;
+  };
 
 /**
  * Describes the message preppal.SubmitFeedbackResponse.
  * Use `create(SubmitFeedbackResponseSchema)` to create a new message.
  */
-export const SubmitFeedbackResponseSchema: GenMessage<SubmitFeedbackResponse> = /*@__PURE__*/
+export const SubmitFeedbackResponseSchema: GenMessage<SubmitFeedbackResponse> =
+  /*@__PURE__*/
   messageDesc(file_interview, 17);
 
 /**
@@ -590,7 +637,8 @@ export type ApiError = Message<"preppal.ApiError"> & {
  * Describes the message preppal.ApiError.
  * Use `create(ApiErrorSchema)` to create a new message.
  */
-export const ApiErrorSchema: GenMessage<ApiError> = /*@__PURE__*/
+export const ApiErrorSchema: GenMessage<ApiError> =
+  /*@__PURE__*/
   messageDesc(file_interview, 18);
 
 /**
@@ -621,6 +669,6 @@ export enum InterviewStatus {
 /**
  * Describes the enum preppal.InterviewStatus.
  */
-export const InterviewStatusSchema: GenEnum<InterviewStatus> = /*@__PURE__*/
+export const InterviewStatusSchema: GenEnum<InterviewStatus> =
+  /*@__PURE__*/
   enumDesc(file_interview, 0);
-

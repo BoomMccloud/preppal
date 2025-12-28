@@ -17,7 +17,9 @@ import {
 /**
  * Decodes a binary message from the client
  */
-export function decodeClientMessage(buffer: ArrayBuffer): ClientToServerMessage {
+export function decodeClientMessage(
+  buffer: ArrayBuffer,
+): ClientToServerMessage {
   const uint8Array = new Uint8Array(buffer);
   return fromBinary(ClientToServerMessageSchema, uint8Array);
 }
@@ -25,7 +27,9 @@ export function decodeClientMessage(buffer: ArrayBuffer): ClientToServerMessage 
 /**
  * Encodes a server message to binary for sending to client
  */
-export function encodeServerMessage(message: ServerToClientMessage): Uint8Array {
+export function encodeServerMessage(
+  message: ServerToClientMessage,
+): Uint8Array {
   return toBinary(ServerToClientMessageSchema, message);
 }
 
