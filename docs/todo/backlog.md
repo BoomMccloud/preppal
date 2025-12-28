@@ -1,15 +1,53 @@
 # Backlog
 
+## Active Feature Specifications
+
+Features with detailed specs ready for implementation:
+
+| ID | Feature | Status | Spec |
+|----|---------|--------|------|
+| FEAT25 | Email OTP Login | Complete | [FEAT25_email_otp_login.md](./FEAT25_email_otp_login.md) |
+| FEAT26 | China Accessibility Testing | Pending | [FEAT26_china_accessibility.md](./FEAT26_china_accessibility.md) |
+| FEAT27 | Segmented Interview Architecture | Pending | [FEAT27_interview_templates.md](./FEAT27_interview_templates.md) |
+| FEAT28 | Results Storage & Extended Feedback | Pending | [FEAT28_extended_feedback_dimensions.md](./FEAT28_extended_feedback_dimensions.md) |
+
+### FEAT27: Segmented Interview Architecture (Priority: High)
+
+Replaces single 30-min session with multiple 3-min segments. Enables:
+- **Question templates** - Teacher-defined questions
+- **Per-answer time limits** - Hard 3-min cap
+- **Bilingual mode** - Language switching between segments
+- **30/70 repeat logic** - Include previous questions in follow-up interviews
+
+*Supersedes: Interview Personas, Interview Panels (partial)*
+
+### FEAT28: Results Storage & Extended Feedback (Priority: High)
+
+Restructures how interview results are stored and displayed:
+- **Per-segment transcripts** - Organized by question
+- **9 feedback dimensions** - More comprehensive evaluation
+- **Historical comparison** - Track improvement over time
+- **Auto-save on disconnect** - Never lose interview data
+
+---
+
+## Channel Partner Requirements (B2B)
+
+Based on feedback from education/training partners:
+
+### Handled by Existing Features
+- **Student isolation** - Guest login provides unique links per student
+- **Interview quotas** - Teacher tracks manually (no system needed)
+- **Parent-child accounts** - Teacher manages links manually
+
+### Deferred / Future
+- **Teacher dashboard** - Aggregate view of all student progress
+- **Exportable reports** - PDF/Excel download of feedback
+- **Batch comparison** - Compare multiple students side-by-side
+
+---
+
 ## Feature Ideas
-
-### Interview Personas
-**Goal:** Allow users to create custom interviewer personas that can be shared or accessed by the community.
-
-**Implementation Details:**
-- **Visibility:** Supported modes are **Private** (only owner) and **Public** (visible to all).
-- **Forking:** Users cannot fork or copy existing personas for now; they must use them as-is or create their own.
-- **Schema:** Create a `Persona` model with fields like `name`, `systemInstruction`, `voiceSettings`, `ownerId`, and `visibility` (PRIVATE, PUBLIC).
-- **UI:** A "Persona Builder" form in the user dashboard and a "Community Hub" to browse and select public personas.
 
 ### JD Management (Reuse & Deduplication)
 **Goal:** Streamline the interview setup by reusing existing JDs and preparing for a centralized JD database.
@@ -26,31 +64,14 @@
 - **Resume Data:** The primary method for resume import will be **PDF/File parsing** using Gemini Vision.
 - **Workflow:** Users upload their resume (or LinkedIn "Save to PDF" export) to populate their Preppal profile and provide context for the interview session.
 
-
-### Email One-Time Code Login
-**Goal:** Provide a passwordless login experience using a one-time code sent via email.
-
-**Implementation Details:**
-- **Provider:** Use a service like Zensend (or similar) to send emails.
-- **Workflow:** 
-    1. User enters email on the sign-in page.
-    2. Server generates a secure one-time code and sends it via email.
-    3. User enters the correct code to log in.
-- **Security:** Short-lived codes and rate limiting for requests.
-
-
-### Interview Panels
-**Goal:** Allow users to define a sequence of interview stages (e.g., HR, Tech, Hiring Manager, Senior Management) for a specific job application to simulate a full hiring loop.
+### Backend-Driven Interview Orchestration (Refinement for FEAT27)
+**Goal:** Move interview state and segmentation logic from the frontend to the Cloudflare Worker for a seamless UX.
 
 **Implementation Details:**
-- **Schema:**
-    - `InterviewPanel`: Represents the overall sequence (e.g., "FAANG Senior Engineer Loop").
-    - `InterviewPanelStage`: Links a `Persona` to a position in the panel sequence.
-    - `InterviewSession`: Update to optionally link to a `PanelStage` to track progress within a loop.
-- **Workflow:**
-    - Users can select pre-defined templates (e.g., "Standard Tech Loop") or create custom sequences by selecting multiple personas.
-    - Progress is tracked across stages, allowing users to visualize their journey through the hiring process.
-- **Aggregation:** A "Panel Summary" report that aggregates feedback across all stages to provide a holistic view of the candidate's performance and "hiring readiness".
+- **The "Smart Worker":** The Frontend maintains a single continuous WebSocket connection. The Worker internally manages the lifecycle of multiple Gemini sessions (one per segment).
+- **State Persistence:** Move segment progress and question injection logic into the Durable Object.
+- **Benefits:** Eliminates "Connecting..." spinners and hardware (camera/mic) flicker between segments.
+- **Status:** To be explored after the initial Frontend-led implementation of FEAT27 is stabilized.
 
 ### Credit System & Monetization
 **Goal:** Manage interview usage through a credit-based system.
@@ -59,10 +80,12 @@
 - **Free Tier:** Users get 1 free interview upon sign-up.
 - **Credits:** Users can buy credits to conduct more interviews in the future.
 - **Scope:** Credits apply to all interview types, including those using custom Personas or part of an Interview Panel.
-- **Schema:** 
+- **Schema:**
     - Add a `credits` field to the `User` model.
     - Implement a transaction system to track credit purchases and usage.
 - **UI:** Show credit balance in the dashboard and handle payment flows/insufficient credit states.
+
+---
 
 ## Testing & Quality (Stabilization)
 
@@ -83,3 +106,16 @@
 **Implementation Details:**
 - Simplify component tests to verify that core pages (`/lobby`, `/session`, `/feedback`) render without crashing given valid data.
 - Remove tests that verify specific CSS classes or internal component states.
+
+---
+
+## Archived / Superseded
+
+### ~~Interview Personas~~ → Superseded by FEAT27
+Custom interviewer personas are now part of Interview Templates in FEAT27.
+
+### ~~Email One-Time Code Login~~ → Complete (FEAT25)
+Implemented and merged. See [FEAT25_email_otp_login.md](./FEAT25_email_otp_login.md).
+
+### ~~Interview Panels~~ → Partially superseded by FEAT27
+Multi-stage interview sequences are now handled by the segmented interview architecture.
