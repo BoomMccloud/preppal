@@ -70,7 +70,7 @@ describe("Block-Based Interview Golden Path", () => {
     const workerHeaders = new Headers();
     workerHeaders.set(
       "Authorization",
-      `Bearer ${process.env.WORKER_SHARED_SECRET}`
+      `Bearer ${process.env.WORKER_SHARED_SECRET}`,
     );
 
     workerCaller = appRouter.createCaller({
@@ -106,338 +106,330 @@ describe("Block-Based Interview Golden Path", () => {
   // Golden Path: Complete 2-Block Interview
   // ===========================================================================
 
-  it(
-    "user can complete a block-based interview with 2 language blocks",
-    async () => {
-      // ========================================
-      // STEP 1: User creates interview with template
-      // ========================================
-      const interview = await userCaller.interview.createSession({
-        jobDescription: {
-          type: "text",
-          content:
-            "MBA Admissions - Looking for candidates with strong leadership and communication skills.",
-        },
-        resume: {
-          type: "text",
-          content:
-            "John Doe - 5 years management consulting experience at McKinsey. Led cross-functional teams.",
-        },
-        idempotencyKey: `block-golden-path-${Date.now()}`,
-        templateId: "mba-behavioral-v1",
-      });
+  it("user can complete a block-based interview with 2 language blocks", async () => {
+    // ========================================
+    // STEP 1: User creates interview with template
+    // ========================================
+    const interview = await userCaller.interview.createSession({
+      jobDescription: {
+        type: "text",
+        content:
+          "MBA Admissions - Looking for candidates with strong leadership and communication skills.",
+      },
+      resume: {
+        type: "text",
+        content:
+          "John Doe - 5 years management consulting experience at McKinsey. Led cross-functional teams.",
+      },
+      idempotencyKey: `block-golden-path-${Date.now()}`,
+      templateId: "mba-behavioral-v1",
+    });
 
-      createdInterviewIds.push(interview.id);
+    createdInterviewIds.push(interview.id);
 
-      expect(interview.status).toBe("PENDING");
-      expect(interview.isBlockBased).toBe(true);
-      expect(interview.templateId).toBe("mba-behavioral-v1");
+    expect(interview.status).toBe("PENDING");
+    expect(interview.isBlockBased).toBe(true);
+    expect(interview.templateId).toBe("mba-behavioral-v1");
 
-      // Verify blocks were created
-      const initialBlocks = await db.interviewBlock.findMany({
-        where: { interviewId: interview.id },
-        orderBy: { blockNumber: "asc" },
-      });
+    // Verify blocks were created
+    const initialBlocks = await db.interviewBlock.findMany({
+      where: { interviewId: interview.id },
+      orderBy: { blockNumber: "asc" },
+    });
 
-      expect(initialBlocks).toHaveLength(2);
-      expect(initialBlocks[0]?.language).toBe("ZH");
-      expect(initialBlocks[0]?.status).toBe("PENDING");
-      expect(initialBlocks[1]?.language).toBe("EN");
-      expect(initialBlocks[1]?.status).toBe("PENDING");
+    expect(initialBlocks).toHaveLength(2);
+    expect(initialBlocks[0]?.language).toBe("ZH");
+    expect(initialBlocks[0]?.status).toBe("PENDING");
+    expect(initialBlocks[1]?.language).toBe("EN");
+    expect(initialBlocks[1]?.status).toBe("PENDING");
 
-      // ========================================
-      // STEP 2: Worker gets context for block 1 (Chinese)
-      // ========================================
-      const block1Context = await workerCaller.interviewWorker.getContext({
-        interviewId: interview.id,
-        blockNumber: 1,
-      });
+    // ========================================
+    // STEP 2: Worker gets context for block 1 (Chinese)
+    // ========================================
+    const block1Context = await workerCaller.interviewWorker.getContext({
+      interviewId: interview.id,
+      blockNumber: 1,
+    });
 
-      expect(block1Context.systemPrompt).toBeDefined();
-      expect(block1Context.language).toBe("zh");
-      expect(block1Context.durationMs).toBe(600 * 1000); // 10 minutes
+    expect(block1Context.systemPrompt).toBeDefined();
+    expect(block1Context.language).toBe("zh");
+    expect(block1Context.durationMs).toBe(600 * 1000); // 10 minutes
 
-      // Verify system prompt has Chinese instructions
-      expect(
-        block1Context.systemPrompt?.includes("中文") ||
-          block1Context.systemPrompt?.toLowerCase().includes("chinese") ||
-          block1Context.systemPrompt?.toLowerCase().includes("mandarin")
-      ).toBe(true);
+    // Verify system prompt has Chinese instructions
+    expect(
+      block1Context.systemPrompt?.includes("中文") ||
+        block1Context.systemPrompt?.toLowerCase().includes("chinese") ||
+        block1Context.systemPrompt?.toLowerCase().includes("mandarin"),
+    ).toBe(true);
 
-      // Block 1 should be IN_PROGRESS
-      const block1InProgress = await db.interviewBlock.findFirst({
-        where: { interviewId: interview.id, blockNumber: 1 },
-      });
-      expect(block1InProgress?.status).toBe("IN_PROGRESS");
+    // Block 1 should be IN_PROGRESS
+    const block1InProgress = await db.interviewBlock.findFirst({
+      where: { interviewId: interview.id, blockNumber: 1 },
+    });
+    expect(block1InProgress?.status).toBe("IN_PROGRESS");
 
-      // ========================================
-      // STEP 3: Worker starts interview
-      // ========================================
-      await workerCaller.interview.updateStatus({
-        interviewId: interview.id,
-        status: "IN_PROGRESS",
-      });
+    // ========================================
+    // STEP 3: Worker starts interview
+    // ========================================
+    await workerCaller.interview.updateStatus({
+      interviewId: interview.id,
+      status: "IN_PROGRESS",
+    });
 
-      // ========================================
-      // STEP 4: Worker submits block 1 transcript
-      // ========================================
-      const block1Transcript = Buffer.from(
-        JSON.stringify({
-          turns: [
-            {
-              speaker: 1,
-              content: "请描述一次你带领团队的经历。",
-              timestampMs: Date.now(),
-            },
-            {
-              speaker: 2,
-              content:
-                "在麦肯锡工作期间，我带领一个10人团队完成了一个重要项目...",
-              timestampMs: Date.now() + 5000,
-            },
-          ],
-        })
-      ).toString("base64");
+    // ========================================
+    // STEP 4: Worker submits block 1 transcript
+    // ========================================
+    const block1Transcript = Buffer.from(
+      JSON.stringify({
+        turns: [
+          {
+            speaker: 1,
+            content: "请描述一次你带领团队的经历。",
+            timestampMs: Date.now(),
+          },
+          {
+            speaker: 2,
+            content:
+              "在麦肯锡工作期间，我带领一个10人团队完成了一个重要项目...",
+            timestampMs: Date.now() + 5000,
+          },
+        ],
+      }),
+    ).toString("base64");
 
-      await workerCaller.interviewWorker.submitTranscript({
-        interviewId: interview.id,
-        transcript: block1Transcript,
-        endedAt: new Date().toISOString(),
-        blockNumber: 1,
-      });
+    await workerCaller.interviewWorker.submitTranscript({
+      interviewId: interview.id,
+      transcript: block1Transcript,
+      endedAt: new Date().toISOString(),
+      blockNumber: 1,
+    });
 
-      // ========================================
-      // STEP 5: Frontend calls completeBlock for block 1
-      // ========================================
-      await userCaller.interview.completeBlock({
-        interviewId: interview.id,
-        blockNumber: 1,
-      });
+    // ========================================
+    // STEP 5: Frontend calls completeBlock for block 1
+    // ========================================
+    await userCaller.interview.completeBlock({
+      interviewId: interview.id,
+      blockNumber: 1,
+    });
 
-      const block1Completed = await db.interviewBlock.findFirst({
-        where: { interviewId: interview.id, blockNumber: 1 },
-      });
-      expect(block1Completed?.status).toBe("COMPLETED");
+    const block1Completed = await db.interviewBlock.findFirst({
+      where: { interviewId: interview.id, blockNumber: 1 },
+    });
+    expect(block1Completed?.status).toBe("COMPLETED");
 
-      // ========================================
-      // STEP 6: Worker gets context for block 2 (English)
-      // ========================================
-      const block2Context = await workerCaller.interviewWorker.getContext({
-        interviewId: interview.id,
-        blockNumber: 2,
-      });
+    // ========================================
+    // STEP 6: Worker gets context for block 2 (English)
+    // ========================================
+    const block2Context = await workerCaller.interviewWorker.getContext({
+      interviewId: interview.id,
+      blockNumber: 2,
+    });
 
-      expect(block2Context.systemPrompt).toBeDefined();
-      expect(block2Context.language).toBe("en");
+    expect(block2Context.systemPrompt).toBeDefined();
+    expect(block2Context.language).toBe("en");
 
-      // Verify system prompt has English instructions
-      expect(block2Context.systemPrompt?.toLowerCase()).toContain("english");
+    // Verify system prompt has English instructions
+    expect(block2Context.systemPrompt?.toLowerCase()).toContain("english");
 
-      // Block 2 should be IN_PROGRESS
-      const block2InProgress = await db.interviewBlock.findFirst({
-        where: { interviewId: interview.id, blockNumber: 2 },
-      });
-      expect(block2InProgress?.status).toBe("IN_PROGRESS");
+    // Block 2 should be IN_PROGRESS
+    const block2InProgress = await db.interviewBlock.findFirst({
+      where: { interviewId: interview.id, blockNumber: 2 },
+    });
+    expect(block2InProgress?.status).toBe("IN_PROGRESS");
 
-      // ========================================
-      // STEP 7: Worker submits block 2 transcript
-      // ========================================
-      const block2Transcript = Buffer.from(
-        JSON.stringify({
-          turns: [
-            {
-              speaker: 1,
-              content: "What is your greatest professional achievement?",
-              timestampMs: Date.now(),
-            },
-            {
-              speaker: 2,
-              content:
-                "My greatest achievement was leading a digital transformation initiative at McKinsey...",
-              timestampMs: Date.now() + 5000,
-            },
-          ],
-        })
-      ).toString("base64");
+    // ========================================
+    // STEP 7: Worker submits block 2 transcript
+    // ========================================
+    const block2Transcript = Buffer.from(
+      JSON.stringify({
+        turns: [
+          {
+            speaker: 1,
+            content: "What is your greatest professional achievement?",
+            timestampMs: Date.now(),
+          },
+          {
+            speaker: 2,
+            content:
+              "My greatest achievement was leading a digital transformation initiative at McKinsey...",
+            timestampMs: Date.now() + 5000,
+          },
+        ],
+      }),
+    ).toString("base64");
 
-      await workerCaller.interviewWorker.submitTranscript({
-        interviewId: interview.id,
-        transcript: block2Transcript,
-        endedAt: new Date().toISOString(),
-        blockNumber: 2,
-      });
+    await workerCaller.interviewWorker.submitTranscript({
+      interviewId: interview.id,
+      transcript: block2Transcript,
+      endedAt: new Date().toISOString(),
+      blockNumber: 2,
+    });
 
-      // ========================================
-      // STEP 8: Frontend calls completeBlock for block 2
-      // ========================================
-      await userCaller.interview.completeBlock({
-        interviewId: interview.id,
-        blockNumber: 2,
-      });
+    // ========================================
+    // STEP 8: Frontend calls completeBlock for block 2
+    // ========================================
+    await userCaller.interview.completeBlock({
+      interviewId: interview.id,
+      blockNumber: 2,
+    });
 
-      const block2Completed = await db.interviewBlock.findFirst({
-        where: { interviewId: interview.id, blockNumber: 2 },
-      });
-      expect(block2Completed?.status).toBe("COMPLETED");
+    const block2Completed = await db.interviewBlock.findFirst({
+      where: { interviewId: interview.id, blockNumber: 2 },
+    });
+    expect(block2Completed?.status).toBe("COMPLETED");
 
-      // ========================================
-      // STEP 9: Worker submits aggregated feedback
-      // ========================================
-      await workerCaller.interviewWorker.submitFeedback({
-        interviewId: interview.id,
-        summary:
-          "Strong candidate with excellent bilingual communication skills. Demonstrated clear leadership experience in both Chinese and English portions.",
-        strengths:
-          "- Fluent in both Chinese and English\n- Clear examples of leadership\n- Structured thinking",
-        contentAndStructure:
-          "Answers were well-organized with specific examples from McKinsey experience.",
-        communicationAndDelivery:
-          "Confident in both languages. Natural code-switching between Chinese and English.",
-        presentation:
-          "Professional demeanor throughout. Maintained composure during language transitions.",
-      });
+    // ========================================
+    // STEP 9: Worker submits aggregated feedback
+    // ========================================
+    await workerCaller.interviewWorker.submitFeedback({
+      interviewId: interview.id,
+      summary:
+        "Strong candidate with excellent bilingual communication skills. Demonstrated clear leadership experience in both Chinese and English portions.",
+      strengths:
+        "- Fluent in both Chinese and English\n- Clear examples of leadership\n- Structured thinking",
+      contentAndStructure:
+        "Answers were well-organized with specific examples from McKinsey experience.",
+      communicationAndDelivery:
+        "Confident in both languages. Natural code-switching between Chinese and English.",
+      presentation:
+        "Professional demeanor throughout. Maintained composure during language transitions.",
+    });
 
-      // ========================================
-      // STEP 10: Worker marks interview as COMPLETED
-      // ========================================
-      await workerCaller.interview.updateStatus({
-        interviewId: interview.id,
-        status: "COMPLETED",
-        endedAt: new Date().toISOString(),
-      });
+    // ========================================
+    // STEP 10: Worker marks interview as COMPLETED
+    // ========================================
+    await workerCaller.interview.updateStatus({
+      interviewId: interview.id,
+      status: "COMPLETED",
+      endedAt: new Date().toISOString(),
+    });
 
-      // ========================================
-      // STEP 11: User views aggregated feedback (THE REAL TEST)
-      // ========================================
-      const result = await userCaller.interview.getFeedback({
-        interviewId: interview.id,
-      });
+    // ========================================
+    // STEP 11: User views aggregated feedback (THE REAL TEST)
+    // ========================================
+    const result = await userCaller.interview.getFeedback({
+      interviewId: interview.id,
+    });
 
-      expect(result).toBeDefined();
-      expect(result.feedback).not.toBeNull();
-      expect(result.feedback?.summary).toContain("bilingual");
-      expect(result.feedback?.strengths).toContain("Chinese and English");
+    expect(result).toBeDefined();
+    expect(result.feedback).not.toBeNull();
+    expect(result.feedback?.summary).toContain("bilingual");
+    expect(result.feedback?.strengths).toContain("Chinese and English");
 
-      // ========================================
-      // STEP 12: Interview appears in history as COMPLETED
-      // ========================================
-      const history = await userCaller.interview.getHistory();
-      const completedInterview = history.find(
-        (i: { id: string }) => i.id === interview.id
-      );
+    // ========================================
+    // STEP 12: Interview appears in history as COMPLETED
+    // ========================================
+    const history = await userCaller.interview.getHistory();
+    const completedInterview = history.find(
+      (i: { id: string }) => i.id === interview.id,
+    );
 
-      expect(completedInterview).toBeDefined();
-      expect(completedInterview?.status).toBe("COMPLETED");
-      expect(completedInterview?.isBlockBased).toBe(true);
-    },
-    60000 // 60 second timeout for complete flow
-  );
+    expect(completedInterview).toBeDefined();
+    expect(completedInterview?.status).toBe("COMPLETED");
+    expect(completedInterview?.isBlockBased).toBe(true);
+  }, 60000); // 60 second timeout for complete flow
 
   // ===========================================================================
   // Backward Compatibility: Non-Block Interview
   // ===========================================================================
 
-  it(
-    "should handle backward compatibility with non-block interviews",
-    async () => {
-      // ========================================
-      // STEP 1: Create interview WITHOUT template
-      // ========================================
-      const interview = await userCaller.interview.createSession({
-        jobDescription: {
-          type: "text",
-          content: "Software Engineer - Standard interview format",
-        },
-        resume: {
-          type: "text",
-          content: "Developer with 3 years experience",
-        },
-        idempotencyKey: `standard-compat-${Date.now()}`,
-        // No templateId
-      });
+  it("should handle backward compatibility with non-block interviews", async () => {
+    // ========================================
+    // STEP 1: Create interview WITHOUT template
+    // ========================================
+    const interview = await userCaller.interview.createSession({
+      jobDescription: {
+        type: "text",
+        content: "Software Engineer - Standard interview format",
+      },
+      resume: {
+        type: "text",
+        content: "Developer with 3 years experience",
+      },
+      idempotencyKey: `standard-compat-${Date.now()}`,
+      // No templateId
+    });
 
-      createdInterviewIds.push(interview.id);
+    createdInterviewIds.push(interview.id);
 
-      // Verify it's NOT block-based
-      expect(interview.isBlockBased).toBe(false);
-      expect(interview.templateId).toBeNull();
+    // Verify it's NOT block-based
+    expect(interview.isBlockBased).toBe(false);
+    expect(interview.templateId).toBeNull();
 
-      // No blocks should exist
-      const blocks = await db.interviewBlock.findMany({
-        where: { interviewId: interview.id },
-      });
-      expect(blocks).toHaveLength(0);
+    // No blocks should exist
+    const blocks = await db.interviewBlock.findMany({
+      where: { interviewId: interview.id },
+    });
+    expect(blocks).toHaveLength(0);
 
-      // ========================================
-      // STEP 2: Worker gets standard context (no block)
-      // ========================================
-      const context = await workerCaller.interviewWorker.getContext({
-        interviewId: interview.id,
-        // No blockNumber
-      });
+    // ========================================
+    // STEP 2: Worker gets standard context (no block)
+    // ========================================
+    const context = await workerCaller.interviewWorker.getContext({
+      interviewId: interview.id,
+      // No blockNumber
+    });
 
-      // Standard flow - no block-specific fields
-      expect(context.systemPrompt).toBeUndefined();
-      expect(context.language).toBeUndefined();
-      expect(context.jobDescription).toBeDefined();
-      expect(context.resume).toBeDefined();
+    // Standard flow - no block-specific fields
+    expect(context.systemPrompt).toBeUndefined();
+    expect(context.language).toBeUndefined();
+    expect(context.jobDescription).toBeDefined();
+    expect(context.resume).toBeDefined();
 
-      // ========================================
-      // STEP 3: Standard interview flow
-      // ========================================
-      await workerCaller.interview.updateStatus({
-        interviewId: interview.id,
-        status: "IN_PROGRESS",
-      });
+    // ========================================
+    // STEP 3: Standard interview flow
+    // ========================================
+    await workerCaller.interview.updateStatus({
+      interviewId: interview.id,
+      status: "IN_PROGRESS",
+    });
 
-      const standardTranscript = Buffer.from(
-        JSON.stringify({
-          turns: [
-            { speaker: 1, content: "Tell me about yourself.", timestampMs: 0 },
-            { speaker: 2, content: "I am a developer...", timestampMs: 5000 },
-          ],
-        })
-      ).toString("base64");
+    const standardTranscript = Buffer.from(
+      JSON.stringify({
+        turns: [
+          { speaker: 1, content: "Tell me about yourself.", timestampMs: 0 },
+          { speaker: 2, content: "I am a developer...", timestampMs: 5000 },
+        ],
+      }),
+    ).toString("base64");
 
-      await workerCaller.interviewWorker.submitTranscript({
-        interviewId: interview.id,
-        transcript: standardTranscript,
-        endedAt: new Date().toISOString(),
-        // No blockNumber - standard flow
-      });
+    await workerCaller.interviewWorker.submitTranscript({
+      interviewId: interview.id,
+      transcript: standardTranscript,
+      endedAt: new Date().toISOString(),
+      // No blockNumber - standard flow
+    });
 
-      // Transcript should be on Interview, not InterviewBlock
-      const transcriptEntry = await db.transcriptEntry.findUnique({
-        where: { interviewId: interview.id },
-      });
-      expect(transcriptEntry).not.toBeNull();
+    // Transcript should be on Interview, not InterviewBlock
+    const transcriptEntry = await db.transcriptEntry.findUnique({
+      where: { interviewId: interview.id },
+    });
+    expect(transcriptEntry).not.toBeNull();
 
-      // ========================================
-      // STEP 4: Complete standard interview
-      // ========================================
-      await workerCaller.interviewWorker.submitFeedback({
-        interviewId: interview.id,
-        summary: "Good candidate for the role.",
-        strengths: "- Technical skills\n- Clear communication",
-        contentAndStructure: "Well-structured answers",
-        communicationAndDelivery: "Clear and concise",
-        presentation: "Professional",
-      });
+    // ========================================
+    // STEP 4: Complete standard interview
+    // ========================================
+    await workerCaller.interviewWorker.submitFeedback({
+      interviewId: interview.id,
+      summary: "Good candidate for the role.",
+      strengths: "- Technical skills\n- Clear communication",
+      contentAndStructure: "Well-structured answers",
+      communicationAndDelivery: "Clear and concise",
+      presentation: "Professional",
+    });
 
-      await workerCaller.interview.updateStatus({
-        interviewId: interview.id,
-        status: "COMPLETED",
-        endedAt: new Date().toISOString(),
-      });
+    await workerCaller.interview.updateStatus({
+      interviewId: interview.id,
+      status: "COMPLETED",
+      endedAt: new Date().toISOString(),
+    });
 
-      // User can view feedback
-      const result = await userCaller.interview.getFeedback({
-        interviewId: interview.id,
-      });
-      expect(result.feedback?.summary).toContain("Good candidate");
-    },
-    30000
-  );
+    // User can view feedback
+    const result = await userCaller.interview.getFeedback({
+      interviewId: interview.id,
+    });
+    expect(result.feedback?.summary).toContain("Good candidate");
+  }, 30000);
 
   // ===========================================================================
   // Edge Cases
@@ -524,16 +516,16 @@ describe("Block-Based Interview Golden Path", () => {
       // startedAt should be between beforeStart and afterStart
       expect(block?.startedAt).not.toBeNull();
       expect(block?.startedAt!.getTime()).toBeGreaterThanOrEqual(
-        beforeStart.getTime()
+        beforeStart.getTime(),
       );
       expect(block?.startedAt!.getTime()).toBeLessThanOrEqual(
-        afterStart.getTime()
+        afterStart.getTime(),
       );
 
       // endedAt should be between afterStart and afterEnd
       expect(block?.endedAt).not.toBeNull();
       expect(block?.endedAt!.getTime()).toBeGreaterThanOrEqual(
-        afterStart.getTime()
+        afterStart.getTime(),
       );
       expect(block?.endedAt!.getTime()).toBeLessThanOrEqual(afterEnd.getTime());
     });

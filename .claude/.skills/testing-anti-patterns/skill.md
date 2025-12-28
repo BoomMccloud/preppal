@@ -241,7 +241,59 @@ BEFORE creating mock responses:
   If uncertain: Include all documented fields
 ```
 
-## Anti-Pattern 5: Integration Tests as Afterthought
+## Anti-Pattern 5: Testing the Library, Not Your Code
+
+**The violation:**
+
+```typescript
+// ❌ BAD: Testing that Zod works
+it("should reject non-string values", () => {
+  expect(LanguageSchema.safeParse(123).success).toBe(false);
+  expect(LanguageSchema.safeParse(null).success).toBe(false);
+  expect(LanguageSchema.safeParse({}).success).toBe(false);
+});
+
+// ❌ BAD: Exhaustive edge cases for library behavior
+it("should reject 'es'", () => { ... });
+it("should reject 'fr'", () => { ... });
+it("should reject 'EN'", () => { ... });
+it("should reject empty string", () => { ... });
+```
+
+**Why this is wrong:**
+
+- Zod already guarantees type validation - you're testing their library
+- Exhaustive edge cases add maintenance burden without catching real bugs
+- More tests ≠ better coverage
+- Tests break on implementation changes even when behavior is correct
+
+**The fix:**
+
+```typescript
+// ✅ GOOD: Test YOUR constraints, not the library
+it("should parse valid template", () => { ... });
+it("should reject invalid template", () => { ... });
+it("should apply default values", () => { ... });
+```
+
+### Gate Function
+
+```
+BEFORE writing a test:
+  Ask: "Am I testing MY code's behavior, or the library's?"
+
+  IF testing library behavior:
+    STOP - The library maintainers already tested this
+    Trust the library, test your usage of it
+
+  Ask: "Would this test catch a real bug in MY code?"
+
+  IF no:
+    STOP - Don't write it
+    Focus on tests that verify your business logic
+```
+
+## Anti-Pattern 6: Integration Tests as Afterthought
 
 **The violation:**
 
@@ -299,6 +351,7 @@ TDD cycle:
 | Test-only methods in production | Move to test utilities                        |
 | Mock without understanding      | Understand dependencies first, mock minimally |
 | Incomplete mocks                | Mirror real API completely                    |
+| Testing the library             | Trust the library, test your usage of it      |
 | Tests as afterthought           | TDD - tests first                             |
 | Over-complex mocks              | Consider integration tests                    |
 
@@ -310,6 +363,8 @@ TDD cycle:
 - Test fails when you remove mock
 - Can't explain why mock is needed
 - Mocking "just to be safe"
+- Testing that a library rejects invalid input
+- Exhaustive edge cases that don't reflect real usage
 
 ## The Bottom Line
 

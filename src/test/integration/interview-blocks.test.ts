@@ -64,7 +64,7 @@ describe("Interview Block Management", () => {
     const workerHeaders = new Headers();
     workerHeaders.set(
       "Authorization",
-      `Bearer ${process.env.WORKER_SHARED_SECRET}`
+      `Bearer ${process.env.WORKER_SHARED_SECRET}`,
     );
 
     workerCaller = appRouter.createCaller({
@@ -421,7 +421,7 @@ describe("Interview Block Management", () => {
       createdInterviewIds.push(interview.id);
 
       const mockTranscript = Buffer.from('{"standard": "transcript"}').toString(
-        "base64"
+        "base64",
       );
 
       await workerCaller.interviewWorker.submitTranscript({
@@ -526,7 +526,7 @@ describe("Interview Block Management", () => {
         userCaller.interview.completeBlock({
           interviewId: interview.id,
           blockNumber: 999, // Non-existent block
-        })
+        }),
       ).rejects.toMatchObject({
         code: "NOT_FOUND",
       });
@@ -573,7 +573,7 @@ describe("Interview Block Management", () => {
         otherUserCaller.interview.completeBlock({
           interviewId: interview.id,
           blockNumber: 1,
-        })
+        }),
       ).rejects.toMatchObject({
         code: "FORBIDDEN",
       });

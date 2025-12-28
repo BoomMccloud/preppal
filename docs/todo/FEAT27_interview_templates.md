@@ -8,18 +8,18 @@
 | Phase | Status | Notes |
 |-------|--------|-------|
 | **Phase 1: Proto & Schema** | Pending | Update interview.proto, Prisma models |
-| **Phase 2: Config & Templates** | Pending | JSON templates, Zod schema, template loading |
+| **Phase 2: Config & Templates** | Pending | TypeScript template definitions, registry |
 | **Phase 3: Backend** | Pending | getContext/submitTranscript handlers, block management |
 | **Phase 4: Worker** | Pending | ~10 lines: parse block param, populate proto fields |
-| **Phase 5: Frontend** | Pending | BlockSession component, mic cutoff, WebSocket URL |
+| **Phase 5: Frontend** | Pending | BlockSession component, mic mute timer, WebSocket URL |
 
 ### Key Design Decisions
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
 | Session architecture | **Fresh Gemini session per language block** | Minimum sessions needed for reliable language switching (2 sessions for MVP) |
-| Per-answer time limit | **Frontend mic cutoff + prompt injection** | Simpler than per-question sessions; Gemini API doesn't interrupt users |
-| Template storage | **JSON config file + Zod** | Admin-managed, version controlled, no CRUD UI needed for MVP |
+| Per-answer time limit | **Frontend mic mute** | Mute audio track when timer expires; Gemini interprets silence as "done" and moves on |
+| Template storage | **TypeScript constants** | Type-safe, no file I/O, simpler deployment; admin-managed via code |
 | Data model | **Simplified** | No `QuestionBank`, `Question` models; questions stored in config file |
 | Language support | **en/zh only** | KISS - add more languages when needed |
 | Context passing | **Preserved within block** | Better follow-up questions within language block |
@@ -32,12 +32,164 @@
 
 ---
 
+## Prerequisites
+
+Before implementing this feature, you should understand the following existing systems:
+
+### Existing Codebase Knowledge
+
+#### 1. Interview Model (Prisma)
+
+The `Interview` model already exists in `prisma/schema.prisma` with these relevant fields:
+
+```prisma
+model Interview {
+  id                     String    @id @default(cuid())
+  status                 InterviewStatus @default(PENDING)
+  jobDescriptionSnapshot String?   // Inline job description text
+  resumeSnapshot         String?   // Inline resume text
+  persona                String?   // AI interviewer persona
+  duration               InterviewDuration @default(STANDARD)
+  startedAt              DateTime?
+  endedAt                DateTime?
+  userId                 String
+  // ... other fields
+}
+```
+
+We will ADD new fields (`templateId`, `isBlockBased`, `blocks` relation) - not replace existing ones.
+
+#### 2. tRPC Router Structure
+
+The backend uses tRPC routers in `src/server/api/routers/`:
+
+- **`interview.ts`** - User-facing procedures (`createSession`, `getById`, etc.)
+- **`interview-worker.ts`** - Worker-facing procedures (`getContext`, `submitTranscript`, `updateStatus`)
+
+The Worker calls `interview-worker` procedures via HTTP POST to `/api/worker`.
+
+#### 3. Worker Architecture
+
+The "Worker" is a **Cloudflare Worker** in the `worker/` directory that:
+
+1. Receives WebSocket connections from the frontend
+2. Calls backend tRPC procedures to get interview context
+3. Connects to Gemini Live API for real-time audio
+4. Submits transcripts back to the backend when done
+
+```
+Frontend (browser) ←WebSocket→ Worker (Cloudflare) ←HTTP→ Backend (Next.js)
+                                    ↕
+                              Gemini Live API
+```
+
+#### 4. Protobuf Communication
+
+The Worker and Backend communicate using **Protocol Buffers** (protobuf) for type-safe serialization:
+
+- Proto definitions: `proto/interview.proto`
+- Generated TypeScript: `src/lib/proto/interview_pb.ts` and `worker/src/lib/proto/interview_pb.ts`
+- Regenerate after changes: `pnpm proto:generate`
+
+Protobufs ensure the Worker and Backend agree on message formats even when deployed separately.
+
+### File Structure Conventions
+
+This feature uses a **directory-based module pattern** with TypeScript constants (no JSON files):
+
+```
+src/lib/interview-templates/
+├── schema.ts              # Zod schemas and types (already done ✅)
+├── index.ts               # Registry: getTemplate(), listTemplates()
+├── prompt.ts              # Prompt building (buildBlockPrompt)
+└── definitions/           # One file per template
+    └── mba-behavioral-v1.ts
+```
+
+**Why TypeScript instead of JSON files?**
+- ✅ Type-safe at compile time (no runtime validation needed)
+- ✅ No file system operations (`fs.readFile`, `path.join`, `process.cwd()`)
+- ✅ Simpler deployment (just code, no special `config/` directory handling)
+- ✅ Better IDE support (autocomplete, refactoring)
+- ❌ Requires code deployment to change templates (acceptable for MVP)
+
+### Key Technical Concepts
+
+| Concept | Explanation |
+|---------|-------------|
+| **Zod** | Runtime schema validation library. `schema.parse(data)` throws on invalid data; `schema.safeParse(data)` returns `{ success, data/error }` |
+| **Block numbers** | **1-indexed** in the database and API. When accessing template arrays, use `blocks[blockNumber - 1]` |
+| **Template registry** | A simple `Map<string, InterviewTemplate>` built at module load time |
+
+### Template Definition Example
+
+```typescript
+// src/lib/interview-templates/definitions/mba-behavioral-v1.ts
+import type { InterviewTemplate } from "../schema";
+
+export const mbaBehavioralV1: InterviewTemplate = {
+  id: "mba-behavioral-v1",
+  name: "MBA Behavioral Interview",
+  description: "Standard MBA admissions behavioral interview",
+  persona: "Senior admissions officer at a top-10 MBA program.",
+  answerTimeLimitSec: 180,
+  blocks: [
+    {
+      language: "zh",
+      durationSec: 600,
+      questions: [
+        { content: "Tell me about a time you led a team.", translation: "请描述..." },
+      ],
+    },
+    {
+      language: "en",
+      durationSec: 600,
+      questions: [
+        { content: "What is your greatest achievement?" },
+      ],
+    },
+  ],
+};
+```
+
+### Registry Implementation
+
+```typescript
+// src/lib/interview-templates/index.ts
+import type { InterviewTemplate } from "./schema";
+import { mbaBehavioralV1 } from "./definitions/mba-behavioral-v1";
+
+// Build registry from all template definitions
+const TEMPLATES: Map<string, InterviewTemplate> = new Map([
+  [mbaBehavioralV1.id, mbaBehavioralV1],
+  // Add more templates here as needed
+]);
+
+export function getTemplate(id: string): InterviewTemplate | null {
+  return TEMPLATES.get(id) ?? null;
+}
+
+export function listTemplates(): InterviewTemplate[] {
+  return Array.from(TEMPLATES.values());
+}
+```
+
+### Adding a New Template
+
+1. Create `src/lib/interview-templates/definitions/my-new-template.ts`
+2. Export a const that satisfies `InterviewTemplate` type
+3. Import and add to the `TEMPLATES` Map in `index.ts`
+
+No caching, no file I/O, no `_clearCache()` needed for tests
+
+---
+
 ## 1. Overview
 
 Replace the current single continuous interview session with a **block-based architecture** where each language block is a separate Gemini session. This enables:
 
 - **Question templates** - Teacher-defined questions guaranteed to be asked
-- **Per-answer time limits** - Hard 3-minute cap via frontend mic cutoff
+- **Per-answer time limits** - Hard 3-minute cap via frontend mic mute
 - **Language switching** - Each block has different language settings
 - **Better control** - Deterministic interview flow vs. AI-driven
 
@@ -76,7 +228,7 @@ PROPOSED: Block-Based Sessions (MVP: 2 blocks)
 │ Interview (20 min, 2 blocks)                        │
 │ ┌─────────────────────────────────────────────────┐ │
 │ │ Block 1: Chinese (10 min)                       │ │
-│ │ - Questions 1, 2, 3 (3 min each, mic cutoff)    │ │
+│ │ - Questions 1, 2, 3 (3 min each, mic mute)      │ │
 │ │ - Single Gemini session                         │ │
 │ │ - Context preserved for follow-ups              │ │
 │ └─────────────────────────────────────────────────┘ │
@@ -85,7 +237,7 @@ PROPOSED: Block-Based Sessions (MVP: 2 blocks)
 │                        ↓                            │
 │ ┌─────────────────────────────────────────────────┐ │
 │ │ Block 2: English (10 min)                       │ │
-│ │ - Questions 4, 5, 6 (3 min each, mic cutoff)    │ │
+│ │ - Questions 4, 5, 6 (3 min each, mic mute)      │ │
 │ │ - Fresh Gemini session (new language)           │ │
 │ │ - Context preserved for follow-ups              │ │
 │ └─────────────────────────────────────────────────┘ │
@@ -108,9 +260,9 @@ PROPOSED: Block-Based Sessions (MVP: 2 blocks)
 │  │   │ - Gemini asks Q1                            │   │    │
 │  │   │ - Start 3-min per-answer timer              │   │    │
 │  │   │ - User answers                              │   │    │
-│  │   │ - Timer expires → MIC CUTOFF                │   │    │
-│  │   │ - Send: "Time's up, move to next question"  │   │    │
-│  │   │ - Reset timer for Q2                        │   │    │
+│  │   │ - Timer expires → MIC MUTE                  │   │    │
+│  │   │ - Gemini hears silence → moves to Q2        │   │    │
+│  │   │ - Reset timer, unmute mic for Q2            │   │    │
 │  │   └─────────────────────────────────────────────┘   │    │
 │  │                                                     │    │
 │  │   (Repeat for Q2, Q3 within same session)           │    │
@@ -138,31 +290,38 @@ PROPOSED: Block-Based Sessions (MVP: 2 blocks)
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 3.3 Per-Answer Mic Cutoff (Key Innovation)
+### 3.3 Per-Answer Mic Mute (Simplified Approach)
 
-The Gemini API doesn't interrupt users. We enforce the 3-minute limit via frontend:
+The Gemini API doesn't interrupt users. We enforce the 3-minute limit by muting the mic:
 
 ```typescript
-// Frontend mic cutoff logic
+// Frontend mic mute logic
 const PER_ANSWER_LIMIT_MS = 180_000; // 3 minutes
 
 function handleAnswerTimeout() {
-  // 1. Stop sending audio to Gemini
+  // 1. Mute mic (keep stream alive for fast re-enable)
   mediaStream.getAudioTracks().forEach(track => track.enabled = false);
+  setIsMicMuted(true);
 
   // 2. Show "time's up" UI to user
   setShowTimeUpBanner(true);
 
-  // 3. Send text prompt to Gemini to move on
-  sendTextMessage(
-    "The candidate's time for this question is up. " +
-    "Please acknowledge briefly and move to the next question."
-  );
+  // 3. Gemini interprets silence as "user finished answering"
+  //    and naturally moves to the next question
 
-  // 4. Re-enable mic after Gemini responds (for next question)
-  // Triggered by detecting Gemini's acknowledgment
+  // 4. After brief pause, unmute for next question
+  setTimeout(() => {
+    mediaStream.getAudioTracks().forEach(track => track.enabled = true);
+    setIsMicMuted(false);
+    setCurrentQuestionIndex(prev => prev + 1);
+  }, 3000); // 3 seconds for Gemini to transition
 }
 ```
+
+**Why mute instead of disconnect?**
+- Instant re-enable (no permission re-request)
+- No WebRTC renegotiation needed
+- Smoother UX
 
 ## 4. Data Model
 
@@ -178,80 +337,78 @@ function handleAnswerTimeout() {
 
 **Future:** If teachers need self-service template creation, migrate to database storage.
 
-### 4.2 Template Config Files
+### 4.2 Template Definitions (TypeScript)
 
-**Location:** `config/interview-templates/`
+**Location:** `src/lib/interview-templates/definitions/`
 
 **File Naming Convention:**
 ```
-{position-type}-{company?}-{version-or-id}.json
+{template-id}.ts  (kebab-case matching the template ID)
 ```
 
 Examples:
-- `mba-behavioral-v1.json`
-- `software-engineer-l4-google-abc123.json`
-- `product-manager-meta-v2.json`
+- `mba-behavioral-v1.ts`
+- `software-engineer-l4-google.ts`
+- `product-manager-meta-v2.ts`
 
 **Directory Structure:**
 ```
-config/interview-templates/
-├── mba-behavioral-v1.json
-├── mba-behavioral-v2.json
-├── software-engineer-l4-google-abc123.json
-└── product-manager-v1.json
+src/lib/interview-templates/
+├── schema.ts              # Zod schemas and types
+├── index.ts               # Registry (getTemplate, listTemplates)
+├── prompt.ts              # Prompt building
+└── definitions/
+    ├── mba-behavioral-v1.ts
+    └── software-engineer-v1.ts
 ```
 
-**Example Template File:** `config/interview-templates/mba-behavioral-v1.json`
+**Example Template Definition:** `src/lib/interview-templates/definitions/mba-behavioral-v1.ts`
 
-```json
-{
-  "id": "mba-behavioral-v1",
-  "name": "MBA Behavioral Interview",
-  "description": "Standard MBA admissions behavioral interview",
-  "persona": "Senior admissions officer at a top-10 MBA program. Professional, warm, evaluating leadership potential.",
-  "answerTimeLimitSec": 180,
-  "blocks": [
+```typescript
+import type { InterviewTemplate } from "../schema";
+
+export const mbaBehavioralV1: InterviewTemplate = {
+  id: "mba-behavioral-v1",
+  name: "MBA Behavioral Interview",
+  description: "Standard MBA admissions behavioral interview",
+  persona: "Senior admissions officer at a top-10 MBA program. Professional, warm, evaluating leadership potential.",
+  answerTimeLimitSec: 180,
+  blocks: [
     {
-      "language": "zh",
-      "durationSec": 600,
-      "questions": [
+      language: "zh",
+      durationSec: 600,
+      questions: [
         {
-          "content": "Tell me about a time you led a team through a difficult period.",
-          "translation": "请描述一次你带领团队度过困难时期的经历。"
+          content: "Tell me about a time you led a team through a difficult period.",
+          translation: "请描述一次你带领团队度过困难时期的经历。",
         },
         {
-          "content": "Describe a situation where you failed and what you learned from it.",
-          "translation": "请描述一个你失败的情况，以及你从中学到了什么。"
+          content: "Describe a situation where you failed and what you learned from it.",
+          translation: "请描述一个你失败的情况，以及你从中学到了什么。",
         },
         {
-          "content": "Why do you want to pursue an MBA at this point in your career?",
-          "translation": "为什么你想在职业生涯的这个阶段攻读MBA？"
-        }
-      ]
+          content: "Why do you want to pursue an MBA at this point in your career?",
+          translation: "为什么你想在职业生涯的这个阶段攻读MBA？",
+        },
+      ],
     },
     {
-      "language": "en",
-      "durationSec": 600,
-      "questions": [
-        {
-          "content": "Tell me about a time you had to influence someone without formal authority."
-        },
-        {
-          "content": "What is your greatest professional achievement?"
-        },
-        {
-          "content": "Where do you see yourself in 10 years?"
-        }
-      ]
-    }
-  ]
-}
+      language: "en",
+      durationSec: 600,
+      questions: [
+        { content: "Tell me about a time you had to influence someone without formal authority." },
+        { content: "What is your greatest professional achievement?" },
+        { content: "Where do you see yourself in 10 years?" },
+      ],
+    },
+  ],
+};
 ```
 
 ### 4.3 TypeScript Types (Zod Schema)
 
 ```typescript
-// src/lib/interview-templates.schema.ts
+// src/lib/interview-templates/schema.ts
 
 import { z } from "zod";
 
@@ -286,39 +443,24 @@ export { InterviewTemplateSchema, InterviewBlockSchema };
 ```
 
 ```typescript
-// src/lib/interview-templates.ts
+// src/lib/interview-templates/index.ts
 
-import fs from 'fs';
-import path from 'path';
-import { InterviewTemplateSchema, type InterviewTemplate } from './interview-templates.schema';
+import type { InterviewTemplate } from "./schema";
+import { mbaBehavioralV1 } from "./definitions/mba-behavioral-v1";
+// Import additional templates as needed
 
-const TEMPLATES_DIR = path.join(process.cwd(), 'config/interview-templates');
+// Build registry from all template definitions
+const TEMPLATES: Map<string, InterviewTemplate> = new Map([
+  [mbaBehavioralV1.id, mbaBehavioralV1],
+  // Add more: [otherTemplate.id, otherTemplate],
+]);
 
-// Cache templates in memory (loaded once at startup)
-let templatesCache: Map<string, InterviewTemplate> | null = null;
-
-function loadTemplates(): Map<string, InterviewTemplate> {
-  if (templatesCache) return templatesCache;
-
-  templatesCache = new Map();
-  const files = fs.readdirSync(TEMPLATES_DIR).filter(f => f.endsWith('.json'));
-
-  for (const file of files) {
-    const content = fs.readFileSync(path.join(TEMPLATES_DIR, file), 'utf-8');
-    const parsed = JSON.parse(content);
-    const template = InterviewTemplateSchema.parse(parsed); // Zod validation
-    templatesCache.set(template.id, template);
-  }
-
-  return templatesCache;
-}
-
-export function getTemplate(templateId: string): InterviewTemplate | null {
-  return loadTemplates().get(templateId) ?? null;
+export function getTemplate(id: string): InterviewTemplate | null {
+  return TEMPLATES.get(id) ?? null;
 }
 
 export function listTemplates(): InterviewTemplate[] {
-  return Array.from(loadTemplates().values());
+  return Array.from(TEMPLATES.values());
 }
 ```
 
@@ -565,20 +707,19 @@ export function BlockSession({ interview, blocks, template, guestToken }: BlockS
   const [isMicMuted, setIsMicMuted] = useState(false);
 
   const mediaStreamRef = useRef<MediaStream | null>(null);
-  const sendTextMessageRef = useRef<(msg: string) => void>(() => {});
 
   const block = blocks[blockIndex];
   const templateBlock = template.blocks[blockIndex];
   const isLastBlock = blockIndex === blocks.length - 1;
 
-  // Per-answer timer with mic cutoff
+  // Per-answer timer with mic mute
   useEffect(() => {
     if (phase !== "active" || isMicMuted) return;
 
     const timer = setInterval(() => {
       setAnswerTimeRemaining(prev => {
         if (prev <= 1) {
-          // TIME'S UP - cut the mic!
+          // TIME'S UP - mute the mic!
           handleAnswerTimeout();
           return template.answerTimeLimitSec; // Reset for next question
         }
@@ -590,7 +731,7 @@ export function BlockSession({ interview, blocks, template, guestToken }: BlockS
   }, [phase, isMicMuted, currentQuestionIndex]);
 
   const handleAnswerTimeout = useCallback(() => {
-    // 1. Mute microphone
+    // 1. Mute microphone (keep stream alive for fast re-enable)
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getAudioTracks().forEach(track => {
         track.enabled = false;
@@ -598,13 +739,10 @@ export function BlockSession({ interview, blocks, template, guestToken }: BlockS
     }
     setIsMicMuted(true);
 
-    // 2. Tell Gemini to move on
-    sendTextMessageRef.current(
-      "The candidate's time for this question is up. " +
-      "Please acknowledge briefly and move to the next question."
-    );
+    // 2. Gemini interprets silence as "user finished"
+    //    and naturally transitions to the next question
 
-    // 3. Re-enable mic after delay (Gemini needs time to respond)
+    // 3. Re-enable mic after brief pause
     setTimeout(() => {
       if (mediaStreamRef.current) {
         mediaStreamRef.current.getAudioTracks().forEach(track => {
@@ -613,7 +751,7 @@ export function BlockSession({ interview, blocks, template, guestToken }: BlockS
       }
       setIsMicMuted(false);
       setCurrentQuestionIndex(prev => prev + 1);
-    }, 3000); // 3 seconds for Gemini to acknowledge
+    }, 3000); // 3 seconds for Gemini to transition
   }, []);
 
   // Handle block completion
@@ -715,7 +853,6 @@ export function BlockSession({ interview, blocks, template, guestToken }: BlockS
         disableStatusRedirect
         duration={templateBlock?.durationSec ? templateBlock.durationSec * 1000 : undefined}
         onMediaStream={(stream) => { mediaStreamRef.current = stream; }}
-        onSendTextMessage={(fn) => { sendTextMessageRef.current = fn; }}
       />
     </>
   );
@@ -735,30 +872,29 @@ interface SessionContentProps {
   disableStatusRedirect?: boolean;
   duration?: number;
 
-  // NEW: For mic cutoff feature
+  // NEW: For mic mute feature
   onMediaStream?: (stream: MediaStream) => void;
-  onSendTextMessage?: (fn: (msg: string) => void) => void;
 }
 ```
 
 ### 7.3 File Structure
 
 ```
-config/interview-templates/            # Template definitions (admin-managed)
-├── mba-behavioral-v1.json
-└── software-engineer-v1.json
-
 src/
 ├── lib/
-│   ├── interview-templates.schema.ts  # Zod schema for templates
-│   └── interview-templates.ts         # Template loading helpers
+│   └── interview-templates/
+│       ├── schema.ts                  # Zod schema for templates
+│       ├── index.ts                   # Registry (getTemplate, listTemplates)
+│       ├── prompt.ts                  # Block prompt builder
+│       └── definitions/               # One file per template
+│           └── mba-behavioral-v1.ts
 │
 └── app/[locale]/(interview)/interview/[interviewId]/
     └── session/
         ├── page.tsx                   # Conditional: BlockSession or SessionContent
         ├── SessionContent.tsx         # Add optional props for block mode
         ├── BlockSession.tsx           # NEW: Block-based interview component
-        └── useInterviewSocket.ts      # Expose sendTextMessage for prompt injection
+        └── useInterviewSocket.ts      # WebSocket hook (expose MediaStream for mute)
 ```
 
 ## 8. Worker-Backend Communication (Protobuf)
@@ -958,14 +1094,15 @@ The `optional` proto fields ensure old Workers (without block support) continue 
 ### Phase 1: Proto & Schema
 - Update `proto/interview.proto` with `block_number` fields (see Section 8.1)
 - Run `pnpm proto:generate` to regenerate TypeScript types
-- Create Zod schema (`src/lib/interview-templates.schema.ts`)
+- Create Zod schema (`src/lib/interview-templates/schema.ts`)
 - Add Prisma models (`InterviewBlock`, `BlockLanguage`, `BlockStatus`)
 - Add `templateId` and `isBlockBased` fields to `Interview` model
 
 ### Phase 2: Config & Templates
-- Create `config/interview-templates/` directory
-- Add initial template(s) (e.g., `mba-behavioral-v1.json`)
-- Add template loading helpers (`src/lib/interview-templates.ts`)
+- Create `src/lib/interview-templates/definitions/` directory
+- Add initial template(s) (e.g., `mba-behavioral-v1.ts`)
+- Add template registry (`src/lib/interview-templates/index.ts`)
+- Add prompt builder (`src/lib/interview-templates/prompt.ts`)
 
 ### Phase 3: Backend - Block Management
 - Modify `getContext` handler to return block-specific system prompt
@@ -981,8 +1118,7 @@ The `optional` proto fields ensure old Workers (without block support) continue 
 
 ### Phase 5: Frontend Session UI
 - `BlockSession` component with per-answer timer
-- Mic cutoff implementation (disable audio tracks)
-- Text message injection for "time's up" prompt
+- Mic mute implementation (disable audio tracks, keep stream alive)
 - Construct WebSocket URL with `&block=N` param
 - Conditional routing in `/session/page.tsx` based on `isBlockBased` flag
 
@@ -1015,15 +1151,15 @@ The `BlockSession` component already iterates through blocks - whether 2 or 6 is
 ## 12. Dependencies
 
 - **FEAT28 (Results Storage)** - Block transcripts, aggregated feedback
-- Worker deployment for text message handling
+- Worker deployment with block_number support
 
 ## 13. Risk Assessment
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|------------|--------|------------|
 | Gemini doesn't follow question order | Medium | Medium | Strong prompting; fallback to per-question sessions |
-| Mic cutoff feels abrupt to users | Medium | Low | Show countdown warning at 30s, friendly "time's up" message |
-| Text prompt injection doesn't work | Low | High | Test thoroughly; ensure WebSocket supports text messages |
+| Mic mute feels abrupt to users | Medium | Low | Show countdown warning at 30s, friendly "time's up" UI |
+| Gemini slow to transition after silence | Low | Medium | Show "processing" UI; extend unmute delay if needed |
 | SessionContent changes break existing flow | Low | High | Props are optional, defaults preserve behavior |
 
 ---

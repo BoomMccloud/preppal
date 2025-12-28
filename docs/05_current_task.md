@@ -1,8 +1,8 @@
 # Current Task: Block-Based Interview Architecture Tests (FEAT27)
 
-## Status: 🔴 TDD Red Phase Complete
+## Status: 🟡 TDD Green Phase - In Progress
 
-All tests written and verified to fail. Ready for implementation.
+Implementing source files to make tests pass.
 
 ## Branch
 `feat/email-otp-utils` (continuing from FEAT25)
@@ -13,20 +13,20 @@ All tests written and verified to fail. Ready for implementation.
 
 | File | Type | Tests | Status |
 |------|------|-------|--------|
-| `src/test/unit/interview-templates-schema.test.ts` | Unit | 24 | ❌ Fails (module not found) |
-| `src/test/unit/interview-templates.test.ts` | Unit | 11 | ❌ Fails (module not found) |
-| `src/test/unit/block-prompt.test.ts` | Unit | 23 | ❌ Fails (module not found) |
+| `src/test/unit/interview-templates-schema.test.ts` | Unit | 4 | ✅ Passing |
+| `src/test/unit/interview-templates.test.ts` | Unit | 5 | ❌ Fails (module not found) |
+| `src/test/unit/block-prompt.test.ts` | Unit | 4 | ❌ Fails (module not found) |
 | `src/test/integration/interview-blocks.test.ts` | Integration | 17 | ❌ Fails (schema/procedures missing) |
 | `src/test/integration/block-interview-golden-path.test.ts` | Integration | 4 | ❌ Fails (schema/procedures missing) |
 
-**Total: 79 new tests**
+**Total: 34 tests** (13 unit + 21 integration)
 
 ---
 
 ## Implementation Required to Pass Tests
 
 ### Phase 1: Source Files (Unit Tests)
-- [ ] `src/lib/interview-templates/schema.ts` - Zod schemas
+- [x] `src/lib/interview-templates/schema.ts` - Zod schemas ✅
   - `LanguageSchema` (en, zh)
   - `InterviewQuestionSchema` (content, optional translation)
   - `InterviewBlockSchema` (language, durationSec, questions)
@@ -79,6 +79,16 @@ pnpm test -- --testPathPattern="interview-blocks|block-interview-golden-path"
 
 ## Design Reference
 Full specification: [docs/todo/FEAT27_interview_templates.md](./todo/FEAT27_interview_templates.md)
+
+### Recent Spec Updates (2025-12-28)
+- ✅ Added **Prerequisites** section for junior developers
+- ✅ Clarified file paths (`src/lib/interview-templates/` directory structure)
+- ✅ Documented test helpers (`_clearCache()`, `_getCache()`)
+- ✅ Documented error handling requirements
+- ✅ **Simplified per-answer timer**: Changed from "mic cutoff + text injection" to "mic mute only"
+  - Gemini interprets silence as "user finished" and moves to next question
+  - No `sendTextMessage()` or Worker text injection needed
+  - Simpler implementation, fewer dependencies
 
 ---
 
