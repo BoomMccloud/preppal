@@ -181,19 +181,33 @@ This section covers deploying the web application as a Docker container for priv
 
 ### 3.2 Building the Docker Image
 
-The `NEXT_PUBLIC_WORKER_URL` must be provided at build time since it's baked into the Next.js client bundle.
+The `NEXT_PUBLIC_WORKER_URL` must be provided at build time since it's baked into the Next.js client bundle. Additionally, since most production environments run on AMD64 architecture, you should specify the platform when building on Apple Silicon.
+
+You can use the provided `pnpm` scripts:
 
 ```bash
-# Load NEXT_PUBLIC_WORKER_URL from .env and build
+# Build for AMD64 platform
+pnpm podman:build
+
+# Push to registry
+pnpm podman:push
+```
+
+Or run the commands manually:
+
+```bash
+# Load NEXT_PUBLIC_WORKER_URL from .env and build for AMD64
 podman build \
+  --platform linux/amd64 \
   -f docker/Dockerfile \
-  --build-arg NEXT_PUBLIC_WORKER_URL="$(grep NEXT_PUBLIC_WORKER_URL .env | cut -d '=' -f2)" \
+  --build-arg NEXT_PUBLIC_WORKER_URL="$(grep NEXT_PUBLIC_WORKER_URL .env | cut -d '=' -f2 | tr -d '\"')" \
   -t docker.io/boommccloud/preppal:latest .
 ```
 
 Or specify the URL directly:
 ```bash
 podman build \
+  --platform linux/amd64 \
   -f docker/Dockerfile \
   --build-arg NEXT_PUBLIC_WORKER_URL="wss://your-worker.your-domain.workers.dev" \
   -t docker.io/boommccloud/preppal:latest .
