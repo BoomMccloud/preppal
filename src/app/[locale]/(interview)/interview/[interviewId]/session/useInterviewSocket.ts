@@ -27,6 +27,8 @@ interface UseInterviewSocketProps {
   interviewId: string;
   guestToken?: string;
   onSessionEnded: () => void;
+  blockNumber?: number;
+  onMediaStream?: (stream: MediaStream) => void;
 }
 
 interface UseInterviewSocketReturn {
@@ -36,6 +38,9 @@ interface UseInterviewSocketReturn {
   error: string | null;
   endInterview: () => void;
   isAiSpeaking: boolean;
+  muteAudio: () => void;
+  unmuteAudio: () => void;
+  isAudioMuted: () => boolean;
   debugInfo: {
     connectAttempts: number;
     activeConnections: number;
@@ -46,6 +51,8 @@ export function useInterviewSocket({
   interviewId,
   guestToken,
   onSessionEnded,
+  blockNumber,
+  onMediaStream,
 }: UseInterviewSocketProps): UseInterviewSocketReturn {
   const [state, setState] = useState<SessionState>("initializing");
   const [committedTranscript, setCommittedTranscript] = useState<
@@ -172,6 +179,12 @@ export function useInterviewSocket({
             }
           });
 
+          // Expose MediaStream if requested
+          const stream = audioSession.getRecorder()?.getStream();
+          if (stream && onMediaStream) {
+            onMediaStream(stream);
+          }
+
           startTimer();
         } catch (err) {
           console.error("[setupAudio] Failed to initialize audio:", err);
@@ -192,6 +205,8 @@ export function useInterviewSocket({
       audioSessionRef.current?.stop();
       audioSessionRef.current = null;
     };
+    // onMediaStream is intentionally excluded - it's a stable callback that shouldn't trigger re-runs
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
   const connectWebSocket = (token: string) => {
@@ -209,7 +224,9 @@ export function useInterviewSocket({
     const workerUrl = (
       process.env.NEXT_PUBLIC_WORKER_URL ?? "http://localhost:8787"
     ).replace(/^http/, "ws");
-    const wsUrl = `${workerUrl}/${interviewId}?token=${encodeURIComponent(token)}`;
+    const wsUrl = blockNumber
+      ? `${workerUrl}/${interviewId}?token=${encodeURIComponent(token)}&block=${blockNumber}`
+      : `${workerUrl}/${interviewId}?token=${encodeURIComponent(token)}`;
     console.log(
       `[WebSocket] Connecting to: ${wsUrl} (Attempt #${connectAttempts + 1})`,
     );
@@ -343,6 +360,19 @@ export function useInterviewSocket({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [interviewId]);
 
+  // Mute/unmute functions for per-answer timer
+  const muteAudio = () => {
+    audioSessionRef.current?.muteInput();
+  };
+
+  const unmuteAudio = () => {
+    audioSessionRef.current?.unmuteInput();
+  };
+
+  const isAudioMuted = () => {
+    return audioSessionRef.current?.isInputMuted() ?? false;
+  };
+
   return {
     state,
     transcript,
@@ -350,6 +380,9 @@ export function useInterviewSocket({
     error,
     endInterview,
     isAiSpeaking,
+    muteAudio,
+    unmuteAudio,
+    isAudioMuted,
     debugInfo: {
       connectAttempts,
       activeConnections,

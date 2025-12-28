@@ -1,5 +1,5 @@
 // ABOUTME: Manages the high-level lifecycle of an interview session
-// ABOUTME: Handles backend API interactions for status updates, transcript submission, and feedback generation
+// ABOUTME: Handles backend API interactions for status updates, transcript submission, and feedback storage
 
 import { INTERVIEW_STATUS } from "../constants";
 import type {
@@ -22,7 +22,10 @@ export class InterviewLifecycleManager {
   /**
    * Initializes the interview session by fetching context and updating status.
    */
-  async initializeSession(interviewId: string): Promise<InterviewContext> {
+  async initializeSession(
+    interviewId: string,
+    blockNumber?: number,
+  ): Promise<InterviewContext> {
     let context: InterviewContext = {
       jobDescription: "",
       resume: "",
@@ -32,9 +35,9 @@ export class InterviewLifecycleManager {
 
     try {
       console.log(
-        `[InterviewLifecycleManager] Fetching context for interview ${interviewId}`,
+        `[InterviewLifecycleManager] Fetching context for interview ${interviewId}${blockNumber ? ` (block ${blockNumber})` : ""}`,
       );
-      context = await this.apiClient.getContext(interviewId);
+      context = await this.apiClient.getContext(interviewId, blockNumber);
       console.log(`[InterviewLifecycleManager] Context fetched successfully`);
     } catch (error) {
       console.error(
@@ -45,6 +48,8 @@ export class InterviewLifecycleManager {
     }
 
     try {
+      // For block-based interviews, the backend marks the block as IN_PROGRESS during getContext.
+      // We still update the overall interview status if it's not already IN_PROGRESS.
       await this.apiClient.updateStatus(
         interviewId,
         INTERVIEW_STATUS.IN_PROGRESS,
@@ -55,7 +60,7 @@ export class InterviewLifecycleManager {
         `[InterviewLifecycleManager] Failed to update status to IN_PROGRESS:`,
         error,
       );
-      throw error; // This is critical for session startup
+      // We don't throw here if context was successfully fetched, as the interview can still proceed
     }
 
     return context;
@@ -66,11 +71,13 @@ export class InterviewLifecycleManager {
    * @param interviewId - The interview ID
    * @param transcriptManager - The transcript manager with aggregated turns
    * @param context - Interview context for feedback generation
+   * @param blockNumber - Optional block number for block-based interviews
    */
   async finalizeSession(
     interviewId: string,
     transcriptManager: ITranscriptManager,
     context: InterviewContext,
+    blockNumber?: number,
   ): Promise<void> {
     try {
       const endedAt = new Date().toISOString();
@@ -83,32 +90,46 @@ export class InterviewLifecycleManager {
 
       // Step 1: Save transcript - CRITICAL
       console.log(
-        `[InterviewLifecycleManager] Submitting transcript for interview ${interviewId} (${serializedTranscript.length} bytes)`,
+        `[InterviewLifecycleManager] Submitting transcript for interview ${interviewId}${blockNumber ? ` block ${blockNumber}` : ""} (${serializedTranscript.length} bytes)`,
       );
       await this.apiClient.submitTranscript(
         interviewId,
         serializedTranscript,
         endedAt,
+        blockNumber,
       );
       console.log(
         `[InterviewLifecycleManager] Transcript submitted for interview ${interviewId}`,
       );
 
       // Step 2: Generate and submit feedback - BEST EFFORT
-      await this.generateAndSubmitFeedback(
-        interviewId,
-        transcriptText,
-        context,
-      );
+      // For block-based interviews, we might skip full feedback generation per block
+      // and instead do it at the very end of the interview.
+      // For now, we only generate feedback if it's NOT a block-based session.
+      if (!blockNumber) {
+        await this.generateAndSubmitFeedback(
+          interviewId,
+          transcriptText,
+          context,
+        );
+      }
 
-      // Step 3: Update status to COMPLETED
-      await this.apiClient.updateStatus(
-        interviewId,
-        INTERVIEW_STATUS.COMPLETED,
-      );
-      console.log(
-        `[InterviewLifecycleManager] Interview ${interviewId} status updated to COMPLETED`,
-      );
+      // Step 3: Update status
+      // If it's a block, we don't mark the whole interview as COMPLETED.
+      // The backend handles marking the block as COMPLETED during submitTranscript if blockNumber is provided.
+      if (!blockNumber) {
+        await this.apiClient.updateStatus(
+          interviewId,
+          INTERVIEW_STATUS.COMPLETED,
+        );
+        console.log(
+          `[InterviewLifecycleManager] Interview ${interviewId} status updated to COMPLETED`,
+        );
+      } else {
+        console.log(
+          `[InterviewLifecycleManager] Block ${blockNumber} for interview ${interviewId} finalized`,
+        );
+      }
     } catch (error) {
       console.error(
         `[InterviewLifecycleManager] Failed to finalize session for interview ${interviewId}:`,

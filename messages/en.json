@@ -139,6 +139,21 @@
       "waitingToBegin": "Waiting for the interview to begin...",
       "currentStatus": "Current interview status: {status}"
     },
+    "blockSession": {
+      "blockComplete": "Block {number} Complete",
+      "languageSwitchTitle": "🌐 Language Switch",
+      "nextBlockLanguage": "The next block will be in: {language}",
+      "english": "English",
+      "chinese": "Chinese",
+      "blockDetails": "{questions} questions, {minutes} minutes total",
+      "continue": "Continue",
+      "takeBreak": "Take a Break",
+      "blockProgress": "Block {current} of {total}",
+      "questionProgress": "Question {current} of {total}",
+      "timer": "Answer: {minutes}:{seconds}",
+      "timesUpTitle": "Time's up for this answer!",
+      "timesUpMessage": "Moving to the next question... (Your microphone will re-enable shortly)"
+    },
     "feedback": {
       "title": "Interview Feedback",
       "interviewId": "Interview ID: {id}",

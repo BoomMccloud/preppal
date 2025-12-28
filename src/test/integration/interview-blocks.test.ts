@@ -402,6 +402,7 @@ describe("Interview Block Management", () => {
       });
 
       expect(block?.transcriptId).not.toBeNull();
+      expect(block?.status).toBe("COMPLETED");
     });
 
     it("should save transcript to Interview when block_number not provided", async () => {

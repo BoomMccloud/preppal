@@ -68,13 +68,18 @@ export class ApiClient implements IApiClient {
   /**
    * Fetches interview context (job description, resume, persona, duration)
    */
-  async getContext(interviewId: string): Promise<InterviewContext> {
-    console.log(`[API] getContext for interview ${interviewId}`);
+  async getContext(
+    interviewId: string,
+    blockNumber?: number,
+  ): Promise<InterviewContext> {
+    console.log(
+      `[API] getContext for interview ${interviewId}${blockNumber ? ` (block ${blockNumber})` : ""}`,
+    );
 
     const request = create(WorkerApiRequestSchema, {
       request: {
         case: "getContext",
-        value: create(GetContextRequestSchema, { interviewId }),
+        value: create(GetContextRequestSchema, { interviewId, blockNumber }),
       },
     });
     const payload = toBinary(WorkerApiRequestSchema, request);
@@ -98,6 +103,8 @@ export class ApiClient implements IApiClient {
       resume: ctx.resume ?? "",
       persona: ctx.persona ?? "professional interviewer",
       durationMs,
+      systemPrompt: ctx.systemPrompt,
+      language: ctx.language,
     };
   }
 
@@ -151,9 +158,10 @@ export class ApiClient implements IApiClient {
     interviewId: string,
     transcript: Uint8Array,
     endedAt: string,
+    blockNumber?: number,
   ): Promise<void> {
     console.log(
-      `[API] submitTranscript for interview ${interviewId} (${transcript.length} bytes)`,
+      `[API] submitTranscript for interview ${interviewId}${blockNumber ? ` (block ${blockNumber})` : ""} (${transcript.length} bytes)`,
     );
 
     const request = create(WorkerApiRequestSchema, {
@@ -163,6 +171,7 @@ export class ApiClient implements IApiClient {
           interviewId,
           transcript,
           endedAt,
+          blockNumber,
         }),
       },
     });

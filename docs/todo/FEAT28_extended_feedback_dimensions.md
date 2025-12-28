@@ -7,8 +7,8 @@
 
 | Phase | Status | Notes |
 |-------|--------|-------|
-| **Phase 1: Schema** | Pending | SegmentTranscript, extended InterviewFeedback |
-| **Phase 2: Backend** | Pending | Segment result storage, feedback aggregation |
+| **Phase 1: Schema** | Pending | BlockTranscript, extended InterviewFeedback |
+| **Phase 2: Backend** | Pending | Block result storage, feedback aggregation |
 | **Phase 3: Feedback Generation** | Pending | Extended dimensions, historical comparison |
 | **Phase 4: Frontend** | Pending | Enhanced feedback display UI |
 
@@ -18,10 +18,10 @@
 
 Define how interview results are stored and presented, with support for:
 
-- **Per-segment transcripts** - Store transcript for each 3-min segment separately
+- **Per-block transcripts** - Store transcript for each 10-min block separately
 - **Extended feedback dimensions** - 6-9 evaluation criteria (vs. current 5)
 - **Historical comparison** - Compare current interview to previous attempts
-- **Aggregated feedback** - Unified report from all segments
+- **Aggregated feedback** - Unified report from all blocks
 
 ## 2. Problem Statement
 
@@ -38,15 +38,15 @@ Current limitations:
 
 ## 3. Data Model
 
-### 3.1 Segment Transcript Storage
+### 3.1 Block Transcript Storage
 
 ```prisma
-model SegmentTranscript {
+model BlockTranscript {
   id            String   @id @default(cuid())
 
-  // Link to segment
-  segmentId     String   @unique
-  segment       InterviewSegment @relation(fields: [segmentId], references: [id], onDelete: Cascade)
+  // Link to block
+  blockId       String   @unique
+  block         InterviewBlock @relation(fields: [blockId], references: [id], onDelete: Cascade)
 
   // Transcript data
   transcriptBinary  Bytes?   // Protobuf binary (existing format)
@@ -55,17 +55,17 @@ model SegmentTranscript {
   // AI-generated summary of candidate's answer
   answerSummary     String?
 
-  // Per-segment quick feedback (optional)
+  // Per-block quick feedback (optional)
   quickFeedback     Json?    // { score: number, notes: string }
 
   createdAt     DateTime @default(now())
 }
 
-// Update InterviewSegment to include relation
-model InterviewSegment {
+// Update InterviewBlock to include relation
+model InterviewBlock {
   // ... existing fields ...
 
-  transcript    SegmentTranscript?
+  transcript    BlockTranscript?
 }
 ```
 
@@ -161,18 +161,18 @@ Teachers can customize dimensions via FeedbackTemplate (FEAT27).
 
 ## 5. Feedback Generation Flow
 
-### 5.1 Per-Segment Processing
+### 5.1 Per-Block Processing
 
 ```typescript
-// After each segment ends
-async function processSegmentResult(
-  segment: InterviewSegment,
+// After each block ends
+async function processBlockResult(
+  block: InterviewBlock,
   transcript: string
 ): Promise<void> {
   // 1. Store raw transcript
-  await db.segmentTranscript.create({
+  await db.blockTranscript.create({
     data: {
-      segmentId: segment.id,
+      blockId: block.id,
       transcriptText: transcript,
       transcriptBinary: encodeProtobuf(transcript),
     },
@@ -184,8 +184,8 @@ async function processSegmentResult(
     maxTokens: 150,
   });
 
-  await db.segmentTranscript.update({
-    where: { segmentId: segment.id },
+  await db.blockTranscript.update({
+    where: { blockId: block.id },
     data: { answerSummary: summary },
   });
 }
@@ -194,15 +194,15 @@ async function processSegmentResult(
 ### 5.2 Final Feedback Aggregation
 
 ```typescript
-// After all segments complete
+// After all blocks complete
 async function generateFinalFeedback(
   interview: Interview,
-  segments: InterviewSegment[],
+  blocks: InterviewBlock[],
   template: FeedbackTemplate | null
 ): Promise<InterviewFeedback> {
   // 1. Aggregate all transcripts
-  const fullTranscript = segments
-    .map(s => `[Q${s.segmentNumber}] ${s.questionText}\n${s.transcript?.transcriptText}`)
+  const fullTranscript = blocks
+    .map(b => `[Block ${b.blockNumber}] Language: ${b.language}\n${b.transcript?.transcriptText}`)
     .join('\n\n---\n\n');
 
   // 2. Get dimensions to evaluate
@@ -415,7 +415,7 @@ Be specific and actionable in feedback. Reference exact moments from the transcr
 │  │ → Suggestions:                                          │    │
 │  │   • Reduce filler words ("um", "like")                  │    │
 │  │   • Vary sentence structure for engagement              │    │
-│  └─────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────┘    │
 │                                                                 │
 │  ┌─────────────────────────────────────────────────────────┐    │
 │  │ Content Quality                              6.8 / 10   │    │
@@ -507,14 +507,14 @@ export const feedbackRouter = createTRPCRouter({
       // Returns array of feedbacks with scores over time
     }),
 
-  // Get segment transcripts
-  getSegmentTranscripts: flexibleProcedure
+  // Get block transcripts
+  getBlockTranscripts: flexibleProcedure
     .input(z.object({
       interviewId: z.string(),
       guestToken: z.string().optional(),
     }))
     .query(async ({ ctx, input }) => {
-      // Returns per-segment transcripts and summaries
+      // Returns per-block transcripts and summaries
     }),
 });
 ```
@@ -522,15 +522,15 @@ export const feedbackRouter = createTRPCRouter({
 ## 9. Implementation Phases
 
 ### Phase 1: Schema Updates
-- Add SegmentTranscript model
+- Add BlockTranscript model
 - Extend InterviewFeedback with dimensions JSON
 - Add historicalComparison field
 - Database migration
 
-### Phase 2: Segment Storage
-- Per-segment transcript storage
+### Phase 2: Block Storage
+- Per-block transcript storage
 - Answer summary generation
-- Segment result processing
+- Block result processing
 
 ### Phase 3: Extended Feedback Generation
 - 9-dimension feedback prompt
@@ -573,7 +573,7 @@ WHERE dimensions IS NULL;
 
 ## 11. Dependencies
 
-- **FEAT27 (Segmented Interview)** - Segment structure, per-question transcripts
+- **FEAT27 (Block-Based Interview)** - Block structure, per-question transcripts
 - Gemini API for feedback generation
 - Chart library for visualizations (recharts or chart.js)
 
@@ -583,4 +583,4 @@ WHERE dimensions IS NULL;
 
 - Partner feedback: "6-9 dimensions", "compare with historical interviews"
 - Current implementation: [worker/src/utils/feedback.ts](../../worker/src/utils/feedback.ts)
-- Related: FEAT27 (Segmented Interview Architecture)
+- Related: FEAT27 (Block-Based Interview Architecture)

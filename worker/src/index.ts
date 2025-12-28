@@ -96,6 +96,12 @@ export default {
         headers.set("X-User-Id", payload.userId);
         headers.set("X-Interview-Id", payload.interviewId);
 
+        // Extract block number from query params if present
+        const block = url.searchParams.get("block");
+        if (block) {
+          headers.set("X-Block-Number", block);
+        }
+
         const authenticatedRequest = new Request(request, { headers });
         return stub.fetch(authenticatedRequest);
       } catch (error) {

@@ -32,6 +32,7 @@ export class GeminiSession implements DurableObject {
   // Session state
   private userId?: string;
   private interviewId?: string;
+  private blockNumber?: number;
   private isDebug = false;
   private userInitiatedClose = false;
   private sessionEnded = false;
@@ -65,19 +66,7 @@ export class GeminiSession implements DurableObject {
       env.GEMINI_API_KEY,
     );
 
-    // Stream handler will be initialized with callbacks that need the WebSocket
-    // Since we don't have the WS in constructor, we defer setup slightly or use a closure.
-    // However, the cleanest way is to pass the WS to the methods that need it,
-    // OR create the stream handler when we have the WS.
-    // Given the architecture, we'll initialize a "dummy" handler or wait until fetch.
-    // Better: Initialize it here but with callbacks that check for active WS.
-
     this.wsMessageHandler = new WebSocketMessageHandler();
-
-    // NOTE: StreamHandler needs to be created per-request/connection if we want to bind specific WS
-    // OR we bind it to 'this' and update the target WS.
-    // For DOs, 'fetch' is called per request. We'll instantiate StreamHandler in initializeSession
-    // to ensure it binds to the current WebSocket connection properly.
   }
 
   /**
@@ -95,7 +84,7 @@ export class GeminiSession implements DurableObject {
       this.extractAuthentication(request);
 
       console.log(
-        `[GeminiSession] WebSocket connection request - User: ${this.userId}, Interview: ${this.interviewId}`,
+        `[GeminiSession] WebSocket connection request - User: ${this.userId}, Interview: ${this.interviewId}${this.blockNumber ? `, Block: ${this.blockNumber}` : ""}`,
       );
 
       const webSocketPair = new WebSocketPair();
@@ -137,6 +126,8 @@ export class GeminiSession implements DurableObject {
   private extractAuthentication(request: Request): void {
     this.userId = request.headers.get("X-User-Id") ?? undefined;
     this.interviewId = request.headers.get("X-Interview-Id") ?? undefined;
+    const blockHeader = request.headers.get("X-Block-Number");
+    this.blockNumber = blockHeader ? parseInt(blockHeader, 10) : undefined;
 
     if (!this.isDebug && (!this.userId || !this.interviewId)) {
       throw new Error("Missing authentication context");
@@ -165,6 +156,7 @@ export class GeminiSession implements DurableObject {
     if (!this.isDebug) {
       this.interviewContext = await this.lifecycleManager.initializeSession(
         this.interviewId!,
+        this.blockNumber,
       );
     }
 

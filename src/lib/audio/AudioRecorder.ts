@@ -8,6 +8,7 @@ export class AudioRecorder {
   private audioContext: AudioContext | null = null;
   private stream: MediaStream | null = null;
   private workletNode: AudioWorkletNode | null = null;
+  private isMuted = false;
 
   /**
    * Starts audio recording.
@@ -71,5 +72,39 @@ export class AudioRecorder {
    */
   getStream(): MediaStream | null {
     return this.stream;
+  }
+
+  /**
+   * Mutes the microphone by disabling audio tracks.
+   * The stream stays active for fast re-enable.
+   */
+  mute(): void {
+    if (this.stream && !this.isMuted) {
+      this.stream.getAudioTracks().forEach((track) => {
+        track.enabled = false;
+      });
+      this.isMuted = true;
+      console.log("[AudioRecorder] Muted");
+    }
+  }
+
+  /**
+   * Unmutes the microphone by re-enabling audio tracks.
+   */
+  unmute(): void {
+    if (this.stream && this.isMuted) {
+      this.stream.getAudioTracks().forEach((track) => {
+        track.enabled = true;
+      });
+      this.isMuted = false;
+      console.log("[AudioRecorder] Unmuted");
+    }
+  }
+
+  /**
+   * Returns whether the microphone is currently muted.
+   */
+  isMicMuted(): boolean {
+    return this.isMuted;
   }
 }

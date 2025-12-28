@@ -24,6 +24,8 @@ export interface InterviewContext {
   resume: string;
   persona: string;
   durationMs: number;
+  systemPrompt?: string;
+  language?: string;
 }
 
 /**
@@ -81,9 +83,10 @@ export interface IApiClient {
     interviewId: string,
     transcript: Uint8Array,
     endedAt: string,
+    blockNumber?: number,
   ): Promise<void>;
   submitFeedback(interviewId: string, feedback: FeedbackData): Promise<void>;
-  getContext(interviewId: string): Promise<InterviewContext>;
+  getContext(interviewId: string, blockNumber?: number): Promise<InterviewContext>;
 }
 
 /**

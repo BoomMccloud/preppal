@@ -6,7 +6,7 @@ import {
   flexibleProcedure,
 } from "~/server/api/trpc";
 import { TRPCError } from "@trpc/server";
-import { Prisma } from "@prisma/client";
+import { Prisma, type BlockLanguage } from "@prisma/client";
 import { SignJWT } from "jose";
 import { env } from "~/env";
 import {
@@ -14,6 +14,7 @@ import {
   getInterviewWithAccess,
 } from "~/server/lib/interview-access";
 import { JobDescriptionInput, ResumeInput } from "~/lib/schemas/interview";
+import { getTemplate } from "~/lib/interview-templates";
 
 export const interviewRouter = createTRPCRouter({
   createSession: protectedProcedure
@@ -27,6 +28,7 @@ export const interviewRouter = createTRPCRouter({
           .enum(["SHORT", "STANDARD", "EXTENDED"])
           .optional()
           .default("STANDARD"),
+        templateId: z.string().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -77,6 +79,12 @@ export const interviewRouter = createTRPCRouter({
           }
         }
 
+        // Check if template is provided and valid
+        const template = input.templateId
+          ? getTemplate(input.templateId)
+          : null;
+        const isBlockBased = template !== null;
+
         // Create new interview with PENDING status
         const interview = await ctx.db.interview.create({
           data: {
@@ -89,8 +97,25 @@ export const interviewRouter = createTRPCRouter({
             status: "PENDING",
             persona: input.persona,
             duration: input.duration,
+            templateId: input.templateId ?? null,
+            isBlockBased,
           },
         });
+
+        // Create InterviewBlock records if template is provided
+        if (template && isBlockBased) {
+          const blockData = template.blocks.map((block, index) => ({
+            interviewId: interview.id,
+            blockNumber: index + 1, // 1-indexed
+            language: block.language.toUpperCase() as BlockLanguage,
+            questions: block.questions.map((q) => q.content),
+            status: "PENDING" as const,
+          }));
+
+          await ctx.db.interviewBlock.createMany({
+            data: blockData,
+          });
+        }
 
         return interview;
       } catch (error) {
@@ -130,6 +155,8 @@ export const interviewRouter = createTRPCRouter({
         status: true,
         createdAt: true,
         jobDescriptionSnapshot: true,
+        isBlockBased: true,
+        templateId: true,
       },
       orderBy: {
         createdAt: "desc", // Newest first
@@ -143,6 +170,8 @@ export const interviewRouter = createTRPCRouter({
       createdAt: interview.createdAt,
       jobTitleSnapshot:
         interview.jobDescriptionSnapshot?.substring(0, 30) ?? null,
+      isBlockBased: interview.isBlockBased,
+      templateId: interview.templateId,
     }));
   }),
 
@@ -197,6 +226,7 @@ export const interviewRouter = createTRPCRouter({
         id: z.string(),
         token: z.string().optional(),
         includeFeedback: z.boolean().optional().default(false),
+        includeBlocks: z.boolean().optional().default(false),
       }),
     )
     .query(async ({ ctx, input }) => {
@@ -218,10 +248,13 @@ export const interviewRouter = createTRPCRouter({
         });
       }
 
-      // Fetch with feedback if requested
+      // Fetch with optional relations
       const interview = await ctx.db.interview.findUnique({
         where: { id: input.id },
-        include: { feedback: input.includeFeedback },
+        include: {
+          feedback: input.includeFeedback,
+          blocks: input.includeBlocks,
+        },
       });
 
       if (!interview) {
@@ -445,5 +478,67 @@ export const interviewRouter = createTRPCRouter({
       );
 
       return updatedInterview;
+    }),
+
+  completeBlock: flexibleProcedure
+    .input(
+      z.object({
+        interviewId: z.string(),
+        blockNumber: z.number().int().positive(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      // First, verify the interview exists and check authorization
+      const interview = await ctx.db.interview.findUnique({
+        where: { id: input.interviewId },
+        select: { userId: true },
+      });
+
+      if (!interview) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Interview not found",
+        });
+      }
+
+      // Check authorization: user must own the interview (workers bypass this check)
+      if (ctx.authType === "user" && interview.userId !== ctx.session.user.id) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You do not have permission to complete this block",
+        });
+      }
+
+      // Find and update the block
+      const block = await ctx.db.interviewBlock.findUnique({
+        where: {
+          interviewId_blockNumber: {
+            interviewId: input.interviewId,
+            blockNumber: input.blockNumber,
+          },
+        },
+      });
+
+      if (!block) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Block ${input.blockNumber} not found`,
+        });
+      }
+
+      // Mark block as COMPLETED
+      const updatedBlock = await ctx.db.interviewBlock.update({
+        where: {
+          interviewId_blockNumber: {
+            interviewId: input.interviewId,
+            blockNumber: input.blockNumber,
+          },
+        },
+        data: {
+          status: "COMPLETED",
+        },
+      });
+
+      return updatedBlock;
     }),
 });

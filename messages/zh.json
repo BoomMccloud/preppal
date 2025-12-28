@@ -139,6 +139,21 @@
       "waitingToBegin": "等待面试开始...",
       "currentStatus": "当前面试状态：{status}"
     },
+    "blockSession": {
+      "blockComplete": "第 {number} 部分完成",
+      "languageSwitchTitle": "🌐 语言切换",
+      "nextBlockLanguage": "下一部分的语言是：{language}",
+      "english": "英语",
+      "chinese": "中文",
+      "blockDetails": "{questions} 个问题，共 {minutes} 分钟",
+      "continue": "继续",
+      "takeBreak": "休息一下",
+      "blockProgress": "部分 {current} / {total}",
+      "questionProgress": "问题 {current} / {total}",
+      "timer": "回答时间：{minutes}:{seconds}",
+      "timesUpTitle": "本题回答时间到！",
+      "timesUpMessage": "正在进入下一题...（麦克风稍后将重新开启）"
+    },
     "feedback": {
       "title": "面试反馈",
       "interviewId": "面试ID：{id}",

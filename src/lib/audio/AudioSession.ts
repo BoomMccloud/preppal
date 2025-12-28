@@ -88,4 +88,32 @@ export class AudioSession {
   clearPlaybackQueue(): void {
     this.player?.clear();
   }
+
+  /**
+   * Returns the AudioRecorder instance for direct manipulation.
+   */
+  getRecorder(): AudioRecorder | null {
+    return this.recorder;
+  }
+
+  /**
+   * Mutes the microphone input.
+   */
+  muteInput(): void {
+    this.recorder?.mute();
+  }
+
+  /**
+   * Unmutes the microphone input.
+   */
+  unmuteInput(): void {
+    this.recorder?.unmute();
+  }
+
+  /**
+   * Returns whether the microphone is currently muted.
+   */
+  isInputMuted(): boolean {
+    return this.recorder?.isMicMuted() ?? false;
+  }
 }

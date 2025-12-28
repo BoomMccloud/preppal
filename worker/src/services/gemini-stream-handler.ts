@@ -52,7 +52,7 @@ export class GeminiStreamHandler {
    * Connects to the Gemini Live API with the provided context
    */
   async connect(context: InterviewContext): Promise<void> {
-    const systemInstruction = buildSystemPrompt(context);
+    const systemInstruction = context.systemPrompt ?? buildSystemPrompt(context);
 
     await this.geminiClient.connect({
       model: GEMINI_MODEL,
@@ -61,6 +61,8 @@ export class GeminiStreamHandler {
         systemInstruction,
         outputAudioTranscription: {},
         inputAudioTranscription: {},
+        // Pass language if available (Gemini Live API uses this for synthesis/recognition)
+        ...(context.language ? { language: context.language } : {}),
       },
       callbacks: {
         onopen: () => this.handleOpen(),

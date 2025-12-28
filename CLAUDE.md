@@ -33,6 +33,7 @@ Preppal is an application that uses the Gemini Live API to help users practice i
 ## Authentication
 
 Two authentication methods are supported:
+
 - **OAuth**: Google provider via NextAuth.js
 - **Email OTP**: Passwordless login via 6-digit codes (see [FEAT25 spec](./docs/todo/FEAT25_email_otp_login.md))
 
@@ -57,3 +58,4 @@ In development, OTP codes are logged to console. For production, configure `RESE
 - **Ensure code quality**: Run `pnpm format && pnpm check` before submitting changes.
 - **Update documentation** (including this file and `docs/`) upon completing a task.
 - **Confirm with Mr. User** Before making changes, tell Mr. User what the plan is, where it is documented, and ask for explicit instructions to proceed
+- **Apply Test Driven Development** see `/docs/03_testing.md` for methdology

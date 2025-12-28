@@ -13,11 +13,20 @@ const IS_DEV = process.env.NODE_ENV === "development";
 interface SessionContentProps {
   interviewId: string;
   guestToken?: string;
+  // Block mode overrides
+  onSessionEnded?: () => void;
+  disableStatusRedirect?: boolean;
+  onMediaStream?: (stream: MediaStream) => void;
+  blockNumber?: number;
 }
 
 export function SessionContent({
   interviewId,
   guestToken,
+  onSessionEnded,
+  disableStatusRedirect,
+  onMediaStream,
+  blockNumber,
 }: SessionContentProps) {
   const router = useRouter();
   const t = useTranslations("interview.session");
@@ -71,7 +80,7 @@ export function SessionContent({
   };
 
   useEffect(() => {
-    if (!isLoading && interview) {
+    if (!isLoading && interview && !disableStatusRedirect) {
       if (interview.status === "COMPLETED") {
         const feedbackUrl = guestToken
           ? `/interview/${interviewId}/feedback?token=${guestToken}`
@@ -79,7 +88,14 @@ export function SessionContent({
         router.push(feedbackUrl);
       }
     }
-  }, [interview, isLoading, router, interviewId, guestToken]);
+  }, [
+    interview,
+    isLoading,
+    router,
+    interviewId,
+    guestToken,
+    disableStatusRedirect,
+  ]);
 
   // WebSocket connection and state management
   const {
@@ -93,11 +109,17 @@ export function SessionContent({
   } = useInterviewSocket({
     interviewId,
     guestToken,
+    blockNumber,
+    onMediaStream,
     onSessionEnded: () => {
-      const feedbackUrl = guestToken
-        ? `/interview/${interviewId}/feedback?token=${guestToken}`
-        : `/interview/${interviewId}/feedback`;
-      router.push(feedbackUrl);
+      if (onSessionEnded) {
+        onSessionEnded();
+      } else {
+        const feedbackUrl = guestToken
+          ? `/interview/${interviewId}/feedback?token=${guestToken}`
+          : `/interview/${interviewId}/feedback`;
+        router.push(feedbackUrl);
+      }
     },
   });
 
