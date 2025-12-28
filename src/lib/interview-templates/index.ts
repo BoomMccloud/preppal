@@ -6,7 +6,7 @@ import type { InterviewTemplate } from "./schema";
 import { mbaBehavioralV1 } from "./definitions/mba-behavioral-v1";
 
 // Build registry from all template definitions
-const TEMPLATES: Map<string, InterviewTemplate> = new Map([
+const TEMPLATES = new Map<string, InterviewTemplate>([
   [mbaBehavioralV1.id, mbaBehavioralV1],
   // Add more templates here as needed:
   // [otherTemplate.id, otherTemplate],

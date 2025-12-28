@@ -135,6 +135,16 @@ model Interview {
   // Guest access: One-time shareable link
   guestToken     String?   @unique
   guestExpiresAt DateTime?
+
+  // --- BLOCK-BASED INTERVIEW SUPPORT ---
+  // Template ID (references TypeScript config, not DB)
+  templateId   String?
+
+  // Whether this interview uses block-based architecture
+  isBlockBased Boolean @default(false)
+
+  // Relation: Blocks for block-based interviews
+  blocks InterviewBlock[]
 }
 
 // The results/feedback from a completed interview
@@ -217,4 +227,44 @@ enum InterviewDuration {
   SHORT    // 10 minutes
   STANDARD // 30 minutes
   EXTENDED // 60 minutes
+}
+
+// Enum for block language (used in block-based interviews)
+enum BlockLanguage {
+  EN
+  ZH
+}
+
+// Enum for block status (used in block-based interviews)
+enum BlockStatus {
+  PENDING      // Not started
+  IN_PROGRESS  // Currently active
+  COMPLETED    // Finished normally
+  SKIPPED      // User skipped
+}
+
+// A block within a block-based interview (e.g., Chinese block, English block)
+model InterviewBlock {
+  id          String   @id @default(cuid())
+  interviewId String
+  interview   Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+
+  // Block info
+  blockNumber Int           // 1, 2, etc. (1-indexed)
+  language    BlockLanguage
+  questions   Json          // Array of question texts for this block
+
+  // Timing
+  startedAt   DateTime?
+  endedAt     DateTime?
+  durationSec Int?          // Actual duration
+
+  // Status
+  status      BlockStatus @default(PENDING)
+
+  // Transcript stored separately (future: link to TranscriptEntry)
+  transcriptId String? @unique
+
+  @@unique([interviewId, blockNumber])
+  @@index([interviewId])
 }

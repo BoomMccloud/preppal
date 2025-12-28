@@ -28,19 +28,50 @@ describe("Interview Template Registry", () => {
     expect(templates.some((t) => t.id === "mba-behavioral-v1")).toBe(true);
   });
 
-  it("should have valid block structure", () => {
-    const template = getTemplate("mba-behavioral-v1");
+  it("should return null for empty string template id", () => {
+    const template = getTemplate("");
 
-    expect(template?.blocks).toBeDefined();
-    expect(template?.blocks.length).toBeGreaterThanOrEqual(1);
-    expect(template?.blocks[0]?.language).toMatch(/^(en|zh)$/);
-    expect(template?.blocks[0]?.durationSec).toBeGreaterThan(0);
-    expect(template?.blocks[0]?.questions.length).toBeGreaterThan(0);
+    expect(template).toBeNull();
   });
 
-  it("should have default answerTimeLimitSec of 180", () => {
-    const template = getTemplate("mba-behavioral-v1");
+  it("should have no duplicate template IDs in registry", () => {
+    const templates = listTemplates();
+    const ids = templates.map((t) => t.id);
+    const uniqueIds = new Set(ids);
 
-    expect(template?.answerTimeLimitSec).toBe(180);
+    expect(ids.length).toBe(uniqueIds.size);
+  });
+
+  describe("Block structure validation", () => {
+    it("should have at least one block", () => {
+      const template = getTemplate("mba-behavioral-v1");
+
+      expect(template?.blocks).toBeDefined();
+      expect(template?.blocks.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("should have valid language codes in blocks", () => {
+      const template = getTemplate("mba-behavioral-v1");
+
+      expect(template?.blocks[0]?.language).toMatch(/^(en|zh)$/);
+    });
+
+    it("should have positive duration for blocks", () => {
+      const template = getTemplate("mba-behavioral-v1");
+
+      expect(template?.blocks[0]?.durationSec).toBeGreaterThan(0);
+    });
+
+    it("should have questions in blocks", () => {
+      const template = getTemplate("mba-behavioral-v1");
+
+      expect(template?.blocks[0]?.questions.length).toBeGreaterThan(0);
+    });
+
+    it("should have default answerTimeLimitSec of 180", () => {
+      const template = getTemplate("mba-behavioral-v1");
+
+      expect(template?.answerTimeLimitSec).toBe(180);
+    });
   });
 });

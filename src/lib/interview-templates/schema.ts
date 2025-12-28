@@ -17,13 +17,13 @@ export const InterviewQuestionSchema = z.object({
 export const InterviewBlockSchema = z.object({
   language: LanguageSchema,
   durationSec: z.number().int().positive(),
-  questions: z.array(InterviewQuestionSchema),
+  questions: z.array(InterviewQuestionSchema).min(1),
 });
 
 /** Complete interview template definition */
 export const InterviewTemplateSchema = z.object({
-  id: z.string(),
-  name: z.string(),
+  id: z.string().min(1),
+  name: z.string().min(1),
   description: z.string().optional(),
   persona: z.string().optional(),
   answerTimeLimitSec: z.number().int().positive().default(180),

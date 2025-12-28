@@ -94,6 +94,7 @@ message WorkerApiResponse {
 // ---- getContext ----
 message GetContextRequest {
   string interview_id = 1;
+  optional int32 block_number = 2;  // Which block to get context for (1-indexed)
 }
 
 message GetContextResponse {
@@ -101,6 +102,8 @@ message GetContextResponse {
   string resume = 2;
   string persona = 3;
   int32 duration_ms = 4; // Interview duration in milliseconds
+  optional string system_prompt = 5;  // Block-specific system prompt
+  optional string language = 6;       // "en" or "zh" for Gemini config
 }
 
 // ---- updateStatus ----
@@ -126,6 +129,7 @@ message SubmitTranscriptRequest {
   string interview_id = 1;
   bytes transcript = 2;  // Protobuf binary blob (preppal.transcript.Transcript)
   string ended_at = 3;   // ISO 8601 timestamp
+  optional int32 block_number = 4;  // Which block's transcript (1-indexed)
 }
 
 message SubmitTranscriptResponse {

@@ -1,25 +1,27 @@
 # Current Task: Block-Based Interview Architecture Tests (FEAT27)
 
-## Status: 🟡 TDD Green Phase - In Progress
+## Status: 🟡 TDD In Progress - Phase 3 Complete
 
-Implementing source files to make tests pass.
+**Phase 3 (Prisma Schema)** complete. All unit tests passing. Integration tests pending Phase 4 (tRPC procedures).
 
 ## Branch
-`feat/email-otp-utils` (continuing from FEAT25)
+`feat/interview-templates`
 
 ---
 
-## Test Files Created
+## Test Files Summary
 
 | File | Type | Tests | Status |
 |------|------|-------|--------|
-| `src/test/unit/interview-templates-schema.test.ts` | Unit | 4 | ✅ Passing |
-| `src/test/unit/interview-templates.test.ts` | Unit | 5 | ❌ Fails (module not found) |
-| `src/test/unit/block-prompt.test.ts` | Unit | 4 | ❌ Fails (module not found) |
-| `src/test/integration/interview-blocks.test.ts` | Integration | 17 | ❌ Fails (schema/procedures missing) |
-| `src/test/integration/block-interview-golden-path.test.ts` | Integration | 4 | ❌ Fails (schema/procedures missing) |
+| `src/test/unit/interview-templates-schema.test.ts` | Unit | 11 | ✅ Passing |
+| `src/test/unit/interview-templates.test.ts` | Unit | 10 | ✅ Passing |
+| `src/test/unit/block-prompt.test.ts` | Unit | 4 | ✅ Passing |
+| `src/test/integration/interview-blocks.test.ts` | Integration | 17 | ❌ Fails (14 fail, 3 pass) |
+| `src/test/integration/block-interview-golden-path.test.ts` | Integration | 5 | ❌ Fails (schema/procedures missing) |
 
-**Total: 34 tests** (13 unit + 21 integration)
+**Total: 47 tests** (25 unit + 22 integration)
+- ✅ Passing: 25 tests
+- ❌ Failing: 22 tests (awaiting implementation)
 
 ---
 
@@ -29,27 +31,33 @@ Implementing source files to make tests pass.
 - [x] `src/lib/interview-templates/schema.ts` - Zod schemas ✅
   - `LanguageSchema` (en, zh)
   - `InterviewQuestionSchema` (content, optional translation)
-  - `InterviewBlockSchema` (language, durationSec, questions)
-  - `InterviewTemplateSchema` (id, name, blocks, answerTimeLimitSec)
-- [ ] `src/lib/interview-templates/loader.ts` - Template loading
+  - `InterviewBlockSchema` (language, durationSec, questions.min(1))
+  - `InterviewTemplateSchema` (id.min(1), name.min(1), blocks.min(1), answerTimeLimitSec)
+  - **Updated 2025-12-28**: Added `.min(1)` constraints for validation
+- [x] `src/lib/interview-templates/index.ts` - Template registry ✅
   - `getTemplate(id)` - returns template or null
   - `listTemplates()` - returns all templates
-  - `_clearCache()`, `_getCache()` - test helpers
-- [ ] `src/lib/interview-templates/prompt.ts` - Prompt builder
+- [x] `src/lib/interview-templates/definitions/mba-behavioral-v1.ts` ✅
+- [x] `src/lib/interview-templates/prompt.ts` - Prompt builder ✅
   - `buildBlockPrompt(ctx: BlockContext)` - generates system prompt
   - `LANGUAGE_INSTRUCTIONS` - en/zh instructions
+  - `BlockContext` type exported
 
 ### Phase 2: Config & Templates
-- [ ] Create `config/interview-templates/` directory
-- [ ] Add `mba-behavioral-v1.json` template file
+- [x] ~~Create `config/interview-templates/` directory~~ **Changed to TypeScript constants**
+- [x] `src/lib/interview-templates/definitions/mba-behavioral-v1.ts` ✅
 
-### Phase 3: Prisma Schema
-- [ ] Add `BlockLanguage` enum (`EN`, `ZH`)
-- [ ] Add `BlockStatus` enum (`PENDING`, `IN_PROGRESS`, `COMPLETED`, `SKIPPED`)
-- [ ] Add `InterviewBlock` model
+### Phase 3: Prisma Schema & Proto
+- [x] Update `proto/interview.proto` with `block_number` fields ✅
+  - `GetContextRequest.block_number` (optional)
+  - `GetContextResponse.system_prompt`, `language` (optional)
+  - `SubmitTranscriptRequest.block_number` (optional)
+- [x] Add `BlockLanguage` enum (`EN`, `ZH`) ✅
+- [x] Add `BlockStatus` enum (`PENDING`, `IN_PROGRESS`, `COMPLETED`, `SKIPPED`) ✅
+- [x] Add `InterviewBlock` model ✅
   - `id`, `interviewId`, `blockNumber`, `language`, `questions`
   - `startedAt`, `endedAt`, `durationSec`, `status`, `transcriptId`
-- [ ] Add to `Interview` model:
+- [x] Add to `Interview` model: ✅
   - `templateId: String?`
   - `isBlockBased: Boolean @default(false)`
   - `blocks: InterviewBlock[]`
@@ -80,15 +88,31 @@ pnpm test -- --testPathPattern="interview-blocks|block-interview-golden-path"
 ## Design Reference
 Full specification: [docs/todo/FEAT27_interview_templates.md](./todo/FEAT27_interview_templates.md)
 
-### Recent Spec Updates (2025-12-28)
+### Recent Updates (2025-12-28)
+
+**Test Quality Improvements:**
+- ✅ Added 7 new edge case tests to `interview-templates-schema.test.ts`:
+  - Empty blocks array rejection
+  - Empty questions array rejection
+  - Negative/zero `durationSec` rejection
+  - Empty `id`/`name` rejection
+  - Custom `answerTimeLimitSec` preservation
+- ✅ Added 5 new tests to `interview-templates.test.ts`:
+  - Empty string template ID handling
+  - Duplicate template ID detection
+  - Split "valid block structure" into focused tests
+- ✅ Fixed schema with `.min(1)` constraints for proper validation
+
+**Spec Updates:**
 - ✅ Added **Prerequisites** section for junior developers
 - ✅ Clarified file paths (`src/lib/interview-templates/` directory structure)
-- ✅ Documented test helpers (`_clearCache()`, `_getCache()`)
-- ✅ Documented error handling requirements
 - ✅ **Simplified per-answer timer**: Changed from "mic cutoff + text injection" to "mic mute only"
   - Gemini interprets silence as "user finished" and moves to next question
   - No `sendTextMessage()` or Worker text injection needed
-  - Simpler implementation, fewer dependencies
+- ✅ **Changed to TypeScript constants** instead of JSON files
+  - No file I/O, no caching, no `_clearCache()` needed
+  - Type-safe at compile time
+  - Simpler deployment
 
 ---
 
