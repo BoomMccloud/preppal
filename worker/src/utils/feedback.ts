@@ -2,11 +2,11 @@ import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 
 const FeedbackSchema = z.object({
-  summary: z.string(),
-  strengths: z.string(),
-  contentAndStructure: z.string(),
-  communicationAndDelivery: z.string(),
-  presentation: z.string(),
+  summary: z.string().nullable().transform((v) => v ?? ""),
+  strengths: z.string().nullable().transform((v) => v ?? ""),
+  contentAndStructure: z.string().nullable().transform((v) => v ?? ""),
+  communicationAndDelivery: z.string().nullable().transform((v) => v ?? ""),
+  presentation: z.string().nullable().transform((v) => v ?? ""),
 });
 
 export type FeedbackData = z.infer<typeof FeedbackSchema>;
