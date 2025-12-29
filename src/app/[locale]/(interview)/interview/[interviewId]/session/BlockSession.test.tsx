@@ -1,13 +1,6 @@
-import {
-  render,
-  screen,
-  act,
-  fireEvent,
-  waitFor,
-} from "@testing-library/react";
+import { render, screen, act, fireEvent } from "@testing-library/react";
 import { BlockSession } from "./BlockSession";
 import { expect, test, vi, describe, beforeEach, afterEach } from "vitest";
-import type { ComponentProps } from "react";
 
 // --- Mocks ---
 
@@ -63,8 +56,17 @@ vi.mock("./SessionContent", () => ({
   },
 }));
 
-// Mock Date for stable timer testing if needed, but we'll use fake timers
+// Mock Date for stable timer testing
 vi.useFakeTimers();
+
+// Mock timer utilities for controlled testing
+const mockIsTimeUp = vi.fn();
+const mockGetRemainingSeconds = vi.fn();
+
+vi.mock("~/lib/countdown-timer", () => ({
+  isTimeUp: (...args: unknown[]) => mockIsTimeUp(...args),
+  getRemainingSeconds: (...args: unknown[]) => mockGetRemainingSeconds(...args),
+}));
 
 // --- Types (Mocking them locally since Phase 1 might not be done) ---
 // In a real scenario, these would import from Prisma/Zod types
@@ -127,6 +129,8 @@ describe("BlockSession", () => {
     capturedSessionContentProps = {};
     mockPush.mockClear();
     mockCompleteBlockMutateAsync.mockClear();
+    mockIsTimeUp.mockClear().mockReturnValue(false);
+    mockGetRemainingSeconds.mockClear().mockReturnValue(10);
     vi.clearAllTimers();
   });
 
@@ -158,6 +162,10 @@ describe("BlockSession", () => {
       getAudioTracks: () => [mockAudioTrack],
     };
 
+    // Start with time NOT up
+    mockIsTimeUp.mockReturnValue(false);
+    mockGetRemainingSeconds.mockReturnValue(5);
+
     render(
       <BlockSession
         interview={mockInterview as any}
@@ -173,27 +181,32 @@ describe("BlockSession", () => {
       }
     });
 
-    // Advance time close to limit (limit is 10s)
-    // Initial render might take a tick
-    act(() => {
-      vi.advanceTimersByTime(9000);
-    });
-
-    // Should still be active
+    // Initial state - time not up yet
     expect(mockAudioTrack.enabled).toBe(true);
     expect(screen.queryByText(/Time's up/)).not.toBeInTheDocument();
 
-    // Advance past limit
-    act(() => {
-      vi.advanceTimersByTime(2000);
+    // Simulate answer time running out (but not block time)
+    // Answer timer uses answerTimeLimit (10s), block timer uses blockDuration (600s)
+    mockIsTimeUp.mockImplementation((_startTime: unknown, limit: unknown) => {
+      return limit === 10; // Only answer timer (10s), not block timer (600s)
+    });
+    mockGetRemainingSeconds.mockReturnValue(0);
+
+    // Advance timer to trigger the check
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
     });
 
-    // NOW: Time's up
-    expect(mockAudioTrack.enabled).toBe(false); // Mic muted
+    // NOW: Time's up - mic should be muted
+    expect(mockAudioTrack.enabled).toBe(false);
     expect(screen.getByText(/Time's up/)).toBeInTheDocument();
 
-    // Advance 3s pause
-    act(() => {
+    // Reset mock for next question (isTimeUp should be false for fresh timer)
+    mockIsTimeUp.mockReturnValue(false);
+    mockGetRemainingSeconds.mockReturnValue(10);
+
+    // Advance 3s pause - this fires the setTimeout that unmutes
+    await act(async () => {
       vi.advanceTimersByTime(3000);
     });
 

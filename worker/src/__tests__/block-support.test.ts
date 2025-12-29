@@ -108,7 +108,9 @@ describe("Block Support - Protobuf Messages", () => {
       expect(decoded.resume).toBe("10 years experience");
       expect(decoded.persona).toBe("Senior interviewer");
       expect(decoded.durationMs).toBe(600000);
-      expect(decoded.systemPrompt).toBe("You are a professional interviewer...");
+      expect(decoded.systemPrompt).toBe(
+        "You are a professional interviewer...",
+      );
       expect(decoded.language).toBe("zh");
     });
 
@@ -150,12 +152,16 @@ describe("Block Support - URL Parsing", () => {
   });
 
   it("should parse block=1 correctly", () => {
-    const url = new URL("wss://worker.example.com/interview-123?token=abc&block=1");
+    const url = new URL(
+      "wss://worker.example.com/interview-123?token=abc&block=1",
+    );
     expect(parseBlockNumber(url)).toBe(1);
   });
 
   it("should parse block=2 correctly", () => {
-    const url = new URL("wss://worker.example.com/interview-123?token=abc&block=2");
+    const url = new URL(
+      "wss://worker.example.com/interview-123?token=abc&block=2",
+    );
     expect(parseBlockNumber(url)).toBe(2);
   });
 
@@ -175,13 +181,15 @@ describe("Block Support - URL Parsing", () => {
 
   it("should parse decimal block values as integers (parseInt behavior)", () => {
     // parseInt("1.5", 10) returns 1 - this is acceptable behavior
-    const url = new URL("wss://worker.example.com/interview-123?token=abc&block=1.5");
+    const url = new URL(
+      "wss://worker.example.com/interview-123?token=abc&block=1.5",
+    );
     expect(parseBlockNumber(url)).toBe(1);
   });
 
   it("should handle block param with other query params", () => {
     const url = new URL(
-      "wss://worker.example.com/interview-123?token=abc123&block=2&debug=true"
+      "wss://worker.example.com/interview-123?token=abc123&block=2&debug=true",
     );
     expect(parseBlockNumber(url)).toBe(2);
   });
@@ -368,7 +376,11 @@ describe("Block Support - ApiClient", () => {
       const client = new ApiClient("https://api.example.com", "test-secret");
 
       const transcript = new Uint8Array([1, 2, 3, 4, 5]);
-      await client.submitTranscript("interview-123", transcript, "2025-01-15T10:30:00Z");
+      await client.submitTranscript(
+        "interview-123",
+        transcript,
+        "2025-01-15T10:30:00Z",
+      );
 
       expect(mockFetch).toHaveBeenCalledOnce();
       const decoded = fromBinary(WorkerApiRequestSchema, capturedRequest!.body);
@@ -385,7 +397,12 @@ describe("Block Support - ApiClient", () => {
 
       const transcript = new Uint8Array([1, 2, 3, 4, 5]);
       // Call with blockNumber - THIS WILL FAIL until implemented
-      await client.submitTranscript("interview-123", transcript, "2025-01-15T10:30:00Z", 1);
+      await client.submitTranscript(
+        "interview-123",
+        transcript,
+        "2025-01-15T10:30:00Z",
+        1,
+      );
 
       const decoded = fromBinary(WorkerApiRequestSchema, capturedRequest!.body);
       expect(decoded.request.case).toBe("submitTranscript");
@@ -400,7 +417,12 @@ describe("Block Support - ApiClient", () => {
       const client = new ApiClient("https://api.example.com", "test-secret");
 
       const transcript = new Uint8Array([1, 2, 3]);
-      await client.submitTranscript("interview-456", transcript, "2025-01-15T11:00:00Z", 2);
+      await client.submitTranscript(
+        "interview-456",
+        transcript,
+        "2025-01-15T11:00:00Z",
+        2,
+      );
 
       const decoded = fromBinary(WorkerApiRequestSchema, capturedRequest!.body);
       if (decoded.request.case === "submitTranscript") {
@@ -437,7 +459,7 @@ describe("Block Support - InterviewLifecycleManager", () => {
       );
       const manager = new InterviewLifecycleManager(
         mockApiClient,
-        "test-gemini-key"
+        "test-gemini-key",
       );
 
       // Call initializeSession with blockNumber - THIS WILL FAIL until implemented
@@ -465,13 +487,16 @@ describe("Block Support - InterviewLifecycleManager", () => {
       );
       const manager = new InterviewLifecycleManager(
         mockApiClient,
-        "test-gemini-key"
+        "test-gemini-key",
       );
 
       await manager.initializeSession("interview-123");
 
       // Verify getContext was called without blockNumber
-      expect(mockApiClient.getContext).toHaveBeenCalledWith("interview-123", undefined);
+      expect(mockApiClient.getContext).toHaveBeenCalledWith(
+        "interview-123",
+        undefined,
+      );
     });
   });
 
@@ -503,7 +528,7 @@ describe("Block Support - InterviewLifecycleManager", () => {
       );
       const manager = new InterviewLifecycleManager(
         mockApiClient,
-        "test-gemini-key"
+        "test-gemini-key",
       );
 
       const context = {
@@ -518,7 +543,7 @@ describe("Block Support - InterviewLifecycleManager", () => {
         "interview-123",
         mockTranscriptManager,
         context,
-        1
+        1,
       );
 
       // Verify submitTranscript was called with blockNumber
@@ -526,7 +551,7 @@ describe("Block Support - InterviewLifecycleManager", () => {
         "interview-123",
         expect.any(Uint8Array),
         expect.any(String),
-        1
+        1,
       );
     });
 
@@ -557,7 +582,7 @@ describe("Block Support - InterviewLifecycleManager", () => {
       );
       const manager = new InterviewLifecycleManager(
         mockApiClient,
-        "test-gemini-key"
+        "test-gemini-key",
       );
 
       const context = {
@@ -570,7 +595,7 @@ describe("Block Support - InterviewLifecycleManager", () => {
       await manager.finalizeSession(
         "interview-123",
         mockTranscriptManager,
-        context
+        context,
       );
 
       // Verify submitTranscript was called without blockNumber (4 args with undefined)
@@ -578,7 +603,7 @@ describe("Block Support - InterviewLifecycleManager", () => {
         "interview-123",
         expect.any(Uint8Array),
         expect.any(String),
-        undefined
+        undefined,
       );
     });
   });

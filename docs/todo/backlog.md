@@ -47,6 +47,22 @@ Based on feedback from education/training partners:
 
 ---
 
+## Technical Debt & Refactoring
+
+### Consolidate Worker Logic (High Priority)
+**Goal:** Eliminate duplication between the two backend paths used for Worker communication.
+
+**Current State:**
+- `src/server/api/routers/interview-worker.ts` (tRPC - used by Vitest integration tests)
+- `src/app/api/worker/route.ts` (Protobuf/HTTP - used by production Cloudflare Worker)
+
+**Implementation Details:**
+- Extract business logic (prompt building, block status updates, transcript finalization) into `src/server/lib/worker-service.ts`.
+- Refactor both endpoints to be thin wrappers around this service.
+- **Benefit:** Ensures that "it works in tests" always means "it works in production."
+
+---
+
 ## Feature Ideas
 
 ### JD Management (Reuse & Deduplication)

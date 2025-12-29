@@ -86,7 +86,10 @@ export interface IApiClient {
     blockNumber?: number,
   ): Promise<void>;
   submitFeedback(interviewId: string, feedback: FeedbackData): Promise<void>;
-  getContext(interviewId: string, blockNumber?: number): Promise<InterviewContext>;
+  getContext(
+    interviewId: string,
+    blockNumber?: number,
+  ): Promise<InterviewContext>;
 }
 
 /**

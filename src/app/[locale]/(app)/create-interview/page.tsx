@@ -17,6 +17,7 @@ export default function CreateInterviewPage() {
   const [duration, setDuration] = useState<"SHORT" | "STANDARD" | "EXTENDED">(
     "STANDARD",
   );
+  const [useTemplate, setUseTemplate] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Generate idempotency key once when component mounts
@@ -57,6 +58,7 @@ export default function CreateInterviewPage() {
       idempotencyKey,
       persona: persona.trim() || undefined,
       duration,
+      templateId: useTemplate ? "mba-behavioral-v1" : undefined,
     });
   };
 
@@ -140,6 +142,26 @@ export default function CreateInterviewPage() {
             <p className="text-secondary-text mt-1 text-sm">
               {t("durationHelp")}
             </p>
+          </div>
+
+          {/* Block-based interview toggle */}
+          <div className="rounded-md border border-blue-500/30 bg-blue-500/10 p-4">
+            <label className="flex cursor-pointer items-center gap-3">
+              <input
+                type="checkbox"
+                checked={useTemplate}
+                onChange={(e) => setUseTemplate(e.target.checked)}
+                className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <div>
+                <span className="text-primary-text font-medium">
+                  MBA Behavioral Interview (Block-based)
+                </span>
+                <p className="text-secondary-text text-sm">
+                  2 blocks: 10 min Chinese + 10 min English, 3 min per answer
+                </p>
+              </div>
+            </label>
           </div>
 
           {error && (

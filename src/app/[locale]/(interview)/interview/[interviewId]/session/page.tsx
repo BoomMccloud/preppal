@@ -3,8 +3,9 @@
  */
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import { useRouter } from "~/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { getTemplate } from "~/lib/interview-templates";
@@ -17,6 +18,7 @@ export default function InterviewSessionPage({
   params: Promise<{ interviewId: string }>;
 }) {
   const { interviewId } = React.use(params);
+  const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? undefined;
   const tCommon = useTranslations("common");
@@ -33,8 +35,18 @@ export default function InterviewSessionPage({
     },
   );
 
+  // Redirect if already completed
+  useEffect(() => {
+    if (interview?.status === "COMPLETED") {
+      const feedbackUrl = token
+        ? `/interview/${interviewId}/feedback?token=${token}`
+        : `/interview/${interviewId}/feedback`;
+      router.push(feedbackUrl);
+    }
+  }, [interview?.status, interviewId, token, router]);
+
   // Loading state
-  if (isLoading) {
+  if (isLoading || interview?.status === "COMPLETED") {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="text-lg">{tCommon("loading")}</div>

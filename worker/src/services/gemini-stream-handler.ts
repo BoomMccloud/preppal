@@ -52,7 +52,8 @@ export class GeminiStreamHandler {
    * Connects to the Gemini Live API with the provided context
    */
   async connect(context: InterviewContext): Promise<void> {
-    const systemInstruction = context.systemPrompt ?? buildSystemPrompt(context);
+    const systemInstruction =
+      context.systemPrompt ?? buildSystemPrompt(context);
 
     await this.geminiClient.connect({
       model: GEMINI_MODEL,

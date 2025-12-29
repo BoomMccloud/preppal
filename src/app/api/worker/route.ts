@@ -18,7 +18,10 @@ import {
   type Prisma,
   InterviewStatus,
   InterviewDuration,
+  BlockLanguage,
 } from "@prisma/client";
+import { getTemplate } from "~/lib/interview-templates";
+import { buildBlockPrompt } from "~/lib/interview-templates/prompt";
 
 /**
  * Validates worker authentication via shared secret
@@ -66,6 +69,7 @@ const DURATION_MS_MAP: Record<InterviewDuration, number> = {
 
 async function handleGetContext(
   interviewId: string,
+  blockNumber?: number,
 ): Promise<{ case: "getContext" | "error"; value: Uint8Array }> {
   const interview = await db.interview.findUnique({
     where: { id: interviewId },
@@ -74,6 +78,8 @@ async function handleGetContext(
       resumeSnapshot: true,
       persona: true,
       duration: true,
+      isBlockBased: true,
+      templateId: true,
     },
   });
 
@@ -84,13 +90,83 @@ async function handleGetContext(
     };
   }
 
-  const durationMs = DURATION_MS_MAP[interview.duration] ?? 30 * 60 * 1000;
+  // Standard interview (no block) - return existing behavior
+  if (!interview.isBlockBased || blockNumber === undefined) {
+    const durationMs = DURATION_MS_MAP[interview.duration] ?? 30 * 60 * 1000;
+
+    const response = create(GetContextResponseSchema, {
+      jobDescription: interview.jobDescriptionSnapshot ?? "",
+      resume: interview.resumeSnapshot ?? "",
+      persona: interview.persona ?? "professional interviewer",
+      durationMs,
+    });
+
+    const fullResponse = create(WorkerApiResponseSchema, {
+      response: { case: "getContext", value: response },
+    });
+
+    return {
+      case: "getContext",
+      value: toBinary(WorkerApiResponseSchema, fullResponse),
+    };
+  }
+
+  // Block-based interview - get template and build block-specific prompt
+  const template = interview.templateId
+    ? getTemplate(interview.templateId)
+    : null;
+
+  if (!template) {
+    return {
+      case: "error",
+      value: createErrorResponse(404, "Interview template not found"),
+    };
+  }
+
+  const templateBlock = template.blocks[blockNumber - 1]; // 1-indexed
+  if (!templateBlock) {
+    return {
+      case: "error",
+      value: createErrorResponse(
+        404,
+        `Block ${blockNumber} not found in template`,
+      ),
+    };
+  }
+
+  // Mark block as IN_PROGRESS and set startedAt
+  await db.interviewBlock.update({
+    where: {
+      interviewId_blockNumber: {
+        interviewId,
+        blockNumber,
+      },
+    },
+    data: {
+      status: "IN_PROGRESS",
+      startedAt: new Date(),
+    },
+  });
+
+  // Build block-specific system prompt
+  const systemPrompt = buildBlockPrompt({
+    blockNumber,
+    language: templateBlock.language,
+    durationSec: templateBlock.durationSec,
+    questions: templateBlock.questions.map((q) => q.content),
+    answerTimeLimitSec: template.answerTimeLimitSec,
+    jobDescription: interview.jobDescriptionSnapshot ?? "",
+    candidateResume: interview.resumeSnapshot ?? "",
+    persona: template.persona ?? "professional interviewer",
+  });
 
   const response = create(GetContextResponseSchema, {
     jobDescription: interview.jobDescriptionSnapshot ?? "",
     resume: interview.resumeSnapshot ?? "",
-    persona: interview.persona ?? "professional interviewer",
-    durationMs,
+    persona: template.persona ?? "professional interviewer",
+    durationMs: templateBlock.durationSec * 1000,
+    systemPrompt,
+    language: templateBlock.language,
   });
 
   const fullResponse = create(WorkerApiResponseSchema, {
@@ -163,11 +239,58 @@ async function handleSubmitTranscript(
   interviewId: string,
   transcript: Uint8Array,
   endedAt: string,
+  blockNumber?: number,
 ): Promise<{ case: "submitTranscript" | "error"; value: Uint8Array }> {
   if (!transcript || transcript.length === 0) {
     return {
       case: "error",
       value: createErrorResponse(400, "Missing transcript data"),
+    };
+  }
+
+  // Block-based interview: save transcript reference to InterviewBlock
+  if (blockNumber !== undefined) {
+    // TODO(FEAT28): Implement proper block transcript storage.
+    const transcriptId = `block-${interviewId}-${blockNumber}-${Date.now()}`;
+
+    // Update the block with transcript reference and endedAt, and mark as COMPLETED
+    await db.interviewBlock.update({
+      where: {
+        interviewId_blockNumber: {
+          interviewId,
+          blockNumber,
+        },
+      },
+      data: {
+        transcriptId,
+        endedAt: new Date(endedAt),
+        status: "COMPLETED",
+      },
+    });
+
+    // Check if this was the last block
+    const totalBlocks = await db.interviewBlock.count({
+      where: { interviewId },
+    });
+
+    if (blockNumber === totalBlocks) {
+      await db.interview.update({
+        where: { id: interviewId },
+        data: {
+          status: InterviewStatus.COMPLETED,
+          endedAt: new Date(endedAt),
+        },
+      });
+    }
+
+    const response = create(SubmitTranscriptResponseSchema, { success: true });
+    const fullResponse = create(WorkerApiResponseSchema, {
+      response: { case: "submitTranscript", value: response },
+    });
+
+    return {
+      case: "submitTranscript",
+      value: toBinary(WorkerApiResponseSchema, fullResponse),
     };
   }
 
@@ -276,9 +399,12 @@ export async function POST(req: NextRequest) {
     switch (reqPayload.case) {
       case "getContext":
         console.log(
-          `[Worker API] getContext for interview ${reqPayload.value.interviewId}`,
+          `[Worker API] getContext for interview ${reqPayload.value.interviewId} block ${reqPayload.value.blockNumber}`,
         );
-        result = await handleGetContext(reqPayload.value.interviewId);
+        result = await handleGetContext(
+          reqPayload.value.interviewId,
+          reqPayload.value.blockNumber,
+        );
         break;
 
       case "updateStatus":
@@ -294,12 +420,13 @@ export async function POST(req: NextRequest) {
 
       case "submitTranscript":
         console.log(
-          `[Worker API] submitTranscript for interview ${reqPayload.value.interviewId}`,
+          `[Worker API] submitTranscript for interview ${reqPayload.value.interviewId} block ${reqPayload.value.blockNumber}`,
         );
         result = await handleSubmitTranscript(
           reqPayload.value.interviewId,
           reqPayload.value.transcript,
           reqPayload.value.endedAt,
+          reqPayload.value.blockNumber,
         );
         break;
 

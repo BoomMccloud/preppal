@@ -146,6 +146,21 @@ export const interviewWorkerRouter = createTRPCRouter({
           },
         });
 
+        // Check if this was the last block
+        const totalBlocks = await ctx.db.interviewBlock.count({
+          where: { interviewId: input.interviewId },
+        });
+
+        if (input.blockNumber === totalBlocks) {
+          await ctx.db.interview.update({
+            where: { id: input.interviewId },
+            data: {
+              status: "COMPLETED",
+              endedAt: new Date(input.endedAt),
+            },
+          });
+        }
+
         return { success: true };
       }
 

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "~/i18n/navigation";
 import { api } from "~/trpc/react";
 import { SessionContent } from "./SessionContent";
 import { useTranslations } from "next-intl";
 import type { InterviewBlock } from "@prisma/client";
 import type { InterviewTemplate } from "~/lib/interview-templates/schema";
+import { getRemainingSeconds, isTimeUp } from "~/lib/countdown-timer";
 
 type Phase = "active" | "transition";
 
@@ -47,76 +48,71 @@ export function BlockSession({
 
   // Use shorter time limit in dev for easier testing
   const answerTimeLimit = IS_DEV ? 10 : template.answerTimeLimitSec;
-  const [answerTimeRemaining, setAnswerTimeRemaining] =
-    useState(answerTimeLimit);
 
-  // 2. Block Timer: Master clock for the entire block
-  const [blockTimeRemaining, setBlockTimeRemaining] = useState(
-    templateBlock?.durationSec ?? 0,
-  );
+  // Count-up approach: store start times, calculate remaining on render
+  const [blockStartTime, setBlockStartTime] = useState(() => Date.now());
+  const [answerStartTime, setAnswerStartTime] = useState(() => Date.now());
+
+  // Single tick counter to trigger re-renders (one interval for everything)
+  const [tick, setTick] = useState(0);
 
   const [isMicMuted, setIsMicMuted] = useState(false);
   const mediaStreamRef = useRef<MediaStream | null>(null);
 
-  const isLastBlock = blockIndex === blocks.length - 1;
+  // Track if timeouts have been handled to prevent duplicate triggers
+  const answerTimeoutHandled = useRef(false);
+  const blockEndHandled = useRef(false);
 
-  // Sync block timer when block index changes
+  const isLastBlock = blockIndex === blocks.length - 1;
+  const blockDuration = templateBlock?.durationSec ?? 0;
+
+  // Calculate remaining times from start times (derived state)
+  const now = Date.now();
+  const blockTimeRemaining = getRemainingSeconds(
+    blockStartTime,
+    blockDuration,
+    now,
+  );
+  const answerTimeRemaining = isMicMuted
+    ? 0
+    : getRemainingSeconds(answerStartTime, answerTimeLimit, now);
+
+  // Reset block timer when block changes
   useEffect(() => {
-    if (templateBlock) {
-      setBlockTimeRemaining(templateBlock.durationSec);
-    }
-  }, [blockIndex, templateBlock]);
+    setBlockStartTime(Date.now());
+    blockEndHandled.current = false;
+  }, [blockIndex]);
 
   // Reset answer timer when question changes
   useEffect(() => {
-    setAnswerTimeRemaining(answerTimeLimit);
+    setAnswerStartTime(Date.now());
     setIsMicMuted(false);
+    answerTimeoutHandled.current = false;
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getAudioTracks().forEach((track) => {
         track.enabled = true;
       });
     }
-  }, [currentQuestionIndex, answerTimeLimit]);
+  }, [currentQuestionIndex]);
 
-  // Per-answer timer with mic mute
-  useEffect(() => {
-    if (phase !== "active" || isMicMuted) return;
-
-    const timer = setInterval(() => {
-      setAnswerTimeRemaining((prev) => {
-        if (prev <= 1) {
-          handleAnswerTimeout();
-          return answerTimeLimit;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [phase, isMicMuted, answerTimeLimit]);
-
-  // Block timer effect
+  // Single interval for re-rendering - the only interval we need
   useEffect(() => {
     if (phase !== "active") return;
 
-    const timer = setInterval(() => {
-      setBlockTimeRemaining((prev) => {
-        if (prev <= 1) {
-          console.log("Block time limit reached!");
-          // End session immediately via handleBlockEnd
-          void handleBlockEnd();
-          return 0;
-        }
-        return prev - 1;
-      });
+    const intervalId = setInterval(() => {
+      setTick((t) => t + 1);
     }, 1000);
 
-    return () => clearInterval(timer);
+    return () => clearInterval(intervalId);
   }, [phase]);
 
-  const handleAnswerTimeout = () => {
+  // Handle answer timeout
+  const handleAnswerTimeout = useCallback(() => {
+    if (answerTimeoutHandled.current) return;
+    answerTimeoutHandled.current = true;
+
     console.log("Time's up for answer!");
-    // 1. Mute microphone (keep stream alive for fast re-enable)
+    // Mute microphone
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getAudioTracks().forEach((track) => {
         track.enabled = false;
@@ -124,10 +120,7 @@ export function BlockSession({
     }
     setIsMicMuted(true);
 
-    // 2. Gemini interprets silence as "user finished"
-    //    and naturally transitions to the next question
-
-    // 3. Re-enable mic after brief pause (3 seconds)
+    // Re-enable mic after brief pause and move to next question
     setTimeout(() => {
       if (mediaStreamRef.current) {
         mediaStreamRef.current.getAudioTracks().forEach((track) => {
@@ -137,11 +130,31 @@ export function BlockSession({
       setIsMicMuted(false);
       setCurrentQuestionIndex((prev) => prev + 1);
     }, 3000);
-  };
+  }, []);
+
+  // Check for answer timeout on each tick
+  useEffect(() => {
+    if (
+      phase === "active" &&
+      !isMicMuted &&
+      !answerTimeoutHandled.current &&
+      isTimeUp(answerStartTime, answerTimeLimit, Date.now())
+    ) {
+      handleAnswerTimeout();
+    }
+  }, [
+    tick,
+    phase,
+    isMicMuted,
+    answerStartTime,
+    answerTimeLimit,
+    handleAnswerTimeout,
+  ]);
 
   // Handle block completion
-  const handleBlockEnd = async () => {
-    if (!block) return;
+  const handleBlockEnd = useCallback(async () => {
+    if (!block || blockEndHandled.current) return;
+    blockEndHandled.current = true;
 
     await completeBlock.mutateAsync({
       interviewId: interview.id,
@@ -156,7 +169,19 @@ export function BlockSession({
     } else {
       setPhase("transition");
     }
-  };
+  }, [block, completeBlock, interview.id, isLastBlock, guestToken, router]);
+
+  // Check for block timeout on each tick
+  useEffect(() => {
+    if (
+      phase === "active" &&
+      !blockEndHandled.current &&
+      isTimeUp(blockStartTime, blockDuration, Date.now())
+    ) {
+      console.log("Block time limit reached!");
+      void handleBlockEnd();
+    }
+  }, [tick, phase, blockStartTime, blockDuration, handleBlockEnd]);
 
   // Transition screen between blocks
   if (phase === "transition") {
@@ -199,7 +224,9 @@ export function BlockSession({
                 setBlockIndex((i) => i + 1);
                 setPhase("active");
                 setCurrentQuestionIndex(0);
-                setAnswerTimeRemaining(answerTimeLimit);
+                // Reset timers for new block
+                setAnswerStartTime(Date.now());
+                answerTimeoutHandled.current = false;
               }}
               className="rounded-full bg-blue-600 px-8 py-3 font-semibold text-white transition-colors hover:bg-blue-700"
             >

@@ -372,11 +372,21 @@ export const interviewRouter = createTRPCRouter({
         });
       }
 
-      // Verify interview is in PENDING state
-      if (access.interview.status !== "PENDING") {
+      // Verify interview status
+      // Standard interviews must be PENDING to start a session.
+      // Block-based interviews can be PENDING (for first block) or IN_PROGRESS (for subsequent blocks).
+      const isValidStatus =
+        access.interview.status === "PENDING" ||
+        (access.interview.isBlockBased &&
+          access.interview.status === "IN_PROGRESS");
+
+      if (!isValidStatus) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Interview is not in PENDING state",
+          message:
+            access.interview.status === "COMPLETED"
+              ? "Interview is already completed"
+              : "Interview is not in a valid state to start",
         });
       }
 
@@ -536,8 +546,24 @@ export const interviewRouter = createTRPCRouter({
         },
         data: {
           status: "COMPLETED",
+          endedAt: new Date(),
         },
       });
+
+      // Check if this was the last block
+      const totalBlocks = await ctx.db.interviewBlock.count({
+        where: { interviewId: input.interviewId },
+      });
+
+      if (input.blockNumber === totalBlocks) {
+        await ctx.db.interview.update({
+          where: { id: input.interviewId },
+          data: {
+            status: "COMPLETED",
+            endedAt: new Date(),
+          },
+        });
+      }
 
       return updatedBlock;
     }),
