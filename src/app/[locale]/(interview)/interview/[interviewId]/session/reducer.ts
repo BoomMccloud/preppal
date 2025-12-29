@@ -134,8 +134,11 @@ export function sessionReducer(
 
     case "ANSWERING":
       if (event.type === "TICK") {
-        // 1. Block Limit (hard limit - checked first)
-        if (isTimeUp(state.blockStartTime, context.blockDuration, now)) {
+        // 1. Block Limit (hard limit - checked first, 0 = no limit)
+        if (
+          context.blockDuration > 0 &&
+          isTimeUp(state.blockStartTime, context.blockDuration, now)
+        ) {
           return {
             state: {
               ...state,
@@ -145,8 +148,11 @@ export function sessionReducer(
             commands: [],
           };
         }
-        // 2. Answer Limit (soft limit - checked second)
-        if (isTimeUp(state.answerStartTime, context.answerTimeLimit, now)) {
+        // 2. Answer Limit (soft limit - checked second, 0 = no limit)
+        if (
+          context.answerTimeLimit > 0 &&
+          isTimeUp(state.answerStartTime, context.answerTimeLimit, now)
+        ) {
           return {
             state: {
               ...state,

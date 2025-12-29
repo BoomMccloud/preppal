@@ -16,9 +16,10 @@ interface UseInterviewSessionConfig {
   onMediaStream?: (stream: MediaStream) => void;
 }
 
+// Default context for standard interviews (0 = no time limits)
 const defaultContext: ReducerContext = {
-  answerTimeLimit: 120,
-  blockDuration: 600,
+  answerTimeLimit: 0,
+  blockDuration: 0,
   totalBlocks: 1,
 };
 

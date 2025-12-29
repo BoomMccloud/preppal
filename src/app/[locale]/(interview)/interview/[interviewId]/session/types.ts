@@ -66,8 +66,8 @@ export type SessionEvent =
   | { type: "TIMER_TICK" };
 
 export interface ReducerContext {
-  answerTimeLimit: number;
-  blockDuration: number;
+  answerTimeLimit: number; // seconds, 0 = no limit
+  blockDuration: number; // seconds, 0 = no limit
   totalBlocks: number;
 }
 
