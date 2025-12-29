@@ -141,18 +141,17 @@
     },
     "blockSession": {
       "blockComplete": "Block {number} Complete",
-      "languageSwitchTitle": "🌐 Language Switch",
-      "nextBlockLanguage": "The next block will be in: {language}",
+      "languageSwitchTitle": "Language Change",
+      "nextBlockLanguage": "The next block will be in {language}",
       "english": "English",
       "chinese": "Chinese",
-      "blockDetails": "{questions} questions, {minutes} minutes total",
-      "continue": "Continue",
-      "takeBreak": "Take a Break",
+      "blockDetails": "{questions} questions | ~{minutes} minutes",
+      "continue": "Continue to Next Block",
       "blockProgress": "Block {current} of {total}",
-      "questionProgress": "Question {current} of {total}",
+      "blockTimer": "Section: {minutes}:{seconds}",
       "timer": "Answer: {minutes}:{seconds}",
-      "timesUpTitle": "Time's up for this answer!",
-      "timesUpMessage": "Moving to the next question... (Your microphone will re-enable shortly)"
+      "timesUpTitle": "Time's Up!",
+      "timesUpMessage": "Please wrap up your answer now."
     },
     "feedback": {
       "title": "Interview Feedback",

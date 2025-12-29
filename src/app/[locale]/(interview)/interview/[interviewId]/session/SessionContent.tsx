@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useReducer, useCallback, useMemo } from "react";
 import { useRouter } from "~/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { useInterviewSocket } from "./useInterviewSocket";
 import { StatusIndicator } from "~/app/_components/StatusIndicator";
 import { AIAvatar } from "~/app/_components/AIAvatar";
+import { sessionReducer } from "./reducer";
+import type { SessionState, SessionEvent, ReducerContext } from "./types";
 
 const IS_DEV = process.env.NODE_ENV === "development";
 
@@ -18,6 +20,7 @@ interface SessionContentProps {
   disableStatusRedirect?: boolean;
   onMediaStream?: (stream: MediaStream) => void;
   blockNumber?: number;
+  onConnectionReady?: () => void;
 }
 
 export function SessionContent({
@@ -27,6 +30,7 @@ export function SessionContent({
   disableStatusRedirect,
   onMediaStream,
   blockNumber,
+  onConnectionReady,
 }: SessionContentProps) {
   const router = useRouter();
   const t = useTranslations("interview.session");
@@ -97,36 +101,120 @@ export function SessionContent({
     disableStatusRedirect,
   ]);
 
-  // WebSocket connection and state management
-  const {
-    state,
-    transcript,
-    elapsedTime,
-    error,
-    endInterview,
-    isAiSpeaking,
-    debugInfo: wsDebugInfo,
-  } = useInterviewSocket({
+  // v5: Initialize reducer (standalone - not from BlockSession)
+  // Simple context for single-session interviews (non-block mode)
+  const defaultContext: ReducerContext = useMemo(() => ({
+    answerTimeLimit: 120,
+    blockDuration: 600,
+    totalBlocks: 1,
+  }), []);
+
+  const [reducerState, dispatch] = useReducer(
+    (state: SessionState, event: SessionEvent) =>
+      sessionReducer(state, event, defaultContext).state,
+    {
+      status: "WAITING_FOR_CONNECTION",
+      connectionState: "initializing",
+      transcript: [],
+      pendingUser: "",
+      pendingAI: "",
+      elapsedTime: 0,
+      error: null,
+      isAiSpeaking: false,
+    }
+  );
+
+  // v5: Initialize driver with event callbacks
+  const driver = useInterviewSocket(
     interviewId,
     guestToken,
     blockNumber,
-    onMediaStream,
-    onSessionEnded: () => {
-      if (onSessionEnded) {
-        onSessionEnded();
-      } else {
-        const feedbackUrl = guestToken
-          ? `/interview/${interviewId}/feedback?token=${guestToken}`
-          : `/interview/${interviewId}/feedback`;
-        router.push(feedbackUrl);
+    {
+      onConnectionOpen: useCallback(() => {
+        dispatch({ type: "CONNECTION_ESTABLISHED" });
+      }, []),
+      onConnectionClose: useCallback(
+        (code: number) => {
+          dispatch({ type: "CONNECTION_CLOSED", code });
+          // Handle navigation
+          if (onSessionEnded) {
+            onSessionEnded();
+          } else {
+            const feedbackUrl = guestToken
+              ? `/interview/${interviewId}/feedback?token=${guestToken}`
+              : `/interview/${interviewId}/feedback`;
+            router.push(feedbackUrl);
+          }
+        },
+        [onSessionEnded, guestToken, interviewId, router]
+      ),
+      onConnectionError: useCallback((error: string) => {
+        dispatch({ type: "CONNECTION_ERROR", error });
+      }, []),
+      onTranscriptCommit: useCallback((entry) => {
+        dispatch({ type: "TRANSCRIPT_COMMIT", entry });
+      }, []),
+      onTranscriptPending: useCallback((buffers) => {
+        dispatch({ type: "TRANSCRIPT_PENDING", buffers });
+      }, []),
+      onAudioPlaybackChange: useCallback((isSpeaking: boolean) => {
+        dispatch({ type: "AI_SPEAKING_CHANGED", isSpeaking });
+      }, []),
+      onMediaStream,
+    }
+  );
+
+  // v5: Execute commands from reducer
+  useEffect(() => {
+    const result = sessionReducer(
+      reducerState,
+      { type: "TICK" },
+      defaultContext
+    );
+    result.commands.forEach((cmd) => {
+      switch (cmd.type) {
+        case "START_CONNECTION":
+          driver.connect();
+          break;
+        case "CLOSE_CONNECTION":
+          driver.disconnect();
+          break;
+        case "MUTE_MIC":
+          driver.mute();
+          break;
+        case "UNMUTE_MIC":
+          driver.unmute();
+          break;
       }
-    },
-  });
+    });
+  }, [reducerState, driver, defaultContext]);
+
+  // v5: Call connect on mount
+  useEffect(() => {
+    driver.connect();
+  }, [driver]);
+
+  // v5: Get state from reducer
+  const { connectionState, transcript, elapsedTime, error, isAiSpeaking } =
+    reducerState;
 
   // Auto-scroll to latest transcript
   useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [transcript.length, transcript]); // Scroll on new messages
+
+  // Call onConnectionReady when Gemini connection is established
+  const connectionReadyCalledRef = useRef(false);
+  useEffect(() => {
+    if (
+      connectionState === "live" &&
+      onConnectionReady &&
+      !connectionReadyCalledRef.current
+    ) {
+      connectionReadyCalledRef.current = true;
+      onConnectionReady();
+    }
+  }, [connectionState, onConnectionReady]);
 
   // Format elapsed time as MM:SS
   const formatTime = (seconds: number): string => {
@@ -145,7 +233,7 @@ export function SessionContent({
   }
 
   // Connecting state
-  if (state === "initializing" || state === "connecting") {
+  if (connectionState === "initializing" || connectionState === "connecting") {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="text-lg">
@@ -176,7 +264,7 @@ export function SessionContent({
   }
 
   // Error state
-  if (state === "error") {
+  if (connectionState === "error") {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="max-w-md space-y-4 text-center">
@@ -203,27 +291,19 @@ export function SessionContent({
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold">{t("title")}</h1>
           <div className="flex items-center gap-4">
-            {IS_DEV && (
-              <>
-                <button
-                  onClick={handleCheckStatus}
-                  className="rounded bg-blue-500 px-3 py-1 text-sm text-white hover:bg-blue-600"
+            {IS_DEV && driver.debugInfo && (
+              <div className="text-xs text-gray-600">
+                WS: {driver.debugInfo.connectAttempts} attempts |{" "}
+                <span
+                  className={
+                    driver.debugInfo.activeConnections > 1
+                      ? "font-bold text-red-600"
+                      : "text-green-600"
+                  }
                 >
-                  {t("checkStatus")}
-                </button>
-                <div className="text-xs text-gray-600">
-                  WS: {wsDebugInfo.connectAttempts} attempts |{" "}
-                  <span
-                    className={
-                      wsDebugInfo.activeConnections > 1
-                        ? "font-bold text-red-600"
-                        : "text-green-600"
-                    }
-                  >
-                    {wsDebugInfo.activeConnections} active
-                  </span>
-                </div>
-              </>
+                  {driver.debugInfo.activeConnections} active
+                </span>
+              </div>
             )}
             <StatusIndicator status={isAiSpeaking ? "speaking" : "listening"} />
             <div className="font-mono text-lg">{formatTime(elapsedTime)}</div>
@@ -291,11 +371,11 @@ export function SessionContent({
       <div className="border-t bg-white px-6 py-4 shadow-sm">
         <div className="mx-auto flex max-w-3xl justify-center">
           <button
-            onClick={endInterview}
-            disabled={state === "ending"}
+            onClick={() => driver.disconnect()}
+            disabled={connectionState === "ending"}
             className="rounded-full bg-red-600 px-8 py-3 font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {state === "ending" ? t("ending") : t("endInterview")}
+            {connectionState === "ending" ? t("ending") : t("endInterview")}
           </button>
         </div>
       </div>

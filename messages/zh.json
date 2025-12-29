@@ -141,18 +141,17 @@
     },
     "blockSession": {
       "blockComplete": "第 {number} 部分完成",
-      "languageSwitchTitle": "🌐 语言切换",
-      "nextBlockLanguage": "下一部分的语言是：{language}",
+      "languageSwitchTitle": "语言切换",
+      "nextBlockLanguage": "下一部分的语言是{language}",
       "english": "英语",
       "chinese": "中文",
-      "blockDetails": "{questions} 个问题，共 {minutes} 分钟",
-      "continue": "继续",
-      "takeBreak": "休息一下",
+      "blockDetails": "{questions} 个问题 | ~{minutes} 分钟",
+      "continue": "继续下一部分",
       "blockProgress": "部分 {current} / {total}",
-      "questionProgress": "问题 {current} / {total}",
+      "blockTimer": "部分时间：{minutes}:{seconds}",
       "timer": "回答时间：{minutes}:{seconds}",
-      "timesUpTitle": "本题回答时间到！",
-      "timesUpMessage": "正在进入下一题...（麦克风稍后将重新开启）"
+      "timesUpTitle": "时间到！",
+      "timesUpMessage": "请现在结束你的回答。"
     },
     "feedback": {
       "title": "面试反馈",

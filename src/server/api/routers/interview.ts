@@ -15,6 +15,8 @@ import {
 } from "~/server/lib/interview-access";
 import { JobDescriptionInput, ResumeInput } from "~/lib/schemas/interview";
 import { getTemplate } from "~/lib/interview-templates";
+import { fromBinary } from "@bufbuild/protobuf";
+import { TranscriptSchema, Speaker } from "~/lib/proto/transcript_pb";
 
 export const interviewRouter = createTRPCRouter({
   createSession: protectedProcedure
@@ -566,5 +568,61 @@ export const interviewRouter = createTRPCRouter({
       }
 
       return updatedBlock;
+    }),
+
+  // DEV ONLY: Get transcript for debugging
+  getTranscript: publicProcedure
+    .input(z.object({ interviewId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      // Only allow in development
+      if (process.env.NODE_ENV === "production") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "This endpoint is only available in development",
+        });
+      }
+
+      const transcriptEntry = await ctx.db.transcriptEntry.findUnique({
+        where: { interviewId: input.interviewId },
+      });
+
+      if (!transcriptEntry) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Transcript not found",
+        });
+      }
+
+      // Deserialize the protobuf binary
+      const transcript = fromBinary(
+        TranscriptSchema,
+        transcriptEntry.transcript,
+      );
+
+      // Convert Speaker enum to string
+      const speakerToString = (speaker: Speaker): string => {
+        switch (speaker) {
+          case Speaker.USER:
+            return "USER";
+          case Speaker.AI:
+            return "AI";
+          default:
+            return "UNKNOWN";
+        }
+      };
+
+      // Format as readable turns
+      const turns = transcript.turns.map((turn) => ({
+        speaker: speakerToString(turn.speaker),
+        content: turn.content,
+        timestamp: new Date(Number(turn.timestampMs)),
+      }));
+
+      return {
+        turns,
+        plainText: turns
+          .map((t) => `${t.speaker}: ${t.content}`)
+          .join("\n\n"),
+      };
     }),
 });

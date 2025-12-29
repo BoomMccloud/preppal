@@ -141,18 +141,17 @@
     },
     "blockSession": {
       "blockComplete": "Bloque {number} Completado",
-      "languageSwitchTitle": "🌐 Cambio de Idioma",
-      "nextBlockLanguage": "El siguiente bloque será en: {language}",
+      "languageSwitchTitle": "Cambio de Idioma",
+      "nextBlockLanguage": "El siguiente bloque será en {language}",
       "english": "Inglés",
       "chinese": "Chino",
-      "blockDetails": "{questions} preguntas, {minutes} minutos en total",
-      "continue": "Continuar",
-      "takeBreak": "Tomar un Descanso",
+      "blockDetails": "{questions} preguntas | ~{minutes} minutos",
+      "continue": "Continuar al Siguiente Bloque",
       "blockProgress": "Bloque {current} de {total}",
-      "questionProgress": "Pregunta {current} de {total}",
+      "blockTimer": "Sección: {minutes}:{seconds}",
       "timer": "Respuesta: {minutes}:{seconds}",
-      "timesUpTitle": "¡Se acabó el tiempo para esta respuesta!",
-      "timesUpMessage": "Pasando a la siguiente pregunta... (Tu micrófono se reactivará en breve)"
+      "timesUpTitle": "¡Se Acabó el Tiempo!",
+      "timesUpMessage": "Por favor, termina tu respuesta ahora."
     },
     "feedback": {
       "title": "Retroalimentación de Entrevista",

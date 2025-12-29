@@ -48,5 +48,4 @@ This project is divided into several key architectural components. For more deta
 - **Add descriptions** at the beginning of each new or modified file.
 - **Maintain small files**: Keep files to 300 lines of code or less; refactor if they grow larger.
 - **Minimize new code**: Prefer boilerplates or reference implementations from within the project.
-- **Confirm with Mr. User** Before making changes, tell Mr. User what the plan is, where it is documented, and ask for explicit instructions to proceed
 - **Apply Test Driven Development** see `/docs/03_testing.md` for methdology

@@ -89,6 +89,45 @@ Based on feedback from education/training partners:
 - **Benefits:** Eliminates "Connecting..." spinners and hardware (camera/mic) flicker between segments.
 - **Status:** To be explored after the initial Frontend-led implementation of FEAT27 is stabilized.
 
+### User-Created Interview Templates (Template Builder)
+**Goal:** Enable business users (teachers, trainers) to create custom interview templates through a UI without code deployment.
+
+**Current State:**
+- Templates are hardcoded TypeScript constants in `src/lib/interview-templates/definitions/`
+- Only 1 template exists: `mba-behavioral-v1`
+- Hardcoded checkbox on create-interview page
+- No template management UI
+
+**Implementation Details:**
+- **Database Migration:**
+  - Add `InterviewTemplate` Prisma model with JSON field for blocks/questions
+  - Store template metadata (name, persona, ownership, visibility)
+  - Migrate existing TypeScript templates to database
+  - Use JSON field for block structure (validated at runtime with existing Zod schemas)
+- **API Layer (tRPC):**
+  - `template.list` - Get all accessible templates (public + user's custom)
+  - `template.create` - Create custom template
+  - `template.update` - Edit owned template
+  - `template.delete` - Soft delete
+  - `template.duplicate` - Copy template for customization
+- **UI Components:**
+  - `/templates` - Template management dashboard
+  - `/templates/new` - Template builder with block/question editor
+  - Update `/create-interview` with template selector (replace hardcoded checkbox)
+- **Access Control:**
+  - System templates (public, read-only, can duplicate)
+  - Custom templates (private to creator, full CRUD)
+
+**Benefits:**
+- Business users can create templates without deploying code
+- Teachers can customize interview questions for their curriculum
+- No deployments needed for new interview types
+- Scalable template library
+
+**Estimated Effort:** 2-3 weeks
+
+**Detailed Analysis:** See [05_current_task.md](../05_current_task.md) for full architectural analysis and implementation plan.
+
 ### Credit System & Monetization
 **Goal:** Manage interview usage through a credit-based system.
 
