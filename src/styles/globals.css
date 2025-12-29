@@ -31,3 +31,36 @@ body {
   color: var(--color-primary-text);
   transition: background-color 0.3s ease, color 0.3s ease;
 }
+
+/* Ripple animation for AI avatar (SessionContentProd) */
+@keyframes ripple {
+  0% {
+    transform: scale(0.8);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+.animate-ripple {
+  animation: ripple 2s infinite linear;
+}
+
+/* Soft pulse animation for avatar (SessionContentProd) */
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 3s infinite ease-in-out;
+}

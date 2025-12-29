@@ -137,7 +137,10 @@
       "aiInterviewer": "Entrevistador IA",
       "you": "Tú",
       "waitingToBegin": "Esperando que comience la entrevista...",
-      "currentStatus": "Estado actual de la entrevista: {status}"
+      "currentStatus": "Estado actual de la entrevista: {status}",
+      "connected": "Conectado",
+      "aiName": "Sarah (Entrevistador IA)",
+      "currentQuestion": "Pregunta actual"
     },
     "blockSession": {
       "blockComplete": "Bloque {number} Completado",

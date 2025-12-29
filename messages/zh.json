@@ -137,7 +137,10 @@
       "aiInterviewer": "AI面试官",
       "you": "您",
       "waitingToBegin": "等待面试开始...",
-      "currentStatus": "当前面试状态：{status}"
+      "currentStatus": "当前面试状态：{status}",
+      "connected": "已连接",
+      "aiName": "Sarah（AI面试官）",
+      "currentQuestion": "当前问题"
     },
     "blockSession": {
       "blockComplete": "第 {number} 部分完成",
