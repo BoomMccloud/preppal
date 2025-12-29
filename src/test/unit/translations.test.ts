@@ -47,12 +47,15 @@ describe("Translation Integrity", () => {
       const keys = getKeys(content).sort();
 
       const missingKeys = enKeys.filter((key) => !keys.includes(key));
-      
+
       if (missingKeys.length > 0) {
         console.error(`Missing keys in ${file}:`, missingKeys);
       }
 
-      expect(missingKeys, `Missing ${missingKeys.length} keys in ${file}`).toEqual([]);
+      expect(
+        missingKeys,
+        `Missing ${missingKeys.length} keys in ${file}`,
+      ).toEqual([]);
     });
   });
 });

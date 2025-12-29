@@ -10,11 +10,11 @@ export const mbaBehavioralV1: InterviewTemplate = {
   description: "Standard MBA admissions behavioral interview",
   persona:
     "Senior admissions officer at a top-10 MBA program. Professional, warm, evaluating leadership potential.",
-  answerTimeLimitSec: 180,
+  answerTimeLimitSec: 90,
   blocks: [
     {
       language: "zh",
-      durationSec: 600,
+      durationSec: 180,
       questions: [
         {
           content:
@@ -35,7 +35,7 @@ export const mbaBehavioralV1: InterviewTemplate = {
     },
     {
       language: "en",
-      durationSec: 600,
+      durationSec: 180,
       questions: [
         {
           content:

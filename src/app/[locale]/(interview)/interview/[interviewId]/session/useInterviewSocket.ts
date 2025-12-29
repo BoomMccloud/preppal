@@ -2,7 +2,7 @@
 // This hook manages hardware (WebSocket, AudioSession) and fires events upward
 // All business logic lives in the reducer - this is just I/O plumbing
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useMemo } from "react";
 import { api } from "~/trpc/react";
 import { AudioSession } from "~/lib/audio/AudioSession";
 import { TranscriptManager } from "~/lib/audio/TranscriptManager";
@@ -24,12 +24,13 @@ export function useInterviewSocket(
   interviewId: string,
   guestToken: string | undefined,
   blockNumber: number | undefined,
-  events: DriverEvents
+  events: DriverEvents,
 ): {
   connect: () => void;
   disconnect: () => void;
   mute: () => void;
   unmute: () => void;
+  stopAudio: () => void;
   isAudioMuted: () => boolean;
   debugInfo?: { connectAttempts: number; activeConnections: number };
 } {
@@ -101,7 +102,7 @@ export function useInterviewSocket(
       events.onConnectionError(
         err instanceof Error
           ? `Audio initialization failed: ${err.message}`
-          : "Failed to initialize audio"
+          : "Failed to initialize audio",
       );
     }
   }, [events]);
@@ -112,7 +113,7 @@ export function useInterviewSocket(
       // Close any existing connection before creating a new one
       if (wsRef.current) {
         console.log(
-          "[WebSocket] Closing existing connection before reconnecting"
+          "[WebSocket] Closing existing connection before reconnecting",
         );
         wsRef.current.close();
         wsRef.current = null;
@@ -126,7 +127,7 @@ export function useInterviewSocket(
         ? `${workerUrl}/${interviewId}?token=${encodeURIComponent(token)}&block=${blockNumber}`
         : `${workerUrl}/${interviewId}?token=${encodeURIComponent(token)}`;
       console.log(
-        `[WebSocket] Connecting to: ${wsUrl} (Attempt #${connectAttemptsRef.current})`
+        `[WebSocket] Connecting to: ${wsUrl} (Attempt #${connectAttemptsRef.current})`,
       );
 
       const ws = new WebSocket(wsUrl);
@@ -136,7 +137,7 @@ export function useInterviewSocket(
       ws.onopen = () => {
         activeConnectionsRef.current += 1;
         console.log(
-          `[WebSocket] Connected successfully (Active: ${activeConnectionsRef.current})`
+          `[WebSocket] Connected successfully (Active: ${activeConnectionsRef.current})`,
         );
         events.onConnectionOpen();
 
@@ -191,10 +192,10 @@ export function useInterviewSocket(
       ws.onclose = (event) => {
         activeConnectionsRef.current = Math.max(
           0,
-          activeConnectionsRef.current - 1
+          activeConnectionsRef.current - 1,
         );
         console.log(
-          `[WebSocket] Closed with code ${event.code}: ${event.reason} (Active: ${activeConnectionsRef.current})`
+          `[WebSocket] Closed with code ${event.code}: ${event.reason} (Active: ${activeConnectionsRef.current})`,
         );
 
         // Handle close based on code
@@ -213,7 +214,7 @@ export function useInterviewSocket(
         }
       };
     },
-    [interviewId, blockNumber, events, setupAudio]
+    [interviewId, blockNumber, events, setupAudio],
   );
 
   // Generate token mutation
@@ -264,6 +265,14 @@ export function useInterviewSocket(
     return audioSessionRef.current?.isInputMuted() ?? false;
   }, []);
 
+  // Public: Stop audio session
+  const stopAudio = useCallback(() => {
+    console.log("[useInterviewSocket] stopAudio() called");
+    audioSessionRef.current?.stop();
+    audioSessionRef.current = null;
+    console.log("[useInterviewSocket] stopAudio() completed");
+  }, []);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -276,15 +285,20 @@ export function useInterviewSocket(
     };
   }, []);
 
-  return {
-    connect,
-    disconnect,
-    mute,
-    unmute,
-    isAudioMuted,
-    debugInfo: {
-      connectAttempts: connectAttemptsRef.current,
-      activeConnections: activeConnectionsRef.current,
-    },
-  };
+  // Memoize the return object to prevent unnecessary re-renders in consuming components
+  return useMemo(
+    () => ({
+      connect,
+      disconnect,
+      mute,
+      unmute,
+      stopAudio,
+      isAudioMuted,
+      debugInfo: {
+        connectAttempts: connectAttemptsRef.current,
+        activeConnections: activeConnectionsRef.current,
+      },
+    }),
+    [connect, disconnect, mute, unmute, stopAudio, isAudioMuted],
+  );
 }

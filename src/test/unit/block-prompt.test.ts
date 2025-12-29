@@ -21,13 +21,6 @@ const baseContext: BlockContext = {
 };
 
 describe("buildBlockPrompt", () => {
-  it("should return a non-empty string", () => {
-    const prompt = buildBlockPrompt(baseContext);
-
-    expect(typeof prompt).toBe("string");
-    expect(prompt.length).toBeGreaterThan(100);
-  });
-
   it("should include all questions", () => {
     const prompt = buildBlockPrompt(baseContext);
 

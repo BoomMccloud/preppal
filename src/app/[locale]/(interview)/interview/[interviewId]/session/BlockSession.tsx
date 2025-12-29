@@ -1,28 +1,27 @@
+/**
+ * BlockSession - Controlled component for block-based interviews
+ * Receives state and dispatch from parent (page.tsx via useInterviewSession hook)
+ * Manages block UI and completion side effects
+ */
 "use client";
 
-import { useReducer, useEffect, useRef, useCallback, useState } from "react";
-import { useRouter } from "~/i18n/navigation";
+import { useEffect, useRef, useCallback } from "react";
 import { api } from "~/trpc/react";
 import { SessionContent } from "./SessionContent";
 import { useTranslations } from "next-intl";
 import type { InterviewBlock } from "@prisma/client";
 import type { InterviewTemplate } from "~/lib/interview-templates/schema";
 import { getRemainingSeconds } from "~/lib/countdown-timer";
-import { sessionReducer } from "./reducer";
-import { TIMER_CONFIG } from "./constants";
-import type { SessionState, SessionEvent, ReducerContext } from "./types";
-
-const IS_DEV = process.env.NODE_ENV === "development";
+import type { SessionState, SessionEvent } from "./types";
+import type { Dispatch } from "react";
 
 interface BlockSessionProps {
-  interview: {
-    id: string;
-    isBlockBased: boolean;
-    templateId: string | null;
-  };
+  interview: { id: string; status: string };
   blocks: InterviewBlock[];
   template: InterviewTemplate;
   guestToken?: string;
+  state: SessionState;
+  dispatch: Dispatch<SessionEvent>;
 }
 
 export function BlockSession({
@@ -30,8 +29,9 @@ export function BlockSession({
   blocks,
   template,
   guestToken,
+  state,
+  dispatch,
 }: BlockSessionProps) {
-  const router = useRouter();
   const t = useTranslations("interview.blockSession");
   const completeBlock = api.interview.completeBlock.useMutation();
 
@@ -39,85 +39,7 @@ export function BlockSession({
   const initialBlockIndex = blocks.findIndex((b) => b.status !== "COMPLETED");
   const startBlockIndex = initialBlockIndex === -1 ? 0 : initialBlockIndex;
 
-  // Use shorter time limit in dev for easier testing
-  const answerTimeLimit = IS_DEV ? 10 : template.answerTimeLimitSec;
-
-  const mediaStreamRef = useRef<MediaStream | null>(null);
-
-  // Wrap the pure reducer in a useCallback closure that injects configuration
-  // v5: Extract state from ReducerResult (commands are handled in SessionContent)
-  const reducer = useCallback(
-    (state: SessionState, event: SessionEvent) => {
-      // Get blockIndex from current state
-      let currentBlockIndex = startBlockIndex;
-      if (
-        state.status === "ANSWERING" ||
-        state.status === "ANSWER_TIMEOUT_PAUSE"
-      ) {
-        currentBlockIndex = state.blockIndex;
-      } else if (state.status === "BLOCK_COMPLETE_SCREEN") {
-        currentBlockIndex = state.completedBlockIndex;
-      }
-
-      const currentBlock = blocks[currentBlockIndex];
-      const currentTemplateBlock = template.blocks[currentBlockIndex];
-
-      // Validate: fail fast if blockIndex is invalid
-      if (!currentBlock || !currentTemplateBlock) {
-        console.error("[BlockSession] Invalid blockIndex:", {
-          blockIndex: currentBlockIndex,
-          totalBlocks: blocks.length,
-          state,
-        });
-        // Return state unchanged to prevent crash
-        return state;
-      }
-
-      const context: ReducerContext = {
-        blockDuration: currentTemplateBlock.durationSec,
-        answerTimeLimit: answerTimeLimit,
-        totalBlocks: blocks.length,
-      };
-
-      // v5: sessionReducer returns ReducerResult { state, commands }
-      // Extract state for BlockSession (commands handled in SessionContent)
-      const result = sessionReducer(state, event, context);
-      return result.state;
-    },
-    [blocks, template.blocks, answerTimeLimit, startBlockIndex],
-  );
-
-  const [state, dispatch] = useReducer(reducer, {
-    status: "WAITING_FOR_CONNECTION",
-    connectionState: "initializing",
-    transcript: [],
-    pendingUser: "",
-    pendingAI: "",
-    elapsedTime: 0,
-    error: null,
-    isAiSpeaking: false,
-  });
-
-  // Tick counter to force re-renders for timer display updates
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [tick, setTick] = useState(0);
-
-  // Standard React dispatch - interval for TICK events (answer/block timers)
-  useEffect(() => {
-    const interval: NodeJS.Timeout = setInterval(() => {
-      dispatch({ type: "TICK" });
-      setTick((t) => t + 1); // Force re-render for timer display
-    }, TIMER_CONFIG.TICK_INTERVAL_MS);
-    return () => clearInterval(interval);
-  }, []);
-
-  // v5: Add TIMER_TICK interval for global elapsed time
-  useEffect(() => {
-    const interval: NodeJS.Timeout = setInterval(() => {
-      dispatch({ type: "TIMER_TICK" });
-    }, 1000); // 1 second for elapsed time
-    return () => clearInterval(interval);
-  }, []);
+  const answerTimeLimit = template.answerTimeLimitSec;
 
   // Handler for when Gemini connection is ready
   const handleConnectionReady = useCallback(() => {
@@ -125,7 +47,7 @@ export function BlockSession({
       type: "CONNECTION_READY",
       initialBlockIndex: startBlockIndex,
     });
-  }, [startBlockIndex]);
+  }, [startBlockIndex, dispatch]);
 
   // Side Effect: Sync Block Completion to DB
   const lastCompletedRef = useRef<number | null>(null);
@@ -156,35 +78,6 @@ export function BlockSession({
     }
   }, [state, blocks, interview.id, completeBlock]);
 
-  // Side Effect: Navigate to feedback when interview is complete
-  useEffect(() => {
-    if (state.status === "INTERVIEW_COMPLETE") {
-      const feedbackUrl = guestToken
-        ? `/interview/${interview.id}/feedback?token=${guestToken}`
-        : `/interview/${interview.id}/feedback`;
-      router.push(feedbackUrl);
-    }
-  }, [state.status, interview.id, guestToken, router]);
-
-  // Side Effect: Control microphone based on ANSWER_TIMEOUT_PAUSE state
-  useEffect(() => {
-    if (state.status === "ANSWER_TIMEOUT_PAUSE") {
-      // Mute microphone
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getAudioTracks().forEach((track) => {
-          track.enabled = false;
-        });
-      }
-    } else if (state.status === "ANSWERING") {
-      // Unmute microphone
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getAudioTracks().forEach((track) => {
-          track.enabled = true;
-        });
-      }
-    }
-  }, [state.status]);
-
   // Render: WAITING_FOR_CONNECTION
   if (state.status === "WAITING_FOR_CONNECTION") {
     return (
@@ -192,17 +85,8 @@ export function BlockSession({
         key="waiting-for-connection"
         interviewId={interview.id}
         guestToken={guestToken}
-        onSessionEnded={() => {
-          // This shouldn't be called in waiting state, but provide a no-op
-          console.warn(
-            "[BlockSession] onSessionEnded called in WAITING_FOR_CONNECTION state",
-          );
-        }}
-        disableStatusRedirect={true}
-        blockNumber={blocks[startBlockIndex]?.blockNumber ?? 1}
-        onMediaStream={(stream) => {
-          mediaStreamRef.current = stream;
-        }}
+        state={state}
+        dispatch={dispatch}
         onConnectionReady={handleConnectionReady}
       />
     );
@@ -336,17 +220,8 @@ export function BlockSession({
           key={`block-${blockIdx}`}
           interviewId={interview.id}
           guestToken={guestToken}
-          onSessionEnded={() => {
-            // Block ended manually via SessionContent (shouldn't happen with reducer)
-            console.warn(
-              "[BlockSession] onSessionEnded called during ANSWERING/PAUSE",
-            );
-          }}
-          disableStatusRedirect={true}
-          blockNumber={block.blockNumber}
-          onMediaStream={(stream) => {
-            mediaStreamRef.current = stream;
-          }}
+          state={state}
+          dispatch={dispatch}
           onConnectionReady={handleConnectionReady}
         />
       </>

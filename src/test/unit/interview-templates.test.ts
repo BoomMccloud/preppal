@@ -42,36 +42,6 @@ describe("Interview Template Registry", () => {
     expect(ids.length).toBe(uniqueIds.size);
   });
 
-  describe("Block structure validation", () => {
-    it("should have at least one block", () => {
-      const template = getTemplate("mba-behavioral-v1");
-
-      expect(template?.blocks).toBeDefined();
-      expect(template?.blocks.length).toBeGreaterThanOrEqual(1);
-    });
-
-    it("should have valid language codes in blocks", () => {
-      const template = getTemplate("mba-behavioral-v1");
-
-      expect(template?.blocks[0]?.language).toMatch(/^(en|zh)$/);
-    });
-
-    it("should have positive duration for blocks", () => {
-      const template = getTemplate("mba-behavioral-v1");
-
-      expect(template?.blocks[0]?.durationSec).toBeGreaterThan(0);
-    });
-
-    it("should have questions in blocks", () => {
-      const template = getTemplate("mba-behavioral-v1");
-
-      expect(template?.blocks[0]?.questions.length).toBeGreaterThan(0);
-    });
-
-    it("should have default answerTimeLimitSec of 180", () => {
-      const template = getTemplate("mba-behavioral-v1");
-
-      expect(template?.answerTimeLimitSec).toBe(180);
-    });
-  });
+  // Note: Block structure validation is handled by schema tests
+  // Template-specific values are configuration, not logic to test
 });

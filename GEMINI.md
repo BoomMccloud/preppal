@@ -14,7 +14,7 @@ Preppal is an application that uses the Gemini Live API to help users practice i
 - **Styling**: [Tailwind CSS](https://tailwindcss.com/)
 - **Language**: [TypeScript](https://www.typescriptlang.org/)
 - **Package Manager**: [pnpm](https://pnpm.io/)
-- **Testing**: [Vitest](https://vitest.dev/) (Unit/Integration), Playwright (E2E)
+- **Testing**: [Vitest](https://vitest.dev/) (Unit/Integration)
 - **Linting**: [ESLint](https://eslint.org/)
 - **Formatting**: [Prettier](https://prettier.io/)
 - **Email**: [Resend](https://resend.com/) (transactional emails)
@@ -35,17 +35,24 @@ This project is divided into several key architectural components. For more deta
 ## Important Commands
 
 - `pnpm dev`: Start the development server.
+- `pnpm dev:worker`: Start the worker development server.
 - `pnpm test`: Run unit and integration tests with Vitest.
 - `pnpm check`: Run linting and type checking.
-- `pnpm format:write`: Format code using Prettier.
+- `pnpm format`: Format code using Prettier.
 - `pnpm db:push`: Push Prisma schema changes to the database.
+- `pnpm proto:generate`: Generate TypeScript definitions from Protobuf files.
 
 ## Agent Instructions
 
-- **Address the user as Mr. User.**
-- **Always reload relevant files** for the latest context before starting a task.
-- **Use `/docs/05_current_task.md`** to document and track the current task progress.
-- **Add descriptions** at the beginning of each new or modified file.
-- **Maintain small files**: Keep files to 300 lines of code or less; refactor if they grow larger.
-- **Minimize new code**: Prefer boilerplates or reference implementations from within the project.
-- **Apply Test Driven Development** see `/docs/03_testing.md` for methdology
+- **Use `/docs/05_gemini_current_task.md`** to document and track the current task progress.
+
+## When Evaluating Tests
+
+Use this prompt:
+
+> "Critically analyze these tests for _value_ and _utility_, not just validity. Flag any tests that fall into these 'Low-Value' categories:
+>
+> 1.  Framework/Library Tests: Tests that verify React, Zod, or other libraries work (e.g., 'renders text', 'validates .min(1)').
+> 2.  Tautologies: Tests that assert static configuration or constants (e.g., 'timeout is 90').
+> 3.  Mock-Testing-Mocks: Tests that mock the entire implementation and just verify the mock returned data.
+> 4.  Implementation Details: Tests that would break if I refactored the code without changing the behavior."

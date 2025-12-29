@@ -304,8 +304,8 @@ describe("Interview Block Management", () => {
         blockNumber: 1,
       });
 
-      // Template specifies 600 seconds (10 min) per block
-      expect(context.durationMs).toBe(600 * 1000);
+      // Template specifies 180 seconds (3 min) per block
+      expect(context.durationMs).toBe(180 * 1000);
     });
 
     it("should mark block as IN_PROGRESS when context requested", async () => {

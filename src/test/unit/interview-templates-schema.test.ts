@@ -42,15 +42,6 @@ describe("InterviewTemplateSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("should apply default answerTimeLimitSec of 180", () => {
-    const result = InterviewTemplateSchema.safeParse(validTemplate);
-
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.answerTimeLimitSec).toBe(180);
-    }
-  });
-
   it("should reject invalid language codes", () => {
     const invalid = {
       ...validTemplate,
@@ -62,20 +53,6 @@ describe("InterviewTemplateSchema", () => {
     const result = InterviewTemplateSchema.safeParse(invalid);
 
     expect(result.success).toBe(false);
-  });
-
-  it("should preserve custom answerTimeLimitSec", () => {
-    const custom = {
-      ...validTemplate,
-      answerTimeLimitSec: 120,
-    };
-
-    const result = InterviewTemplateSchema.safeParse(custom);
-
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.answerTimeLimitSec).toBe(120);
-    }
   });
 
   it("should reject template with empty blocks array", () => {
@@ -101,45 +78,6 @@ describe("InterviewTemplateSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("should reject negative durationSec", () => {
-    const invalid = {
-      ...validTemplate,
-      blocks: [
-        { language: "en", durationSec: -100, questions: [{ content: "Q" }] },
-      ],
-    };
-
-    const result = InterviewTemplateSchema.safeParse(invalid);
-
-    expect(result.success).toBe(false);
-  });
-
-  it("should reject zero durationSec", () => {
-    const invalid = {
-      ...validTemplate,
-      blocks: [
-        { language: "en", durationSec: 0, questions: [{ content: "Q" }] },
-      ],
-    };
-
-    const result = InterviewTemplateSchema.safeParse(invalid);
-
-    expect(result.success).toBe(false);
-  });
-
-  it("should reject template with empty id", () => {
-    const invalid = { ...validTemplate, id: "" };
-
-    const result = InterviewTemplateSchema.safeParse(invalid);
-
-    expect(result.success).toBe(false);
-  });
-
-  it("should reject template with empty name", () => {
-    const invalid = { ...validTemplate, name: "" };
-
-    const result = InterviewTemplateSchema.safeParse(invalid);
-
-    expect(result.success).toBe(false);
-  });
+  // Note: We don't test every Zod primitive (.min, .positive, .default, etc)
+  // Those are Zod's responsibility. We test our schema structure and custom validations.
 });

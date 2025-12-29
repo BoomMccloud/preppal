@@ -298,17 +298,19 @@ describe("Golden Path: Complete Interview Session (v5)", () => {
 
     // Verify command order (MUTE before UNMUTE)
     const muteIndex = executedCommands.findIndex(
-      (cmd) => cmd.type === "MUTE_MIC"
+      (cmd) => cmd.type === "MUTE_MIC",
     );
     const unmuteIndex = executedCommands.findIndex(
-      (cmd) => cmd.type === "UNMUTE_MIC"
+      (cmd) => cmd.type === "UNMUTE_MIC",
     );
     expect(muteIndex).toBeGreaterThan(-1);
     expect(unmuteIndex).toBeGreaterThan(-1);
     expect(muteIndex).toBeLessThan(unmuteIndex);
 
     console.log("\n✅ Golden Path Test Passed!");
-    console.log("Full interview flow completed successfully with all commands.");
+    console.log(
+      "Full interview flow completed successfully with all commands.",
+    );
   });
 
   it("should handle single-block interview (edge case)", () => {
@@ -518,8 +520,8 @@ describe("Golden Path: Complete Interview Session (v5)", () => {
     expect(state.connectionState).toBe("error");
     expect(state.error).toBe("Network timeout");
 
-    // State machine should remain in ANSWERING but connectionState reflects error
-    expect(state.status).toBe("ANSWERING");
+    // CONNECTION_ERROR now ends the interview (Phase 1 fix)
+    expect(state.status).toBe("INTERVIEW_COMPLETE");
   });
 
   it("should handle transcript events during interview", () => {

@@ -153,7 +153,7 @@ describe("Block-Based Interview Golden Path", () => {
 
     expect(block1Context.systemPrompt).toBeDefined();
     expect(block1Context.language).toBe("zh");
-    expect(block1Context.durationMs).toBe(600 * 1000); // 10 minutes
+    expect(block1Context.durationMs).toBe(180 * 1000); // 3 minutes
 
     // Verify system prompt has Chinese instructions
     expect(

@@ -1,35 +1,35 @@
+/**
+ * SessionContent - Pure UI component for interview session display
+ * Receives state and dispatch from parent (via useInterviewSession hook)
+ * Renders UI based on state and dispatches user actions
+ */
 "use client";
 
-import { useEffect, useRef, useState, useReducer, useCallback, useMemo } from "react";
+import { useEffect, useRef, useState, type Dispatch } from "react";
 import { useRouter } from "~/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
-import { useInterviewSocket } from "./useInterviewSocket";
 import { StatusIndicator } from "~/app/_components/StatusIndicator";
 import { AIAvatar } from "~/app/_components/AIAvatar";
-import { sessionReducer } from "./reducer";
-import type { SessionState, SessionEvent, ReducerContext } from "./types";
+import type { SessionState, SessionEvent } from "./types";
 
 const IS_DEV = process.env.NODE_ENV === "development";
 
 interface SessionContentProps {
   interviewId: string;
   guestToken?: string;
-  // Block mode overrides
-  onSessionEnded?: () => void;
-  disableStatusRedirect?: boolean;
-  onMediaStream?: (stream: MediaStream) => void;
-  blockNumber?: number;
+  // Required: state and dispatch from useInterviewSession hook
+  state: SessionState;
+  dispatch: Dispatch<SessionEvent>;
+  // Optional: callback when connection is ready (used by BlockSession)
   onConnectionReady?: () => void;
 }
 
 export function SessionContent({
   interviewId,
   guestToken,
-  onSessionEnded,
-  disableStatusRedirect,
-  onMediaStream,
-  blockNumber,
+  state,
+  dispatch,
   onConnectionReady,
 }: SessionContentProps) {
   const router = useRouter();
@@ -83,125 +83,17 @@ export function SessionContent({
     setDebugInfo(JSON.stringify(statusInfo, null, 2));
   };
 
-  useEffect(() => {
-    if (!isLoading && interview && !disableStatusRedirect) {
-      if (interview.status === "COMPLETED") {
-        const feedbackUrl = guestToken
-          ? `/interview/${interviewId}/feedback?token=${guestToken}`
-          : `/interview/${interviewId}/feedback`;
-        router.push(feedbackUrl);
-      }
-    }
-  }, [
-    interview,
-    isLoading,
-    router,
-    interviewId,
-    guestToken,
-    disableStatusRedirect,
-  ]);
+  // Note: Navigation to feedback is handled by useInterviewSession hook
+  // when state.status === "INTERVIEW_COMPLETE"
 
-  // v5: Initialize reducer (standalone - not from BlockSession)
-  // Simple context for single-session interviews (non-block mode)
-  const defaultContext: ReducerContext = useMemo(() => ({
-    answerTimeLimit: 120,
-    blockDuration: 600,
-    totalBlocks: 1,
-  }), []);
-
-  const [reducerState, dispatch] = useReducer(
-    (state: SessionState, event: SessionEvent) =>
-      sessionReducer(state, event, defaultContext).state,
-    {
-      status: "WAITING_FOR_CONNECTION",
-      connectionState: "initializing",
-      transcript: [],
-      pendingUser: "",
-      pendingAI: "",
-      elapsedTime: 0,
-      error: null,
-      isAiSpeaking: false,
-    }
-  );
-
-  // v5: Initialize driver with event callbacks
-  const driver = useInterviewSocket(
-    interviewId,
-    guestToken,
-    blockNumber,
-    {
-      onConnectionOpen: useCallback(() => {
-        dispatch({ type: "CONNECTION_ESTABLISHED" });
-      }, []),
-      onConnectionClose: useCallback(
-        (code: number) => {
-          dispatch({ type: "CONNECTION_CLOSED", code });
-          // Handle navigation
-          if (onSessionEnded) {
-            onSessionEnded();
-          } else {
-            const feedbackUrl = guestToken
-              ? `/interview/${interviewId}/feedback?token=${guestToken}`
-              : `/interview/${interviewId}/feedback`;
-            router.push(feedbackUrl);
-          }
-        },
-        [onSessionEnded, guestToken, interviewId, router]
-      ),
-      onConnectionError: useCallback((error: string) => {
-        dispatch({ type: "CONNECTION_ERROR", error });
-      }, []),
-      onTranscriptCommit: useCallback((entry) => {
-        dispatch({ type: "TRANSCRIPT_COMMIT", entry });
-      }, []),
-      onTranscriptPending: useCallback((buffers) => {
-        dispatch({ type: "TRANSCRIPT_PENDING", buffers });
-      }, []),
-      onAudioPlaybackChange: useCallback((isSpeaking: boolean) => {
-        dispatch({ type: "AI_SPEAKING_CHANGED", isSpeaking });
-      }, []),
-      onMediaStream,
-    }
-  );
-
-  // v5: Execute commands from reducer
-  useEffect(() => {
-    const result = sessionReducer(
-      reducerState,
-      { type: "TICK" },
-      defaultContext
-    );
-    result.commands.forEach((cmd) => {
-      switch (cmd.type) {
-        case "START_CONNECTION":
-          driver.connect();
-          break;
-        case "CLOSE_CONNECTION":
-          driver.disconnect();
-          break;
-        case "MUTE_MIC":
-          driver.mute();
-          break;
-        case "UNMUTE_MIC":
-          driver.unmute();
-          break;
-      }
-    });
-  }, [reducerState, driver, defaultContext]);
-
-  // v5: Call connect on mount
-  useEffect(() => {
-    driver.connect();
-  }, [driver]);
-
-  // v5: Get state from reducer
+  // Get state properties
   const { connectionState, transcript, elapsedTime, error, isAiSpeaking } =
-    reducerState;
+    state;
 
   // Auto-scroll to latest transcript
   useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [transcript.length, transcript]); // Scroll on new messages
+  }, [transcript.length, transcript]);
 
   // Call onConnectionReady when Gemini connection is established
   const connectionReadyCalledRef = useRef(false);
@@ -291,20 +183,6 @@ export function SessionContent({
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold">{t("title")}</h1>
           <div className="flex items-center gap-4">
-            {IS_DEV && driver.debugInfo && (
-              <div className="text-xs text-gray-600">
-                WS: {driver.debugInfo.connectAttempts} attempts |{" "}
-                <span
-                  className={
-                    driver.debugInfo.activeConnections > 1
-                      ? "font-bold text-red-600"
-                      : "text-green-600"
-                  }
-                >
-                  {driver.debugInfo.activeConnections} active
-                </span>
-              </div>
-            )}
             <StatusIndicator status={isAiSpeaking ? "speaking" : "listening"} />
             <div className="font-mono text-lg">{formatTime(elapsedTime)}</div>
           </div>
@@ -371,7 +249,12 @@ export function SessionContent({
       <div className="border-t bg-white px-6 py-4 shadow-sm">
         <div className="mx-auto flex max-w-3xl justify-center">
           <button
-            onClick={() => driver.disconnect()}
+            onClick={() => {
+              console.log(
+                "[SessionContent] End Interview clicked, dispatching INTERVIEW_ENDED",
+              );
+              dispatch({ type: "INTERVIEW_ENDED" });
+            }}
             disabled={connectionState === "ending"}
             className="rounded-full bg-red-600 px-8 py-3 font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
           >

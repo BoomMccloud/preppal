@@ -39,7 +39,12 @@ describe("sessionReducer (v5: Command Generation)", () => {
         status: "WAITING_FOR_CONNECTION",
         ...createCommonFields(),
       };
-      const result = sessionReducer(state, { type: "TICK" }, defaultContext, 1000);
+      const result = sessionReducer(
+        state,
+        { type: "TICK" },
+        defaultContext,
+        1000,
+      );
 
       expect(result.state.status).toBe("WAITING_FOR_CONNECTION");
       expect(result.commands).toEqual([]);
@@ -107,7 +112,12 @@ describe("sessionReducer (v5: Command Generation)", () => {
         ...createCommonFields(),
       };
 
-      const result = sessionReducer(state, { type: "TICK" }, defaultContext, now);
+      const result = sessionReducer(
+        state,
+        { type: "TICK" },
+        defaultContext,
+        now,
+      );
 
       expect(result.state.status).toBe("ANSWERING");
       expect(result.commands).toEqual([]);
@@ -123,7 +133,12 @@ describe("sessionReducer (v5: Command Generation)", () => {
         ...createCommonFields(),
       };
 
-      const result = sessionReducer(state, { type: "TICK" }, defaultContext, now);
+      const result = sessionReducer(
+        state,
+        { type: "TICK" },
+        defaultContext,
+        now,
+      );
 
       expect(result.state).toMatchObject({
         status: "ANSWER_TIMEOUT_PAUSE",
@@ -145,7 +160,12 @@ describe("sessionReducer (v5: Command Generation)", () => {
         ...createCommonFields(),
       };
 
-      const result = sessionReducer(state, { type: "TICK" }, defaultContext, now);
+      const result = sessionReducer(
+        state,
+        { type: "TICK" },
+        defaultContext,
+        now,
+      );
 
       expect(result.state.status).toBe("ANSWER_TIMEOUT_PAUSE");
       expect(result.commands).toContainEqual({ type: "MUTE_MIC" });
@@ -161,7 +181,12 @@ describe("sessionReducer (v5: Command Generation)", () => {
         ...createCommonFields(),
       };
 
-      const result = sessionReducer(state, { type: "TICK" }, defaultContext, now);
+      const result = sessionReducer(
+        state,
+        { type: "TICK" },
+        defaultContext,
+        now,
+      );
 
       expect(result.state).toMatchObject({
         status: "BLOCK_COMPLETE_SCREEN",
@@ -180,7 +205,12 @@ describe("sessionReducer (v5: Command Generation)", () => {
         ...createCommonFields(),
       };
 
-      const result = sessionReducer(state, { type: "TICK" }, defaultContext, now);
+      const result = sessionReducer(
+        state,
+        { type: "TICK" },
+        defaultContext,
+        now,
+      );
 
       expect(result.state.status).toBe("BLOCK_COMPLETE_SCREEN");
       expect(result.commands).toEqual([]);
@@ -197,7 +227,12 @@ describe("sessionReducer (v5: Command Generation)", () => {
         ...createCommonFields(),
       };
 
-      const result = sessionReducer(state, { type: "TICK" }, defaultContext, now);
+      const result = sessionReducer(
+        state,
+        { type: "TICK" },
+        defaultContext,
+        now,
+      );
 
       // Should transition to BLOCK_COMPLETE_SCREEN (block timeout is hard limit)
       expect(result.state.status).toBe("BLOCK_COMPLETE_SCREEN");
@@ -237,7 +272,12 @@ describe("sessionReducer (v5: Command Generation)", () => {
         ...createCommonFields(),
       };
 
-      const result = sessionReducer(state, { type: "TICK" }, defaultContext, now);
+      const result = sessionReducer(
+        state,
+        { type: "TICK" },
+        defaultContext,
+        now,
+      );
 
       expect(result.state.status).toBe("ANSWER_TIMEOUT_PAUSE");
       expect(result.commands).toEqual([]);
@@ -253,7 +293,12 @@ describe("sessionReducer (v5: Command Generation)", () => {
         ...createCommonFields(),
       };
 
-      const result = sessionReducer(state, { type: "TICK" }, defaultContext, now);
+      const result = sessionReducer(
+        state,
+        { type: "TICK" },
+        defaultContext,
+        now,
+      );
 
       expect(result.state).toMatchObject({
         status: "ANSWERING",
@@ -275,7 +320,12 @@ describe("sessionReducer (v5: Command Generation)", () => {
         ...createCommonFields(),
       };
 
-      const result = sessionReducer(state, { type: "TICK" }, defaultContext, now);
+      const result = sessionReducer(
+        state,
+        { type: "TICK" },
+        defaultContext,
+        now,
+      );
 
       expect(result.state.status).toBe("ANSWERING");
       expect(result.commands).toContainEqual({ type: "UNMUTE_MIC" });
@@ -292,7 +342,12 @@ describe("sessionReducer (v5: Command Generation)", () => {
         ...createCommonFields(),
       };
 
-      const result = sessionReducer(state, { type: "TICK" }, defaultContext, now);
+      const result = sessionReducer(
+        state,
+        { type: "TICK" },
+        defaultContext,
+        now,
+      );
 
       if (result.state.status === "ANSWERING") {
         expect(result.state.blockStartTime).toBe(originalBlockStartTime);
@@ -329,7 +384,12 @@ describe("sessionReducer (v5: Command Generation)", () => {
         ...createCommonFields(),
       };
 
-      const result = sessionReducer(state, { type: "TICK" }, defaultContext, 1000);
+      const result = sessionReducer(
+        state,
+        { type: "TICK" },
+        defaultContext,
+        1000,
+      );
 
       expect(result.state.status).toBe("BLOCK_COMPLETE_SCREEN");
       expect(result.commands).toEqual([]);
@@ -410,7 +470,12 @@ describe("sessionReducer (v5: Command Generation)", () => {
         ...createCommonFields(),
       };
 
-      const afterTick = sessionReducer(state, { type: "TICK" }, defaultContext, 1000);
+      const afterTick = sessionReducer(
+        state,
+        { type: "TICK" },
+        defaultContext,
+        1000,
+      );
       expect(afterTick.state.status).toBe("INTERVIEW_COMPLETE");
       expect(afterTick.commands).toEqual([]);
 
@@ -422,6 +487,95 @@ describe("sessionReducer (v5: Command Generation)", () => {
       );
       expect(afterClick.state.status).toBe("INTERVIEW_COMPLETE");
       expect(afterClick.commands).toEqual([]);
+    });
+  });
+
+  describe("INTERVIEW_ENDED event", () => {
+    it("should generate STOP_AUDIO and CLOSE_CONNECTION commands from ANSWERING state", () => {
+      const now = 1000000;
+      const state: SessionState = {
+        status: "ANSWERING",
+        blockIndex: 0,
+        blockStartTime: now - 10000,
+        answerStartTime: now - 5000,
+        ...createCommonFields(),
+      };
+
+      const result = sessionReducer(
+        state,
+        { type: "INTERVIEW_ENDED" },
+        defaultContext,
+        now,
+      );
+
+      expect(result.state.status).toBe("INTERVIEW_COMPLETE");
+      expect(result.commands).toHaveLength(2);
+      expect(result.commands).toContainEqual({ type: "STOP_AUDIO" });
+      expect(result.commands).toContainEqual({ type: "CLOSE_CONNECTION" });
+    });
+
+    it("should generate cleanup commands from ANSWER_TIMEOUT_PAUSE state", () => {
+      const now = 1000000;
+      const state: SessionState = {
+        status: "ANSWER_TIMEOUT_PAUSE",
+        blockIndex: 1,
+        blockStartTime: now - 30000,
+        pauseStartedAt: now - 2000,
+        ...createCommonFields(),
+      };
+
+      const result = sessionReducer(
+        state,
+        { type: "INTERVIEW_ENDED" },
+        defaultContext,
+        now,
+      );
+
+      expect(result.state.status).toBe("INTERVIEW_COMPLETE");
+      expect(result.commands).toHaveLength(2);
+      expect(result.commands).toContainEqual({ type: "STOP_AUDIO" });
+      expect(result.commands).toContainEqual({ type: "CLOSE_CONNECTION" });
+    });
+
+    it("should generate cleanup commands from BLOCK_COMPLETE_SCREEN state", () => {
+      const now = 1000000;
+      const state: SessionState = {
+        status: "BLOCK_COMPLETE_SCREEN",
+        completedBlockIndex: 0,
+        ...createCommonFields(),
+      };
+
+      const result = sessionReducer(
+        state,
+        { type: "INTERVIEW_ENDED" },
+        defaultContext,
+        now,
+      );
+
+      expect(result.state.status).toBe("INTERVIEW_COMPLETE");
+      expect(result.commands).toHaveLength(2);
+      expect(result.commands).toContainEqual({ type: "STOP_AUDIO" });
+      expect(result.commands).toContainEqual({ type: "CLOSE_CONNECTION" });
+    });
+
+    it("should generate cleanup commands from WAITING_FOR_CONNECTION state", () => {
+      const now = 1000000;
+      const state: SessionState = {
+        status: "WAITING_FOR_CONNECTION",
+        ...createCommonFields(),
+      };
+
+      const result = sessionReducer(
+        state,
+        { type: "INTERVIEW_ENDED" },
+        defaultContext,
+        now,
+      );
+
+      expect(result.state.status).toBe("INTERVIEW_COMPLETE");
+      expect(result.commands).toHaveLength(2);
+      expect(result.commands).toContainEqual({ type: "STOP_AUDIO" });
+      expect(result.commands).toContainEqual({ type: "CLOSE_CONNECTION" });
     });
   });
 
@@ -463,7 +617,7 @@ describe("sessionReducer (v5: Command Generation)", () => {
         );
 
         expect(result.state.connectionState).toBe("ending");
-        expect(result.commands).toContainEqual({ type: "CLOSE_CONNECTION" });
+        expect(result.commands).toEqual([]); // No commands - connection already closed
       });
     });
 
@@ -485,7 +639,8 @@ describe("sessionReducer (v5: Command Generation)", () => {
 
         expect(result.state.connectionState).toBe("error");
         expect(result.state.error).toBe("Network timeout");
-        expect(result.commands).toEqual([]);
+        expect(result.state.status).toBe("INTERVIEW_COMPLETE");
+        expect(result.commands).toEqual([{ type: "STOP_AUDIO" }]);
       });
     });
 
@@ -842,7 +997,12 @@ describe("sessionReducer (v5: Command Generation)", () => {
       expect(result.commands).toEqual([]);
 
       // 100ms later -> 120s total
-      result = sessionReducer(state, { type: "TICK" }, defaultContext, now + 100);
+      result = sessionReducer(
+        state,
+        { type: "TICK" },
+        defaultContext,
+        now + 100,
+      );
       expect(result.state.status).toBe("ANSWER_TIMEOUT_PAUSE");
       expect(result.commands).toContainEqual({ type: "MUTE_MIC" });
     });
@@ -881,8 +1041,18 @@ describe("sessionReducer (v5: Command Generation)", () => {
       };
 
       // Call reducer twice with same inputs
-      const result1 = sessionReducer(state, { type: "TICK" }, defaultContext, now);
-      const result2 = sessionReducer(state, { type: "TICK" }, defaultContext, now);
+      const result1 = sessionReducer(
+        state,
+        { type: "TICK" },
+        defaultContext,
+        now,
+      );
+      const result2 = sessionReducer(
+        state,
+        { type: "TICK" },
+        defaultContext,
+        now,
+      );
 
       expect(result1.commands).toEqual(result2.commands);
       expect(result1.commands).toContainEqual({ type: "MUTE_MIC" });
@@ -922,7 +1092,7 @@ describe("sessionReducer (v5: Command Generation)", () => {
         defaultContext,
       );
 
-      expect(result.commands).toContainEqual({ type: "CLOSE_CONNECTION" });
+      expect(result.commands).toEqual([]); // No commands - connection already closed
     });
   });
 });

@@ -13,7 +13,7 @@ import { TIMER_CONFIG } from "./constants";
 
 // Helper: Create common state fields with defaults
 function createCommonFields(
-  partial?: Partial<SessionState>
+  partial?: Partial<SessionState>,
 ): Pick<
   SessionState,
   | "connectionState"
@@ -49,7 +49,7 @@ export function sessionReducer(
         ...state,
         status: "INTERVIEW_COMPLETE",
       },
-      commands: [],
+      commands: [{ type: "STOP_AUDIO" }, { type: "CLOSE_CONNECTION" }],
     };
   }
 
@@ -64,7 +64,7 @@ export function sessionReducer(
     case "CONNECTION_CLOSED":
       return {
         state: { ...state, connectionState: "ending" },
-        commands: [{ type: "CLOSE_CONNECTION" }],
+        commands: [], // Connection already closed - no action needed
       };
 
     case "CONNECTION_ERROR":
@@ -73,8 +73,9 @@ export function sessionReducer(
           ...state,
           connectionState: "error",
           error: event.error,
+          status: "INTERVIEW_COMPLETE",
         },
-        commands: [],
+        commands: [{ type: "STOP_AUDIO" }],
       };
 
     case "TRANSCRIPT_COMMIT":
@@ -103,6 +104,9 @@ export function sessionReducer(
       };
 
     case "TIMER_TICK":
+      if (state.status === "INTERVIEW_COMPLETE") {
+        return { state, commands: [] };
+      }
       return {
         state: { ...state, elapsedTime: state.elapsedTime + 1 },
         commands: [],

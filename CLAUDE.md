@@ -14,7 +14,7 @@ Preppal is an application that uses the Gemini Live API to help users practice i
 - **Styling**: [Tailwind CSS](https://tailwindcss.com/)
 - **Language**: [TypeScript](https://www.typescriptlang.org/)
 - **Package Manager**: [pnpm](https://pnpm.io/)
-- **Testing**: [Vitest](https://vitest.dev/) (Unit/Integration), Playwright (E2E)
+- **Testing**: [Vitest](https://vitest.dev/) (Unit/Integration)
 - **Linting**: [ESLint](https://eslint.org/)
 - **Formatting**: [Prettier](https://prettier.io/)
 - **Email**: [Resend](https://resend.com/) (transactional emails)
@@ -42,20 +42,21 @@ In development, OTP codes are logged to console. For production, configure `RESE
 ## Important Commands
 
 - `pnpm dev`: Start the development server.
+- `pnpm dev:worker`: Start the worker development server.
 - `pnpm test`: Run unit and integration tests with Vitest.
 - `pnpm check`: Run linting and type checking.
 - `pnpm format`: Format code using Prettier.
 - `pnpm db:push`: Push Prisma schema changes to the database.
+- `pnpm proto:generate`: Generate TypeScript definitions from Protobuf files.
 
 ## Agent Instructions
 
 - **Address the user as Mr. User.**
 - **Always reload relevant files** for the latest context before starting a task.
-- **Use `/docs/05_current_task.md`** to document and track the current task progress.
+- **Use `/docs/05_claude_current_task.md`** to document and track the current task progress.
 - **Add descriptions** at the beginning of each new or modified file.
 - **Maintain small files**: Keep files to 300 lines of code or less; refactor if they grow larger.
 - **Minimize new code**: Prefer boilerplates or reference implementations from within the project.
 - **Ensure code quality**: Run `pnpm format && pnpm check` before submitting changes.
-- **Update documentation** (including this file and `docs/`) upon completing a task.
 - **Confirm with Mr. User** Before making changes, tell Mr. User what the plan is, where it is documented, and ask for explicit instructions to proceed
 - **Apply Test Driven Development** see `/docs/03_testing.md` for methdology

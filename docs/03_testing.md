@@ -472,3 +472,117 @@ TDD cycle:
 If TDD reveals you're testing mock behavior, you've gone wrong.
 
 Fix: Test real behavior or question why you're mocking at all.
+
+---
+
+## 10. Lessons Learned: Fake vs Real Integration Tests
+
+### Case Study: The Microphone Bug (December 2025)
+
+**Context:** We implemented a feature to turn off the microphone when users click "End Interview". We wrote 53 tests following TDD. All tests passed. **The feature was completely broken in production.**
+
+### The Fake "Integration" Test
+
+We wrote what we called an "integration test":
+
+```typescript
+it("should execute STOP_AUDIO and CLOSE_CONNECTION commands", () => {
+  // Call reducer directly
+  const result = sessionReducer(state, { type: "INTERVIEW_ENDED" }, context);
+
+  // Manually execute commands
+  executeCommands(result.commands);
+
+  // Verify driver methods called
+  expect(mockDriver.stopAudio).toHaveBeenCalled();
+});
+```
+
+**What this test actually verified:**
+- ✅ Reducer generates correct commands
+- ✅ Our manual command executor calls driver methods
+
+**What this test DIDN'T verify:**
+- ❌ The actual UI button dispatches the event
+- ❌ The actual useEffect executes commands
+- ❌ The actual MediaStream tracks get stopped
+- ❌ The actual microphone indicator turns off
+
+**This was a unit test disguised as an integration test.** It gave us false confidence.
+
+### The Bugs It Missed
+
+The test passed while **3 critical bugs** existed in production:
+
+1. **Broken Command Executor:** useEffect was calling `sessionReducer(state, { type: "TICK" })` instead of using the captured commands. Commands were never executed.
+
+2. **Driver Object Instability:** The driver object was recreated on every render, causing useEffect to fire repeatedly and creating race conditions.
+
+3. **Missing MediaStream Cleanup:** BlockSession held a MediaStream reference but never called `track.stop()`, leaving the microphone on.
+
+### What a Real Integration Test Looks Like
+
+A real integration test would have rendered the actual component:
+
+```typescript
+it('turns off microphone when End Interview clicked', async () => {
+  // 1. Render ACTUAL component (not just calling reducer)
+  const mockMediaTrack = { stop: vi.fn(), enabled: true, kind: 'audio' };
+  const mockStream = {
+    getTracks: () => [mockMediaTrack],
+    getAudioTracks: () => [mockMediaTrack]
+  };
+
+  render(<BlockSession interview={mockInterview} blocks={mockBlocks} />);
+
+  // 2. Wait for component to fully initialize
+  await waitFor(() => screen.getByText('End Interview'));
+
+  // 3. Click the ACTUAL button (tests real onClick handler)
+  fireEvent.click(screen.getByText('End Interview'));
+
+  // 4. Verify ACTUAL side effects
+  await waitFor(() => {
+    expect(mockMediaTrack.stop).toHaveBeenCalled();  // Real cleanup
+  });
+
+  // 5. Verify microphone state (if possible to mock)
+  expect(mockStream.getTracks()).toHaveLength(0);  // Tracks stopped
+});
+```
+
+**This would have caught all 3 bugs** because:
+- ✅ Tests real button onClick
+- ✅ Tests real useEffect execution
+- ✅ Tests real MediaStream cleanup
+- ✅ Tests the actual UI component, not isolated units
+
+### The Takeaway
+
+**Unit tests are great for pure logic. But for React components with side effects, you need real integration tests that:**
+
+1. **Render the actual component** (not just call functions)
+2. **Simulate real user interactions** (click actual buttons)
+3. **Verify actual side effects** (DOM changes, API calls, cleanup)
+4. **Use real React lifecycle** (useEffect, useReducer, etc.)
+
+**If your "integration test" doesn't render a component, it's not an integration test.**
+
+### When to Use Each
+
+| Test Type | Use For | Example |
+|-----------|---------|---------|
+| **Unit Test** | Pure functions, utils | `sessionReducer(state, event)` |
+| **Component Test** | React components with UI | `render(<SessionContent />)` |
+| **Integration Test** | Feature flows across components | User creates interview → views feedback |
+| **E2E Test** | Critical user journeys | Full auth flow in real browser |
+
+### Red Flags for Fake Integration Tests
+
+- ❌ Test never calls `render()`
+- ❌ Test manually orchestrates what the component should do
+- ❌ Test verifies intermediate steps, not final outcomes
+- ❌ Test would pass even if the UI is completely broken
+- ❌ Test gives you confidence, but production is broken
+
+**Remember:** Tests should fail when users would be unhappy. If your tests pass but users can't use the feature, your tests are lying to you.

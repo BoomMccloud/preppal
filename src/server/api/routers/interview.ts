@@ -620,9 +620,7 @@ export const interviewRouter = createTRPCRouter({
 
       return {
         turns,
-        plainText: turns
-          .map((t) => `${t.speaker}: ${t.content}`)
-          .join("\n\n"),
+        plainText: turns.map((t) => `${t.speaker}: ${t.content}`).join("\n\n"),
       };
     }),
 });
