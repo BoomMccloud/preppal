@@ -4,10 +4,10 @@
  * State transition logic is tested in reducer.test.ts
  */
 import { render, screen, act } from "@testing-library/react";
-import { BlockSession } from "./BlockSession";
+import { BlockSession } from "~/app/[locale]/(interview)/interview/[interviewId]/session/BlockSession";
 import { expect, test, vi, describe, beforeEach, afterEach } from "vitest";
 import "@testing-library/jest-dom";
-import type { SessionState } from "./types";
+import type { SessionState } from "~/app/[locale]/(interview)/interview/[interviewId]/session/types";
 
 // --- Mocks ---
 
@@ -58,12 +58,15 @@ vi.mock("~/trpc/react", () => ({
 // Mock SessionContent - capture props to verify correct data is passed
 let capturedSessionContentProps: Record<string, unknown> = {};
 
-vi.mock("./SessionContent", () => ({
-  SessionContent: (props: Record<string, unknown>) => {
-    capturedSessionContentProps = props;
-    return <div data-testid="session-content">Session Content Mock</div>;
-  },
-}));
+vi.mock(
+  "~/app/[locale]/(interview)/interview/[interviewId]/session/SessionContent",
+  () => ({
+    SessionContent: (props: Record<string, unknown>) => {
+      capturedSessionContentProps = props;
+      return <div data-testid="session-content">Session Content Mock</div>;
+    },
+  }),
+);
 
 // Mock Date for stable timer testing
 vi.useFakeTimers();

@@ -3,14 +3,14 @@
 // If this test passes, the core state machine and command execution flow is functional
 
 import { describe, it, expect } from "vitest";
-import { sessionReducer } from "./reducer";
+import { sessionReducer } from "~/app/[locale]/(interview)/interview/[interviewId]/session/reducer";
 import type {
   SessionState,
   SessionEvent,
   ReducerContext,
   ReducerResult,
   Command,
-} from "./types";
+} from "~/app/[locale]/(interview)/interview/[interviewId]/session/types";
 
 /**
  * Golden Path: Complete Interview Flow

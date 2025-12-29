@@ -3,8 +3,8 @@
 // Tests verify the new ReducerResult { state, commands } return type
 
 import { describe, it, expect } from "vitest";
-import { sessionReducer } from "./reducer";
-import { TIMER_CONFIG } from "./constants";
+import { sessionReducer } from "~/app/[locale]/(interview)/interview/[interviewId]/session/reducer";
+import { TIMER_CONFIG } from "~/app/[locale]/(interview)/interview/[interviewId]/session/constants";
 import type {
   SessionState,
   SessionEvent,
@@ -12,7 +12,7 @@ import type {
   ReducerResult,
   Command,
   TranscriptEntry,
-} from "./types";
+} from "~/app/[locale]/(interview)/interview/[interviewId]/session/types";
 
 describe("sessionReducer (v5: Command Generation)", () => {
   // Helper: Standard context for most tests
