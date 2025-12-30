@@ -67,17 +67,17 @@ export function BlockSession({
     const nextTemplateBlock = template.blocks[nextBlockIndex];
 
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="w-full max-w-lg space-y-6 rounded-lg bg-white p-8 text-center shadow-lg">
-          <h2 className="text-2xl font-bold text-gray-900">
+      <div className="bg-secondary flex min-h-screen items-center justify-center">
+        <div className="bg-primary w-full max-w-lg space-y-6 rounded-lg p-8 text-center shadow-lg">
+          <h2 className="text-primary-text text-2xl font-bold">
             {t("blockComplete", { number: state.completedBlockIndex + 1 })}
           </h2>
 
-          <div className="rounded-md bg-blue-50 p-4">
-            <div className="mb-2 text-lg font-medium text-blue-800">
+          <div className="bg-info/10 rounded-md p-4">
+            <div className="text-info mb-2 text-lg font-medium">
               {t("languageSwitchTitle")}
             </div>
-            <p className="text-blue-600">
+            <p className="text-info">
               {t("nextBlockLanguage", {
                 language:
                   nextTemplateBlock?.language === "en"
@@ -87,7 +87,7 @@ export function BlockSession({
             </p>
           </div>
 
-          <div className="text-gray-600">
+          <div className="text-secondary-text">
             <p>
               {t("blockDetails", {
                 questions: nextTemplateBlock?.questions.length ?? 0,
@@ -101,7 +101,7 @@ export function BlockSession({
               onClick={() => {
                 dispatch({ type: "USER_CLICKED_CONTINUE" });
               }}
-              className="rounded-full bg-blue-600 px-8 py-3 font-semibold text-white transition-colors hover:bg-blue-700"
+              className="bg-info hover:bg-info/80 rounded-full px-8 py-3 font-semibold text-white transition-colors"
             >
               {t("continue")}
             </button>
@@ -140,7 +140,7 @@ export function BlockSession({
       <>
         {/* Progress & Timer overlay */}
         <div className="pointer-events-none fixed top-20 right-4 z-50 flex flex-col items-end space-y-2">
-          <div className="rounded-full border border-gray-100 bg-white/90 px-4 py-2 text-sm font-medium text-gray-700 shadow-md backdrop-blur-sm">
+          <div className="border-secondary bg-primary/90 text-primary-text rounded-full border px-4 py-2 text-sm font-medium shadow-md backdrop-blur-sm">
             {t("blockProgress", {
               current: blockIdx + 1,
               total: blocks.length,
@@ -149,8 +149,8 @@ export function BlockSession({
           <div
             className={`rounded-full px-4 py-2 text-sm font-bold shadow-md backdrop-blur-sm transition-colors duration-300 ${
               blockTimeRemaining < 60
-                ? "animate-pulse bg-orange-500 text-white"
-                : "border border-gray-100 bg-white/90 text-gray-900"
+                ? "bg-warning animate-pulse text-white"
+                : "border-secondary bg-primary/90 text-primary-text border"
             }`}
           >
             {t("blockTimer", {
@@ -161,8 +161,8 @@ export function BlockSession({
           <div
             className={`rounded-full px-4 py-2 text-sm font-bold shadow-md backdrop-blur-sm transition-colors duration-300 ${
               answerTimeRemaining < 30
-                ? "animate-pulse bg-red-500 text-white"
-                : "border border-gray-100 bg-white/90 text-gray-900"
+                ? "bg-danger animate-pulse text-white"
+                : "border-secondary bg-primary/90 text-primary-text border"
             }`}
           >
             {t("timer", {
@@ -175,12 +175,12 @@ export function BlockSession({
         {/* Time's up banner */}
         {isMicMuted && (
           <div className="fixed top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2 transform">
-            <div className="rounded-lg border border-yellow-400 bg-yellow-50 px-8 py-6 text-center shadow-xl">
+            <div className="border-warning bg-warning/10 rounded-lg border px-8 py-6 text-center shadow-xl">
               <div className="mb-2 text-3xl">⏱️</div>
-              <h3 className="mb-1 text-xl font-bold text-yellow-800">
+              <h3 className="text-warning mb-1 text-xl font-bold">
                 {t("timesUpTitle")}
               </h3>
-              <p className="text-yellow-700">{t("timesUpMessage")}</p>
+              <p className="text-warning">{t("timesUpMessage")}</p>
             </div>
           </div>
         )}
@@ -199,12 +199,12 @@ export function BlockSession({
 
   // Render: INTERVIEW_COMPLETE (shouldn't be visible due to navigation effect, but just in case)
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
-      <div className="w-full max-w-lg space-y-6 rounded-lg bg-white p-8 text-center shadow-lg">
-        <h2 className="text-2xl font-bold text-gray-900">
+    <div className="bg-secondary flex min-h-screen items-center justify-center">
+      <div className="bg-primary w-full max-w-lg space-y-6 rounded-lg p-8 text-center shadow-lg">
+        <h2 className="text-primary-text text-2xl font-bold">
           Interview Complete!
         </h2>
-        <p className="text-gray-600">Redirecting to feedback...</p>
+        <p className="text-secondary-text">Redirecting to feedback...</p>
       </div>
     </div>
   );

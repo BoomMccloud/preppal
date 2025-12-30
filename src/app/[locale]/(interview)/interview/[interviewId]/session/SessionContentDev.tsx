@@ -118,11 +118,13 @@ export function SessionContentDev({
     return (
       <div
         data-testid="session-dev"
-        className="flex h-screen items-center justify-center bg-gray-50"
+        className="bg-secondary flex h-screen items-center justify-center"
       >
         <div className="flex flex-col items-center gap-4">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
-          <div className="text-lg text-gray-600">{tCommon("loading")}</div>
+          <div className="border-accent h-8 w-8 animate-spin rounded-full border-4 border-t-transparent"></div>
+          <div className="text-secondary-text text-lg">
+            {tCommon("loading")}
+          </div>
         </div>
       </div>
     );
@@ -133,21 +135,21 @@ export function SessionContentDev({
     return (
       <div
         data-testid="session-dev"
-        className="flex h-screen items-center justify-center bg-red-50"
+        className="bg-danger/10 flex h-screen items-center justify-center"
       >
-        <div className="max-w-md space-y-6 rounded-xl bg-white p-8 text-center shadow-lg">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
+        <div className="bg-primary max-w-md space-y-6 rounded-xl p-8 text-center shadow-lg">
+          <div className="bg-danger/20 mx-auto flex h-16 w-16 items-center justify-center rounded-full">
             <span className="text-2xl">⚠️</span>
           </div>
-          <h1 className="text-2xl font-bold text-red-700">
+          <h1 className="text-danger text-2xl font-bold">
             {t("connectionError")}
           </h1>
-          <div className="rounded bg-red-50 p-4 text-left font-mono text-sm text-red-800">
+          <div className="bg-danger/10 text-danger rounded p-4 text-left font-mono text-sm">
             {error ?? t("connectionLost")}
           </div>
           <button
             onClick={() => router.push("/dashboard")}
-            className="w-full rounded-lg bg-red-600 px-4 py-3 font-semibold text-white transition-colors hover:bg-red-700"
+            className="bg-danger hover:bg-danger/80 w-full rounded-lg px-4 py-3 font-semibold text-white transition-colors"
           >
             {t("returnToDashboard")}
           </button>
@@ -159,25 +161,27 @@ export function SessionContentDev({
   return (
     <div data-testid="session-dev" className="flex h-screen overflow-hidden">
       {/* LEFT PANEL: Interactive Simulation */}
-      <div className="flex flex-1 flex-col bg-gray-50 transition-all">
+      <div className="bg-secondary flex flex-1 flex-col transition-all">
         {/* Header */}
-        <div className="flex items-center justify-between border-b bg-white px-6 py-4 shadow-sm">
+        <div className="bg-primary flex items-center justify-between border-b px-6 py-4 shadow-sm">
           <div className="flex items-center gap-4">
-            <h1 className="text-xl font-bold text-gray-800">{t("title")}</h1>
-            <span className="flex items-center gap-1.5 rounded-full bg-blue-100 px-3 py-1 text-xs font-bold tracking-wider text-blue-800 uppercase">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500"></span>
+            <h1 className="text-primary-text text-xl font-bold">
+              {t("title")}
+            </h1>
+            <span className="bg-accent/10 text-accent flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold tracking-wider uppercase">
+              <span className="bg-accent h-2 w-2 animate-pulse rounded-full"></span>
               Dev Mode
             </span>
           </div>
           <div className="flex items-center gap-6">
             <StatusIndicator status={isAiSpeaking ? "speaking" : "listening"} />
-            <div className="font-mono text-xl font-medium text-gray-700 tabular-nums">
+            <div className="text-primary-text font-mono text-xl font-medium tabular-nums">
               {formatTime(elapsedTime)}
             </div>
             {onToggleProdView && (
               <button
                 onClick={onToggleProdView}
-                className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-700"
+                className="bg-secondary text-primary-text hover:bg-secondary/80 rounded-lg px-4 py-2 text-sm font-medium transition-colors"
               >
                 Preview Prod UI
               </button>
@@ -186,7 +190,7 @@ export function SessionContentDev({
         </div>
 
         {/* Avatar Area */}
-        <div className="bg-white p-6 shadow-sm">
+        <div className="bg-primary p-6 shadow-sm">
           <div className="mx-auto max-w-2xl">
             <AIAvatar status={isAiSpeaking ? t("speaking") : t("listening")} />
           </div>
@@ -196,10 +200,10 @@ export function SessionContentDev({
         <div className="flex-1 overflow-y-auto scroll-smooth p-6">
           <div className="mx-auto max-w-3xl space-y-6">
             {transcript.length === 0 && !pendingUser && !pendingAI ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center text-gray-400">
+              <div className="text-secondary-text flex flex-col items-center justify-center py-12 text-center">
                 <div className="mb-3 text-4xl">💬</div>
                 <p>{t("waitingToBegin")}</p>
-                <p className="mt-2 font-mono text-xs text-gray-400">
+                <p className="text-secondary-text mt-2 font-mono text-xs">
                   Status: {connectionState}
                 </p>
               </div>
@@ -214,15 +218,15 @@ export function SessionContentDev({
                     <div
                       className={`relative max-w-[80%] rounded-2xl px-6 py-4 shadow-sm ${
                         entry.speaker === "AI"
-                          ? "border border-gray-100 bg-white text-gray-800"
-                          : "bg-blue-600 text-white"
+                          ? "border-secondary bg-primary text-primary-text border"
+                          : "bg-info text-white"
                       }`}
                     >
                       <div
                         className={`mb-1 text-xs font-bold tracking-wider uppercase opacity-70 ${
                           entry.speaker === "AI"
-                            ? "text-gray-500"
-                            : "text-blue-100"
+                            ? "text-secondary-text"
+                            : "text-white"
                         }`}
                       >
                         {entry.speaker === "AI" ? t("aiInterviewer") : t("you")}
@@ -237,14 +241,14 @@ export function SessionContentDev({
                 {/* 2. LIVE AI Buffer (Streaming in) */}
                 {pendingAI && (
                   <div className="flex justify-start">
-                    <div className="relative max-w-[80%] rounded-2xl border border-blue-100 bg-blue-50 px-6 py-4 shadow-sm">
-                      <div className="mb-1 flex items-center gap-2 text-xs font-bold tracking-wider text-blue-400 uppercase">
+                    <div className="border-info/20 bg-info/10 relative max-w-[80%] rounded-2xl border px-6 py-4 shadow-sm">
+                      <div className="text-info mb-1 flex items-center gap-2 text-xs font-bold tracking-wider uppercase">
                         {t("aiInterviewer")}
-                        <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-blue-400"></span>
+                        <span className="bg-info inline-block h-1.5 w-1.5 animate-pulse rounded-full"></span>
                       </div>
-                      <div className="leading-relaxed whitespace-pre-wrap text-gray-600">
+                      <div className="text-secondary-text leading-relaxed whitespace-pre-wrap">
                         {pendingAI}
-                        <span className="animate-pulse font-light text-blue-400">
+                        <span className="text-info animate-pulse font-light">
                           ...
                         </span>
                       </div>
@@ -255,8 +259,8 @@ export function SessionContentDev({
                 {/* 3. LIVE User Buffer (Streaming in) */}
                 {pendingUser && (
                   <div className="flex justify-end">
-                    <div className="relative max-w-[80%] rounded-2xl border border-blue-400 bg-blue-500/90 px-6 py-4 shadow-sm backdrop-blur-sm">
-                      <div className="mb-1 flex items-center justify-end gap-2 text-xs font-bold tracking-wider text-blue-100 uppercase">
+                    <div className="border-info bg-info/90 relative max-w-[80%] rounded-2xl border px-6 py-4 shadow-sm backdrop-blur-sm">
+                      <div className="mb-1 flex items-center justify-end gap-2 text-xs font-bold tracking-wider text-white uppercase">
                         <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-white"></span>
                         {t("you")}
                       </div>
@@ -274,12 +278,12 @@ export function SessionContentDev({
         </div>
 
         {/* Footer Controls */}
-        <div className="border-t bg-white px-6 py-4">
+        <div className="bg-primary border-t px-6 py-4">
           <div className="mx-auto flex max-w-3xl justify-center">
             <button
               onClick={() => dispatch({ type: "INTERVIEW_ENDED" })}
               disabled={connectionState === "ending"}
-              className="rounded-full bg-red-50 px-8 py-3 font-semibold text-red-600 transition-colors hover:bg-red-100 hover:text-red-700 disabled:opacity-50"
+              className="bg-danger/10 text-danger hover:bg-danger/20 rounded-full px-8 py-3 font-semibold transition-colors disabled:opacity-50"
             >
               {connectionState === "ending" ? t("ending") : t("endInterview")}
             </button>
@@ -288,19 +292,19 @@ export function SessionContentDev({
       </div>
 
       {/* RIGHT PANEL: Dev Tools (Fixed Width) */}
-      <div className="flex w-[400px] flex-col border-l border-gray-800 bg-gray-950 text-gray-300">
-        <div className="flex items-center justify-between border-b border-gray-800 px-4 py-3">
-          <h2 className="text-xs font-bold tracking-wider text-gray-500 uppercase">
+      <div className="text-secondary-text flex w-[400px] flex-col border-l border-black/20 bg-black">
+        <div className="flex items-center justify-between border-b border-black/20 px-4 py-3">
+          <h2 className="text-secondary-text text-xs font-bold tracking-wider uppercase">
             Dev Console
           </h2>
           <div className="flex h-2 w-2">
             <span
               className={`relative inline-flex h-2 w-2 rounded-full ${
-                connectionState === "live" ? "bg-green-500" : "bg-yellow-500"
+                connectionState === "live" ? "bg-success" : "bg-warning"
               }`}
             >
               {connectionState === "live" && (
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"></span>
+                <span className="bg-success absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"></span>
               )}
             </span>
           </div>
@@ -309,36 +313,42 @@ export function SessionContentDev({
         <div className="custom-scrollbar flex-1 space-y-8 overflow-y-auto p-4">
           {/* Section: Status Grid */}
           <section>
-            <h3 className="mb-3 text-[10px] font-bold tracking-widest text-gray-600 uppercase">
+            <h3 className="text-secondary-text mb-3 text-[10px] font-bold tracking-widest uppercase">
               State Monitor
             </h3>
             <div className="grid grid-cols-2 gap-2 font-mono text-xs">
-              <div className="rounded bg-gray-900 p-2.5">
-                <div className="mb-1 text-[10px] text-gray-500">Connection</div>
+              <div className="rounded bg-black/50 p-2.5">
+                <div className="text-secondary-text mb-1 text-[10px]">
+                  Connection
+                </div>
                 <div
                   className={`font-bold ${
-                    connectionState === "live"
-                      ? "text-green-400"
-                      : "text-yellow-400"
+                    connectionState === "live" ? "text-success" : "text-warning"
                   }`}
                 >
                   {connectionState.toUpperCase()}
                 </div>
               </div>
-              <div className="rounded bg-gray-900 p-2.5">
-                <div className="mb-1 text-[10px] text-gray-500">Phase</div>
-                <div className="font-bold text-blue-300">
+              <div className="rounded bg-black/50 p-2.5">
+                <div className="text-secondary-text mb-1 text-[10px]">
+                  Phase
+                </div>
+                <div className="text-info font-bold">
                   {state.status.replace(/_/g, " ")}
                 </div>
               </div>
-              <div className="rounded bg-gray-900 p-2.5">
-                <div className="mb-1 text-[10px] text-gray-500">Audio</div>
+              <div className="rounded bg-black/50 p-2.5">
+                <div className="text-secondary-text mb-1 text-[10px]">
+                  Audio
+                </div>
                 <div className="font-bold text-white">
                   {isAiSpeaking ? "🤖 SPEAKING" : "👂 LISTENING"}
                 </div>
               </div>
-              <div className="rounded bg-gray-900 p-2.5">
-                <div className="mb-1 text-[10px] text-gray-500">Block</div>
+              <div className="rounded bg-black/50 p-2.5">
+                <div className="text-secondary-text mb-1 text-[10px]">
+                  Block
+                </div>
                 <div className="font-bold text-white">
                   {"blockIndex" in state ? `#${state.blockIndex}` : "-"}
                 </div>
@@ -348,33 +358,39 @@ export function SessionContentDev({
 
           {/* Section: Live Buffers (Raw View) */}
           <section>
-            <h3 className="mb-3 text-[10px] font-bold tracking-widest text-gray-600 uppercase">
+            <h3 className="text-secondary-text mb-3 text-[10px] font-bold tracking-widest uppercase">
               Raw Buffers
             </h3>
             <div className="space-y-2 font-mono text-xs">
-              <div className="rounded border border-gray-800 bg-gray-900/50 p-3">
-                <div className="mb-1 flex justify-between text-[10px] text-gray-500">
+              <div className="rounded border border-black/20 bg-black/50 p-3">
+                <div className="text-secondary-text mb-1 flex justify-between text-[10px]">
                   <span>USER_BUFFER</span>
-                  <span className="text-gray-600">
+                  <span className="text-secondary-text">
                     {pendingUser?.length ?? 0} chars
                   </span>
                 </div>
-                <div className="min-h-[1.5em] break-all text-blue-300">
-                  {pendingUser || (
-                    <span className="text-gray-700 italic">null</span>
+                <div className="text-info min-h-[1.5em] break-all">
+                  {/* eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- JSX fallback requires ternary */}
+                  {pendingUser ? (
+                    pendingUser
+                  ) : (
+                    <span className="text-secondary-text italic">null</span>
                   )}
                 </div>
               </div>
-              <div className="rounded border border-gray-800 bg-gray-900/50 p-3">
-                <div className="mb-1 flex justify-between text-[10px] text-gray-500">
+              <div className="rounded border border-black/20 bg-black/50 p-3">
+                <div className="text-secondary-text mb-1 flex justify-between text-[10px]">
                   <span>AI_BUFFER</span>
-                  <span className="text-gray-600">
+                  <span className="text-secondary-text">
                     {pendingAI?.length ?? 0} chars
                   </span>
                 </div>
-                <div className="min-h-[1.5em] break-all text-green-300">
-                  {pendingAI || (
-                    <span className="text-gray-700 italic">null</span>
+                <div className="text-success min-h-[1.5em] break-all">
+                  {/* eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- JSX fallback requires ternary */}
+                  {pendingAI ? (
+                    pendingAI
+                  ) : (
+                    <span className="text-secondary-text italic">null</span>
                   )}
                 </div>
               </div>
@@ -383,16 +399,16 @@ export function SessionContentDev({
 
           {/* Section: Raw Inspector */}
           <section>
-            <h3 className="mb-3 text-[10px] font-bold tracking-widest text-gray-600 uppercase">
+            <h3 className="text-secondary-text mb-3 text-[10px] font-bold tracking-widest uppercase">
               State Inspector
             </h3>
-            <div className="overflow-hidden rounded border border-gray-800 bg-black">
+            <div className="overflow-hidden rounded border border-black/20 bg-black">
               <div className="max-h-[300px] overflow-auto p-3">
-                <pre className="font-mono text-[10px] leading-relaxed text-gray-400">
+                <pre className="text-secondary-text font-mono text-[10px] leading-relaxed">
                   {JSON.stringify(
                     state,
-                    (key, value) => {
-                      if (key === "transcript")
+                    (key, value: unknown) => {
+                      if (key === "transcript" && Array.isArray(value))
                         return `[Array(${value.length})]`;
                       if (key === "pendingUser") return undefined; // Shown above
                       if (key === "pendingAI") return undefined; // Shown above
@@ -407,13 +423,13 @@ export function SessionContentDev({
 
           {/* Section: Debug Actions */}
           <section>
-            <h3 className="mb-3 text-[10px] font-bold tracking-widest text-gray-600 uppercase">
+            <h3 className="text-secondary-text mb-3 text-[10px] font-bold tracking-widest uppercase">
               Actions
             </h3>
             <div className="space-y-3">
               {/* Block Controls - dev-only buttons to step through states */}
               <div className="mb-4 space-y-2">
-                <h4 className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">
+                <h4 className="text-secondary-text text-[10px] font-bold tracking-widest uppercase">
                   Block Controls
                 </h4>
                 <button
@@ -422,27 +438,27 @@ export function SessionContentDev({
                     state.status !== "ANSWERING" &&
                     state.status !== "ANSWER_TIMEOUT_PAUSE"
                   }
-                  className="w-full rounded bg-yellow-600 px-3 py-2 text-xs font-bold tracking-wide text-white uppercase transition-colors hover:bg-yellow-500 disabled:opacity-50"
+                  className="bg-warning hover:bg-warning/80 w-full rounded px-3 py-2 text-xs font-bold tracking-wide text-white uppercase transition-colors disabled:opacity-50"
                 >
                   Skip Block
                 </button>
                 <button
                   onClick={() => dispatch({ type: "DEV_FORCE_ANSWER_TIMEOUT" })}
                   disabled={state.status !== "ANSWERING"}
-                  className="w-full rounded bg-orange-600 px-3 py-2 text-xs font-bold tracking-wide text-white uppercase transition-colors hover:bg-orange-500 disabled:opacity-50"
+                  className="bg-warning hover:bg-warning/80 w-full rounded px-3 py-2 text-xs font-bold tracking-wide text-white uppercase transition-colors disabled:opacity-50"
                 >
                   Answer Timeout
                 </button>
               </div>
               <button
                 onClick={handleCheckStatus}
-                className="w-full rounded bg-gray-800 px-3 py-2 text-xs font-bold tracking-wide text-gray-300 uppercase transition-colors hover:bg-gray-700 hover:text-white"
+                className="bg-secondary text-secondary-text hover:bg-secondary/80 hover:text-primary-text w-full rounded px-3 py-2 text-xs font-bold tracking-wide uppercase transition-colors"
               >
                 Log Status to Console
               </button>
               {debugInfo && (
                 <div className="rounded bg-black p-2">
-                  <pre className="overflow-x-auto text-[10px] text-yellow-500">
+                  <pre className="text-warning overflow-x-auto text-[10px]">
                     {debugInfo}
                   </pre>
                 </div>

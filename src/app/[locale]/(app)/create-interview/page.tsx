@@ -141,14 +141,14 @@ export default function CreateInterviewPage() {
           {/* Templates Card */}
           <button
             onClick={() => setFlowPath("templates")}
-            className="group relative overflow-hidden rounded-xl border border-teal-500/20 bg-gradient-to-br from-teal-500/5 to-teal-500/10 p-8 text-left transition-all hover:border-teal-500/40 hover:shadow-lg hover:shadow-teal-500/5"
+            className="group border-accent/20 from-accent/5 to-accent/10 hover:border-accent/40 hover:shadow-accent/5 relative overflow-hidden rounded-xl border bg-gradient-to-br p-8 text-left transition-all hover:shadow-lg"
           >
-            <div className="absolute top-4 right-4 rounded-full bg-teal-500/10 px-3 py-1 text-xs font-medium text-teal-600 dark:text-teal-400">
+            <div className="bg-accent/10 text-accent absolute top-4 right-4 rounded-full px-3 py-1 text-xs font-medium">
               Recommended
             </div>
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-teal-500/10">
+            <div className="bg-accent/10 mb-4 flex h-12 w-12 items-center justify-center rounded-lg">
               <svg
-                className="h-6 w-6 text-teal-600 dark:text-teal-400"
+                className="text-accent h-6 w-6"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -357,8 +357,8 @@ export default function CreateInterviewPage() {
             </div>
 
             {error && (
-              <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4">
-                <p className="text-sm text-red-500">{error}</p>
+              <div className="border-danger/30 bg-danger/10 rounded-lg border p-4">
+                <p className="text-danger text-sm">{error}</p>
               </div>
             )}
 
@@ -457,8 +457,8 @@ export default function CreateInterviewPage() {
             </div>
 
             {error && (
-              <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4">
-                <p className="text-sm text-red-500">{error}</p>
+              <div className="border-danger/30 bg-danger/10 rounded-lg border p-4">
+                <p className="text-danger text-sm">{error}</p>
               </div>
             )}
 

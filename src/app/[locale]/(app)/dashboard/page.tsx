@@ -63,7 +63,7 @@ export default function DashboardPage() {
             <p className="text-secondary-text mb-4">{tCommon("loading")}</p>
           )}
 
-          {error && <p className="mb-4 text-red-500">{t("loadError")}</p>}
+          {error && <p className="text-danger mb-4">{t("loadError")}</p>}
 
           {!isLoading && !error && interviews && interviews.length === 0 && (
             <p className="text-secondary-text mb-4">
@@ -111,7 +111,7 @@ export default function DashboardPage() {
                     </div>
                     <button
                       onClick={() => handleDelete(interview.id)}
-                      className="text-red-500 hover:text-red-700"
+                      className="text-danger hover:text-danger/80"
                       disabled={deleteInterview.isPending}
                     >
                       {tCommon("delete")}

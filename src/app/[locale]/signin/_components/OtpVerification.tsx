@@ -156,7 +156,7 @@ export function OtpVerification({
         ))}
       </div>
 
-      {error && <p className="text-center text-sm text-red-500">{error}</p>}
+      {error && <p className="text-danger text-center text-sm">{error}</p>}
 
       {isVerifying && (
         <p className="text-secondary-text text-center text-sm">

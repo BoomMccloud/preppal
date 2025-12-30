@@ -57,7 +57,7 @@ export default function ShareButton({ interviewId }: ShareButtonProps) {
             )}
 
             {createGuestLink.error && (
-              <p className="text-red-500">{t("shareError")}</p>
+              <p className="text-danger">{t("shareError")}</p>
             )}
 
             {guestUrl && (

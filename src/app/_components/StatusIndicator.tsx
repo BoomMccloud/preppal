@@ -22,24 +22,24 @@ interface StatusIndicatorProps {
 const statusMap: Record<InterviewStatus, { text: string; className: string }> =
   {
     idle: { text: "Idle", className: "text-secondary-text" },
-    initializing: { text: "Initializing...", className: "text-blue-500" },
+    initializing: { text: "Initializing...", className: "text-info" },
     requestingPermissions: {
       text: "Requesting Permissions...",
-      className: "text-blue-500",
+      className: "text-info",
     },
     permissionsDenied: {
       text: "Permissions Denied",
-      className: "text-red-500",
+      className: "text-danger",
     },
-    connecting: { text: "Connecting...", className: "text-blue-500" },
-    live: { text: "Live", className: "text-green-500" },
-    reconnecting: { text: "Reconnecting...", className: "text-orange-500" },
+    connecting: { text: "Connecting...", className: "text-info" },
+    live: { text: "Live", className: "text-success" },
+    reconnecting: { text: "Reconnecting...", className: "text-warning" },
     ending: { text: "Ending...", className: "text-secondary-text" },
-    processingResults: { text: "Processing...", className: "text-purple-500" },
-    resultsReady: { text: "Results Ready", className: "text-green-500" },
-    error: { text: "Error", className: "text-red-500" },
-    listening: { text: "Listening", className: "text-green-500" },
-    speaking: { text: "Speaking", className: "text-blue-500" },
+    processingResults: { text: "Processing...", className: "text-info" },
+    resultsReady: { text: "Results Ready", className: "text-success" },
+    error: { text: "Error", className: "text-danger" },
+    listening: { text: "Listening", className: "text-success" },
+    speaking: { text: "Speaking", className: "text-info" },
   };
 
 export const StatusIndicator: React.FC<StatusIndicatorProps> = ({ status }) => {

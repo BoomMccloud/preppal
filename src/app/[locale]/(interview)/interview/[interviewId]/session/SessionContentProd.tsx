@@ -99,10 +99,10 @@ export function SessionContentProd({
   return (
     <div
       data-testid="session-prod"
-      className="flex h-screen flex-col overflow-hidden bg-slate-900"
+      className="flex h-screen flex-col overflow-hidden bg-black"
     >
       {/* Header */}
-      <header className="z-10 flex shrink-0 items-center justify-between border-b border-slate-800 bg-slate-900/95 px-6 py-3 backdrop-blur-sm">
+      <header className="z-10 flex shrink-0 items-center justify-between border-b border-black/20 bg-black/95 px-6 py-3 backdrop-blur-sm">
         <div className="flex items-center gap-3">
           {/* AI Icon */}
           <div className="bg-accent/10 text-accent flex size-8 items-center justify-center rounded-lg">
@@ -114,7 +114,7 @@ export function SessionContentProd({
             </h1>
             <div className="mt-0.5 flex items-center gap-2">
               <span className="bg-success flex size-2 rounded-full" />
-              <span className="text-xs font-medium text-slate-400">
+              <span className="text-secondary-text text-xs font-medium">
                 {t("connected")}
               </span>
             </div>
@@ -125,15 +125,15 @@ export function SessionContentProd({
           {onToggleDevView && (
             <button
               onClick={onToggleDevView}
-              className="rounded bg-yellow-500 px-3 py-1.5 text-xs font-medium text-black hover:bg-yellow-400"
+              className="bg-warning hover:bg-warning/80 rounded px-3 py-1.5 text-xs font-medium text-black"
             >
               Back to Dev
             </button>
           )}
           {/* Timer */}
-          <div className="hidden items-center gap-2 rounded-lg bg-slate-800 px-3 py-1.5 md:flex">
-            <TimerIcon className="size-4 text-slate-400" />
-            <span className="font-mono text-sm text-slate-200">
+          <div className="bg-secondary hidden items-center gap-2 rounded-lg px-3 py-1.5 md:flex">
+            <TimerIcon className="text-secondary-text size-4" />
+            <span className="text-primary-text font-mono text-sm">
               {formatTime(elapsedTime)}
             </span>
           </div>
@@ -144,9 +144,9 @@ export function SessionContentProd({
       <main className="relative flex flex-1 overflow-hidden">
         <div className="relative flex flex-1 flex-col items-center justify-center bg-black p-4">
           {/* Video container */}
-          <div className="relative flex h-full max-h-full w-full items-center justify-center overflow-hidden rounded-xl border border-white/5 bg-[#202124] shadow-2xl">
+          <div className="relative flex h-full max-h-full w-full items-center justify-center overflow-hidden rounded-xl border border-white/5 bg-black shadow-2xl">
             {/* Gradient background */}
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-800/50 via-[#202124] to-[#202124]" />
+            <div className="from-secondary/50 absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] via-black to-black" />
 
             {/* AI Avatar with ripple */}
             <div className="relative z-10 flex flex-col items-center justify-center">
@@ -166,11 +166,11 @@ export function SessionContentProd({
                 />
               </div>
               {/* Avatar circle */}
-              <div className="animate-pulse-soft relative z-20 flex size-32 items-center justify-center rounded-full bg-slate-700 shadow-2xl ring-4 ring-[#202124]">
-                <SmartToyIcon className="size-16 text-slate-300" />
+              <div className="animate-pulse-soft bg-secondary relative z-20 flex size-32 items-center justify-center rounded-full shadow-2xl ring-4 ring-black">
+                <SmartToyIcon className="text-secondary-text size-16" />
                 {/* Online indicator */}
-                <div className="absolute right-1 bottom-1 flex size-7 items-center justify-center rounded-full bg-[#202124]">
-                  <div className="bg-success size-4 rounded-full border-2 border-[#202124]" />
+                <div className="absolute right-1 bottom-1 flex size-7 items-center justify-center rounded-full bg-black">
+                  <div className="bg-success size-4 rounded-full border-2 border-black" />
                 </div>
               </div>
             </div>
@@ -187,7 +187,7 @@ export function SessionContentProd({
             {/* Status badge - top right */}
             <div className="absolute top-6 right-6 z-20">
               <div
-                className="flex items-center gap-2 rounded-full border border-white/10 bg-slate-900/80 px-3 py-1.5 text-xs font-medium text-white shadow-lg backdrop-blur-md"
+                className="flex items-center gap-2 rounded-full border border-white/10 bg-black/80 px-3 py-1.5 text-xs font-medium text-white shadow-lg backdrop-blur-md"
                 role="status"
                 aria-live="polite"
               >
@@ -210,17 +210,17 @@ export function SessionContentProd({
 
           {/* Floating control bar */}
           <div className="absolute right-0 bottom-8 left-0 z-30 flex justify-center px-4">
-            <div className="flex items-center gap-6 rounded-full border border-white/10 bg-slate-900/90 px-6 py-3 shadow-2xl ring-1 ring-white/5 backdrop-blur-md">
+            <div className="flex items-center gap-6 rounded-full border border-white/10 bg-black/90 px-6 py-3 shadow-2xl ring-1 ring-white/5 backdrop-blur-md">
               {/* Mic button */}
               <button className="group flex flex-col items-center gap-1">
-                <div className="relative flex size-14 items-center justify-center rounded-full bg-slate-700 text-white ring-1 ring-white/10 transition-all hover:bg-slate-600">
+                <div className="bg-secondary hover:bg-secondary/80 relative flex size-14 items-center justify-center rounded-full text-white ring-1 ring-white/10 transition-all">
                   <MicIcon className="size-6 transition-transform group-hover:scale-110" />
                   <span className="border-accent/50 absolute inset-0 animate-ping rounded-full border opacity-30" />
                 </div>
               </button>
 
               {/* Audio waveform */}
-              <div className="mx-2 hidden h-10 items-center gap-1.5 rounded-full border border-white/5 bg-slate-800/50 px-4 sm:flex">
+              <div className="bg-secondary/50 mx-2 hidden h-10 items-center gap-1.5 rounded-full border border-white/5 px-4 sm:flex">
                 <div className="bg-accent h-3 w-1 animate-pulse rounded-full" />
                 <div
                   className="bg-accent h-6 w-1 animate-pulse rounded-full"

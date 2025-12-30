@@ -12,6 +12,8 @@
   --color-accent: #0d9488; /* Light: Teal */
   --color-success: #16a34a; /* Light: Forest Green */
   --color-danger: #ef4444; /* Light: Coral Red */
+  --color-warning: #f59e0b; /* Light: Amber - caution states */
+  --color-info: #3b82f6; /* Light: Blue - informational states */
 }
 
 /* Dark mode overrides */
@@ -23,6 +25,8 @@
   --color-accent: #5eead4; /* Dark: Bright Teal */
   --color-success: #a7f3d0; /* Dark: Mint Green */
   --color-danger: #fda4af; /* Dark: Salmon Pink */
+  --color-warning: #fbbf24; /* Dark: Brighter Amber */
+  --color-info: #60a5fa; /* Dark: Brighter Blue */
 }
 
 /* Apply theme colors to body */

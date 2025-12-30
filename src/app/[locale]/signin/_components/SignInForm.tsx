@@ -153,7 +153,7 @@ export default function SignInForm() {
             />
           </div>
 
-          {otpError && <p className="text-sm text-red-500">{otpError}</p>}
+          {otpError && <p className="text-danger text-sm">{otpError}</p>}
 
           <div className="flex space-x-3">
             <button

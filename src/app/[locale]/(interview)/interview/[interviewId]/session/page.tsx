@@ -147,7 +147,7 @@ export default function InterviewSessionPage({
   if (!interview) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <div className="text-center text-red-600">
+        <div className="text-danger text-center">
           <h1 className="text-xl font-bold">Interview Not Found</h1>
         </div>
       </div>
@@ -161,7 +161,7 @@ export default function InterviewSessionPage({
     if (!template) {
       return (
         <div className="flex h-screen items-center justify-center">
-          <div className="text-center text-red-600">
+          <div className="text-danger text-center">
             <h1 className="text-xl font-bold">Template Not Found</h1>
             <p className="mt-2">Template ID: {interview.templateId}</p>
           </div>
@@ -172,7 +172,7 @@ export default function InterviewSessionPage({
     if (!interview.blocks || interview.blocks.length === 0) {
       return (
         <div className="flex h-screen items-center justify-center">
-          <div className="text-center text-red-600">
+          <div className="text-danger text-center">
             <h1 className="text-xl font-bold">No Blocks Found</h1>
             <p className="mt-2">This interview has no blocks configured.</p>
           </div>
