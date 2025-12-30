@@ -114,15 +114,15 @@ npx ts-node .claude/skills/verify/verify.ts <command> [options]
 
 #### Command Reference
 
-| Verification Task | Script Command |
-|-------------------|----------------|
-| Check if file exists | `find-file <path>` |
-| Find function/method | `find-function <name> [--file <hint>]` |
-| Check dependency installed | `check-dependency <package>` |
-| Verify symbol is exported | `check-export <symbol> <file>` |
+| Verification Task          | Script Command                                         |
+| -------------------------- | ------------------------------------------------------ |
+| Check if file exists       | `find-file <path>`                                     |
+| Find function/method       | `find-function <name> [--file <hint>]`                 |
+| Check dependency installed | `check-dependency <package>`                           |
+| Verify symbol is exported  | `check-export <symbol> <file>`                         |
 | Compare function signature | `check-signature <symbol> <file> [--expected "<sig>"]` |
-| Analyze naming conventions | `naming-convention [--sample-size <n>]` |
-| Get all types in a file | `analyze-types <file>` |
+| Analyze naming conventions | `naming-convention [--sample-size <n>]`                |
+| Get all types in a file    | `analyze-types <file>`                                 |
 
 #### Example Usage
 
@@ -316,9 +316,6 @@ When verification is inconclusive:
 
 ## Output
 
-Always produce the full verification report as a markdown file. Save to a sensible location like:
-
-- `spec-verification-report.md` in the same directory as the spec
-- Or a dedicated `docs/` or `reports/` directory if one exists
+Always produce the full verification report as a markdown file. Save to `spec-verification-report.md` the same directory as the spec.
 
 After generating the report, summarize the key findings conversationally and highlight the most critical issues that need attention.
