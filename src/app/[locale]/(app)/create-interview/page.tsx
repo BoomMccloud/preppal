@@ -17,7 +17,7 @@ export default function CreateInterviewPage() {
   const [duration, setDuration] = useState<"SHORT" | "STANDARD" | "EXTENDED">(
     "STANDARD",
   );
-  const [useTemplate, setUseTemplate] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Generate idempotency key once when component mounts
@@ -58,7 +58,7 @@ export default function CreateInterviewPage() {
       idempotencyKey,
       persona: persona.trim() || undefined,
       duration,
-      templateId: useTemplate ? "mba-behavioral-v1" : undefined,
+      templateId: selectedTemplate ?? undefined,
     });
   };
 
@@ -144,24 +144,64 @@ export default function CreateInterviewPage() {
             </p>
           </div>
 
-          {/* Block-based interview toggle */}
-          <div className="rounded-md border border-blue-500/30 bg-blue-500/10 p-4">
-            <label className="flex cursor-pointer items-center gap-3">
-              <input
-                type="checkbox"
-                checked={useTemplate}
-                onChange={(e) => setUseTemplate(e.target.checked)}
-                className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              <div>
-                <span className="text-primary-text font-medium">
-                  MBA Behavioral Interview (Block-based)
-                </span>
-                <p className="text-secondary-text text-sm">
-                  2 blocks: 10 min Chinese + 10 min English, 3 min per answer
-                </p>
-              </div>
+          {/* Interview template selection */}
+          <div className="space-y-3">
+            <label className="text-primary-text block text-lg font-medium">
+              Interview Template
             </label>
+            <div className="space-y-2">
+              <label className="flex cursor-pointer items-center gap-3 rounded-md border border-secondary-text p-3 hover:bg-secondary/50">
+                <input
+                  type="radio"
+                  name="template"
+                  checked={selectedTemplate === null}
+                  onChange={() => setSelectedTemplate(null)}
+                  className="h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <div>
+                  <span className="text-primary-text font-medium">
+                    No template (standard interview)
+                  </span>
+                  <p className="text-secondary-text text-sm">
+                    Free-form interview based on job description and resume
+                  </p>
+                </div>
+              </label>
+              <label className="flex cursor-pointer items-center gap-3 rounded-md border border-blue-500/30 bg-blue-500/10 p-3 hover:bg-blue-500/20">
+                <input
+                  type="radio"
+                  name="template"
+                  checked={selectedTemplate === "mba-behavioral-v1"}
+                  onChange={() => setSelectedTemplate("mba-behavioral-v1")}
+                  className="h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <div>
+                  <span className="text-primary-text font-medium">
+                    MBA Behavioral Interview
+                  </span>
+                  <p className="text-secondary-text text-sm">
+                    2 blocks: Chinese + English, 3 questions each, 90s per answer
+                  </p>
+                </div>
+              </label>
+              <label className="flex cursor-pointer items-center gap-3 rounded-md border border-purple-500/30 bg-purple-500/10 p-3 hover:bg-purple-500/20">
+                <input
+                  type="radio"
+                  name="template"
+                  checked={selectedTemplate === "language-transition-test-v1"}
+                  onChange={() => setSelectedTemplate("language-transition-test-v1")}
+                  className="h-4 w-4 border-gray-300 text-purple-600 focus:ring-purple-500"
+                />
+                <div>
+                  <span className="text-primary-text font-medium">
+                    Language Transition Test
+                  </span>
+                  <p className="text-secondary-text text-sm">
+                    6 blocks: alternating zh/en, 1 question each, 60s per answer
+                  </p>
+                </div>
+              </label>
+            </div>
           </div>
 
           {error && (
