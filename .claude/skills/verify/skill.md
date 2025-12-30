@@ -102,6 +102,55 @@ For naming patterns:
   4. Record: CONSISTENT | INCONSISTENT (with codebase examples)
 ```
 
+### Automated Verification with verify.ts
+
+This skill includes a TypeScript helper script at `.claude/skills/verify/verify.ts` that automates verification checks. **Use this script instead of manual grep/find commands.**
+
+#### Running the Script
+
+```bash
+npx ts-node .claude/skills/verify/verify.ts <command> [options]
+```
+
+#### Command Reference
+
+| Verification Task | Script Command |
+|-------------------|----------------|
+| Check if file exists | `find-file <path>` |
+| Find function/method | `find-function <name> [--file <hint>]` |
+| Check dependency installed | `check-dependency <package>` |
+| Verify symbol is exported | `check-export <symbol> <file>` |
+| Compare function signature | `check-signature <symbol> <file> [--expected "<sig>"]` |
+| Analyze naming conventions | `naming-convention [--sample-size <n>]` |
+| Get all types in a file | `analyze-types <file>` |
+
+#### Example Usage
+
+```bash
+# File verification
+npx ts-node .claude/skills/verify/verify.ts find-file src/services/AuthService.ts
+
+# Method verification with file hint
+npx ts-node .claude/skills/verify/verify.ts find-function createUser --file src/services/UserService.ts
+
+# Library verification
+npx ts-node .claude/skills/verify/verify.ts check-dependency axios
+
+# Export verification
+npx ts-node .claude/skills/verify/verify.ts check-export UserService src/services/UserService.ts
+
+# Signature comparison
+npx ts-node .claude/skills/verify/verify.ts check-signature findById src/repositories/UserRepository.ts --expected "(id: string): Promise<User>"
+
+# Naming convention analysis
+npx ts-node .claude/skills/verify/verify.ts naming-convention --sample-size 50
+
+# Full type analysis of a file
+npx ts-node .claude/skills/verify/verify.ts analyze-types src/models/User.ts
+```
+
+The script outputs JSON results with status codes (`EXISTS`, `NOT_FOUND`, `INSTALLED`, `EXPORTED`, `MATCH`, `MISMATCH`, etc.) that can be directly incorporated into the verification report.
+
 ### Stage 3: Report Generation
 
 Generate a structured verification report with the following sections:
