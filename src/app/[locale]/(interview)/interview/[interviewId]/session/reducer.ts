@@ -182,7 +182,9 @@ export function sessionReducer(
               status: "BLOCK_COMPLETE_SCREEN",
               completedBlockIndex: state.blockIndex,
             },
-            commands: [],
+            commands: [
+              { type: "COMPLETE_BLOCK", blockNumber: state.blockIndex + 1 },
+            ],
           };
         }
         // 2. Answer Limit (soft limit - checked second, 0 = no limit)
@@ -232,7 +234,7 @@ export function sessionReducer(
               ...state,
               status: "INTERVIEW_COMPLETE",
             },
-            commands: [],
+            commands: [{ type: "STOP_AUDIO" }, { type: "CLOSE_CONNECTION" }],
           };
         }
         return {

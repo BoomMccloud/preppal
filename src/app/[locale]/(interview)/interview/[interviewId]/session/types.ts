@@ -15,7 +15,8 @@ export type Command =
   | { type: "MUTE_MIC" }
   | { type: "UNMUTE_MIC" }
   | { type: "SETUP_AUDIO" }
-  | { type: "STOP_AUDIO" };
+  | { type: "STOP_AUDIO" }
+  | { type: "COMPLETE_BLOCK"; blockNumber: number };
 
 // Common fields shared across all state variants
 type CommonStateFields = {

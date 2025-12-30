@@ -587,4 +587,139 @@ describe("Golden Path: Complete Interview Session (v5)", () => {
     expect(state.status).toBe("ANSWERING");
     expect(result.commands).toEqual([]);
   });
+
+  describe("Block Completion Commands (FEAT31)", () => {
+    it("should emit COMPLETE_BLOCK when block times out", () => {
+      const context: ReducerContext = {
+        answerTimeLimit: 90,
+        blockDuration: 600, // 10 minutes
+        totalBlocks: 3,
+      };
+
+      const now = 1000000;
+      const state: SessionState = {
+        status: "ANSWERING",
+        blockIndex: 0,
+        blockStartTime: now,
+        answerStartTime: now,
+        connectionState: "live",
+        transcript: [],
+        pendingUser: "",
+        pendingAI: "",
+        elapsedTime: 0,
+        error: null,
+        isAiSpeaking: false,
+      };
+
+      // Simulate time passing beyond block duration (601 seconds)
+      const laterTime = now + 601 * 1000;
+      const result = sessionReducer(
+        state,
+        { type: "TICK" },
+        context,
+        laterTime,
+      );
+
+      expect(result.state.status).toBe("BLOCK_COMPLETE_SCREEN");
+      expect(result.commands).toContainEqual({
+        type: "COMPLETE_BLOCK",
+        blockNumber: 1, // 1-indexed
+      });
+    });
+
+    it("should emit CLOSE_CONNECTION when last block completes", () => {
+      const context: ReducerContext = {
+        answerTimeLimit: 90,
+        blockDuration: 600,
+        totalBlocks: 3,
+      };
+
+      const state: SessionState = {
+        status: "BLOCK_COMPLETE_SCREEN",
+        completedBlockIndex: 2, // Last block (0-indexed)
+        connectionState: "live",
+        transcript: [],
+        pendingUser: "",
+        pendingAI: "",
+        elapsedTime: 100,
+        error: null,
+        isAiSpeaking: false,
+      };
+
+      const result = sessionReducer(
+        state,
+        { type: "USER_CLICKED_CONTINUE" },
+        context,
+      );
+
+      expect(result.state.status).toBe("INTERVIEW_COMPLETE");
+      expect(result.commands).toContainEqual({ type: "STOP_AUDIO" });
+      expect(result.commands).toContainEqual({ type: "CLOSE_CONNECTION" });
+    });
+
+    it("should NOT emit CLOSE_CONNECTION for non-last blocks", () => {
+      const context: ReducerContext = {
+        answerTimeLimit: 90,
+        blockDuration: 600,
+        totalBlocks: 3,
+      };
+
+      const state: SessionState = {
+        status: "BLOCK_COMPLETE_SCREEN",
+        completedBlockIndex: 0, // First block
+        connectionState: "live",
+        transcript: [],
+        pendingUser: "",
+        pendingAI: "",
+        elapsedTime: 100,
+        error: null,
+        isAiSpeaking: false,
+      };
+
+      const result = sessionReducer(
+        state,
+        { type: "USER_CLICKED_CONTINUE" },
+        context,
+      );
+
+      expect(result.state.status).toBe("ANSWERING");
+      expect(result.commands).not.toContainEqual({ type: "CLOSE_CONNECTION" });
+    });
+
+    it("should emit correct blockNumber for middle block", () => {
+      const context: ReducerContext = {
+        answerTimeLimit: 90,
+        blockDuration: 600,
+        totalBlocks: 3,
+      };
+
+      const now = 1000000;
+      const state: SessionState = {
+        status: "ANSWERING",
+        blockIndex: 1, // Second block (0-indexed)
+        blockStartTime: now,
+        answerStartTime: now,
+        connectionState: "live",
+        transcript: [],
+        pendingUser: "",
+        pendingAI: "",
+        elapsedTime: 0,
+        error: null,
+        isAiSpeaking: false,
+      };
+
+      const laterTime = now + 601 * 1000;
+      const result = sessionReducer(
+        state,
+        { type: "TICK" },
+        context,
+        laterTime,
+      );
+
+      expect(result.commands).toContainEqual({
+        type: "COMPLETE_BLOCK",
+        blockNumber: 2, // 1-indexed (blockIndex 1 + 1)
+      });
+    });
+  });
 });

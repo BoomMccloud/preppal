@@ -1,5 +1,6 @@
 import { useReducer, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "~/i18n/navigation";
+import { api } from "~/trpc/react";
 import { useInterviewSocket } from "../useInterviewSocket";
 import { sessionReducer } from "../reducer";
 import { TIMER_CONFIG } from "../constants";
@@ -30,6 +31,7 @@ export function useInterviewSession(
 ) {
   const router = useRouter();
   const context = config?.context ?? defaultContext;
+  const completeBlock = api.interview.completeBlock.useMutation();
 
   // Capture commands from reducer
   const pendingCommandsRef = useRef<Command[]>([]);
@@ -95,9 +97,15 @@ export function useInterviewSession(
         case "STOP_AUDIO":
           driver.stopAudio();
           break;
+        case "COMPLETE_BLOCK":
+          completeBlock.mutate({
+            interviewId,
+            blockNumber: cmd.blockNumber,
+          });
+          break;
       }
     },
-    [driver],
+    [driver, interviewId, completeBlock],
   );
 
   // Execute commands after state updates

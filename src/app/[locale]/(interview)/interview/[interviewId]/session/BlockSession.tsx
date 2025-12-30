@@ -5,8 +5,7 @@
  */
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
-import { api } from "~/trpc/react";
+import { useCallback } from "react";
 import { SessionContent } from "./SessionContent";
 import { useTranslations } from "next-intl";
 import type { InterviewBlock } from "@prisma/client";
@@ -33,7 +32,6 @@ export function BlockSession({
   dispatch,
 }: BlockSessionProps) {
   const t = useTranslations("interview.blockSession");
-  const completeBlock = api.interview.completeBlock.useMutation();
 
   // Resumption Logic: Find first block that isn't completed
   const initialBlockIndex = blocks.findIndex((b) => b.status !== "COMPLETED");
@@ -48,35 +46,6 @@ export function BlockSession({
       initialBlockIndex: startBlockIndex,
     });
   }, [startBlockIndex, dispatch]);
-
-  // Side Effect: Sync Block Completion to DB
-  const lastCompletedRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    if (state.status === "BLOCK_COMPLETE_SCREEN") {
-      const blockIdx = state.completedBlockIndex;
-
-      // Guard: prevent duplicate calls on re-render or Strict Mode
-      if (lastCompletedRef.current === blockIdx) {
-        return;
-      }
-      lastCompletedRef.current = blockIdx;
-
-      const block = blocks[blockIdx];
-      if (!block) {
-        console.error(
-          "[BlockSession] Invalid block index for completion:",
-          blockIdx,
-        );
-        return;
-      }
-
-      completeBlock.mutate({
-        interviewId: interview.id,
-        blockNumber: block.blockNumber,
-      });
-    }
-  }, [state, blocks, interview.id, completeBlock]);
 
   // Render: WAITING_FOR_CONNECTION
   if (state.status === "WAITING_FOR_CONNECTION") {
