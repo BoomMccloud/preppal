@@ -23,6 +23,17 @@ Use this skill when:
 2. **Verification Report**: Output from the spec-verification skill showing what exists/doesn't exist
 3. **Codebase Access**: Ability to read the actual repository files
 
+## Reference Example
+
+**IMPORTANT**: Before generating an implementation guide, read `.claude/skills/mentor/example.md` for a complete reference implementation. Use this example as your template for:
+
+- Document structure and section ordering
+- Level of detail in code snippets
+- How to write "Find This Location" sections with line numbers
+- Format of "Common Mistakes" sections
+- Verification gate structure
+- Troubleshooting section format
+
 ## Mentor Workflow
 
 ### Phase 1: Analyze and Reconcile
@@ -110,7 +121,7 @@ Produce a single markdown file with this structure:
 **Based on Spec**: [spec filename]
 **Verification Report**: [report filename]  
 **Generated**: [date]
-**Estimated Time**: [X hours for an intern]
+**Estimated Total Time**: [X hours for an intern]
 
 ---
 
@@ -119,6 +130,10 @@ Produce a single markdown file with this structure:
 ### What You're Building
 
 [2-3 sentences explaining the feature in plain English]
+
+### 💡 Core Concept (The "North Star")
+
+[Explain the mental model or architectural pattern here. Example: "The Reducer is the Brain. The Hook is the Hardware Driver." This helps the intern understand WHY the code is structured this way.]
 
 ### Deliverables
 
@@ -166,7 +181,6 @@ npm install
 # Verify build works
 npm run build
 ```
-````
 
 ### 2. Verify Tests Pass
 
@@ -186,17 +200,25 @@ git checkout -b feature/[feature-name]
 
 ---
 
-## 📍 Step 1: [First Task Title]
+## 📍 Phase 1: [Phase Name, e.g., Data Layer] (Est. [X] mins)
 
-### Goal
+
+
+### [ ] Step 1.1: [Task Title]
+
+
+
+#### Goal
+
+
 
 [One sentence: what this step accomplishes and why]
 
-### 📁 File
+#### 📁 File
 
 `src/services/UserService.ts`
 
-### 🔍 Find This Location
+#### 🔍 Find This Location
 
 Open the file and navigate to **line 45**. You should see this code:
 
@@ -207,53 +229,31 @@ async findById(id: string): Promise<User | null> {
   return this.userRepository.findById(id);
 // Line 45
 }
-// Line 46
-// Line 47 (empty line)
 ```
 
-You will add code **after line 47** (after the empty line following `findById`).
+#### ✏️ Action: [Add New Code / Replace Existing Block]
 
-### ✏️ Add This Code
+[Use "Add This Code" for insertions, or the "Current vs Replace" format below for modifications]
 
-Insert the following code at **line 48**:
-
+**Current (Lines 43-45):**
 ```typescript
-/**
- * Upload a profile image for a user
- * @param userId - The user's ID
- * @param imageBuffer - The image file as a Buffer
- * @returns The URL of the uploaded image
- * @throws NotFoundError if user doesn't exist
- * @throws ValidationError if image is invalid
- */
-async uploadProfileImage(userId: string, imageBuffer: Buffer): Promise<string> {
-  // Verify user exists
-  const user = await this.userRepository.findById(userId);
-  if (!user) {
-    throw new NotFoundError(`User not found: ${userId}`);
-  }
-
-  // Validate image
-  if (!imageBuffer || imageBuffer.length === 0) {
-    throw new ValidationError('Image buffer is empty');
-  }
-
-  // Upload to storage
-  const uploadResult = await this.imageStorage.uploadImage(imageBuffer, {
-    folder: 'profile-images',
-    userId,
-  });
-
-  // Update user record
-  await this.userRepository.updateById(userId, {
-    profileImageUrl: uploadResult.url,
-  });
-
-  return uploadResult.url;
+async findById(id: string): Promise<User | null> {
+  return this.userRepository.findById(id);
 }
 ```
 
-### 📥 Add Required Import
+**Replace With:**
+```typescript
+async findById(id: string): Promise<User | null> {
+  const user = await this.userRepository.findById(id);
+  if (!user) {
+    console.log(`User ${id} not found`);
+  }
+  return user;
+}
+```
+
+#### 📥 Add Required Import
 
 Go to **line 3** (with the other imports). Add this import:
 
@@ -261,86 +261,50 @@ Go to **line 3** (with the other imports). Add this import:
 import { ValidationError } from "../errors/ValidationError";
 ```
 
-Your imports section (lines 1-5) should now look like:
+#### ⚠️ Common Mistakes for This Step
+
+#### Mistake 1: [Mistake Title]
+[Description and Example]
+
+### [ ] Step 1.2: Verify with Tests
+
+#### Goal
+Immediate feedback: Verify the logic you just wrote before moving to the next layer.
+
+#### 📁 File
+`src/services/__tests__/UserService.test.ts`
+
+#### ✏️ Action: Add Test Case
+Insert this test block:
 
 ```typescript
-import { UserRepository } from "../repositories/UserRepository";
-import { ImageStorage } from "../lib/storage/ImageStorage";
-import { ValidationError } from "../errors/ValidationError"; // ← NEW
-import { NotFoundError } from "../errors/NotFoundError";
-import { User } from "../models/User";
+describe('uploadProfileImage', () => {
+  it('should upload image and return URL', async () => {
+    // ... test code ...
+  });
+});
 ```
 
-### ⚠️ Common Mistakes for This Step
-
-#### Mistake 1: Wrong method name on ImageStorage
-
-```typescript
-// ❌ WRONG - this method doesn't exist
-await this.imageStorage.upload(imageBuffer);
-
-// ✅ CORRECT - use uploadImage
-await this.imageStorage.uploadImage(imageBuffer, options);
-```
-
-#### Mistake 2: Missing await
-
-```typescript
-// ❌ WRONG - forgetting await causes silent failures
-const user = this.userRepository.findById(userId);
-
-// ✅ CORRECT - always await async calls
-const user = await this.userRepository.findById(userId);
-```
-
-#### Mistake 3: Wrong import path
-
-```typescript
-// ❌ WRONG - old path structure
-import { ValidationError } from "@/errors";
-
-// ✅ CORRECT - current path structure
-import { ValidationError } from "../errors/ValidationError";
-```
-
-#### Mistake 4: Wrong updateById signature
-
-```typescript
-// ❌ WRONG - missing userId parameter
-await this.userRepository.update({ profileImageUrl: url });
-
-// ✅ CORRECT - updateById requires id as first param
-await this.userRepository.updateById(userId, { profileImageUrl: url });
-```
-
-### ✅ Verification Gate
-
-Run this specific test file:
-
+#### ✅ Verification Gate
 ```bash
 npm test src/services/__tests__/UserService.test.ts
 ```
 
-**Expected Result:**
+---
 
-- All existing tests still pass
-- You may see "uploadProfileImage" tests as pending/skipped (we'll write them in Step 3)
-- **No TypeScript errors**
-- **No lint errors**
+## 📍 Phase 2: [Next Layer, e.g., API] (Est. [X] mins)
 
-**If You See Errors:**
+Before submitting, verify the following functional requirements are met:
 
-| Error                                            | Likely Cause      | Fix                            |
-| ------------------------------------------------ | ----------------- | ------------------------------ |
-| `Cannot find module '../errors/ValidationError'` | Import path wrong | Check path matches exactly     |
-| `Property 'uploadImage' does not exist`          | Wrong method name | Use `uploadImage` not `upload` |
-| `Expected 2 arguments, but got 1`                | Missing parameter | Check method signatures        |
-| `Type 'void' is not assignable`                  | Missing return    | Add `return uploadResult.url`  |
+- [ ] **Functional**: [e.g., The image appears on the profile page immediately after upload]
+- [ ] **UX/UI**: [e.g., A loading spinner is shown during the upload]
+- [ ] **Safety**: [e.g., Attempting to upload a 20MB file shows a "File too large" error]
+- [ ] **Technical**: [e.g., No new TypeScript, Lint, or Test failures]
 
 ---
 
-## 📍 Step 2: [Second Task Title]
-
+## 🔍 Troubleshooting
+````
 ### Goal
 
 [What this step accomplishes]
