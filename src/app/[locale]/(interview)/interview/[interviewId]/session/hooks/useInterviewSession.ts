@@ -20,7 +20,6 @@ interface UseInterviewSessionConfig {
 // Default context for standard interviews (0 = no time limits)
 const defaultContext: ReducerContext = {
   answerTimeLimit: 0,
-  blockDuration: 0,
   totalBlocks: 1,
 };
 

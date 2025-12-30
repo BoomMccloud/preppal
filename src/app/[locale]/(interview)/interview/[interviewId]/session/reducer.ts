@@ -57,6 +57,7 @@ export function sessionReducer(
   // These allow developers to step through block states without waiting for timers
   if (process.env.NODE_ENV !== "production") {
     // DEV_FORCE_BLOCK_COMPLETE: Skip directly to block complete screen
+    // Emits COMPLETE_BLOCK command to match normal block advancement behavior
     if (event.type === "DEV_FORCE_BLOCK_COMPLETE") {
       if (
         state.status === "ANSWERING" ||
@@ -68,7 +69,9 @@ export function sessionReducer(
             status: "BLOCK_COMPLETE_SCREEN",
             completedBlockIndex: state.blockIndex,
           },
-          commands: [],
+          commands: [
+            { type: "COMPLETE_BLOCK", blockNumber: state.blockIndex + 1 },
+          ],
         };
       }
       return { state, commands: [] };
@@ -170,24 +173,21 @@ export function sessionReducer(
       return { state, commands: [] };
 
     case "ANSWERING":
+      // Handle manual "Next" button click
+      if (event.type === "USER_CLICKED_NEXT") {
+        return {
+          state: {
+            ...state,
+            status: "BLOCK_COMPLETE_SCREEN",
+            completedBlockIndex: state.blockIndex,
+          },
+          commands: [
+            { type: "COMPLETE_BLOCK", blockNumber: state.blockIndex + 1 },
+          ],
+        };
+      }
       if (event.type === "TICK") {
-        // 1. Block Limit (hard limit - checked first, 0 = no limit)
-        if (
-          context.blockDuration > 0 &&
-          isTimeUp(state.blockStartTime, context.blockDuration, now)
-        ) {
-          return {
-            state: {
-              ...state,
-              status: "BLOCK_COMPLETE_SCREEN",
-              completedBlockIndex: state.blockIndex,
-            },
-            commands: [
-              { type: "COMPLETE_BLOCK", blockNumber: state.blockIndex + 1 },
-            ],
-          };
-        }
-        // 2. Answer Limit (soft limit - checked second, 0 = no limit)
+        // Answer timeout (0 = no limit)
         if (
           context.answerTimeLimit > 0 &&
           isTimeUp(state.answerStartTime, context.answerTimeLimit, now)
@@ -206,19 +206,19 @@ export function sessionReducer(
       return { state, commands: [] };
 
     case "ANSWER_TIMEOUT_PAUSE":
-      // NOTE: Block timer continues during this 3-second pause (mic is blocked).
-      // The 3-second duration is negligible relative to block duration (10+ minutes),
-      // so we don't adjust blockStartTime. This simplifies the implementation.
+      // 3-second pause before advancing to block complete screen
       if (event.type === "TICK") {
         const elapsed = now - state.pauseStartedAt;
         if (elapsed >= TIMER_CONFIG.ANSWER_TIMEOUT_PAUSE_DURATION_MS) {
           return {
             state: {
               ...state,
-              status: "ANSWERING",
-              answerStartTime: now, // Reset answer timer
+              status: "BLOCK_COMPLETE_SCREEN",
+              completedBlockIndex: state.blockIndex,
             },
-            commands: [{ type: "UNMUTE_MIC" }],
+            commands: [
+              { type: "COMPLETE_BLOCK", blockNumber: state.blockIndex + 1 },
+            ],
           };
         }
         return { state, commands: [] };

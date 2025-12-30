@@ -41,19 +41,15 @@ function BlockInterviewWithState({
   const initialBlockIndex = blocks.findIndex((b) => b.status !== "COMPLETED");
   const startBlockIndex = initialBlockIndex === -1 ? 0 : initialBlockIndex;
 
-  // Calculate context for current block
-  const getContext = (blockIndex: number): ReducerContext => {
-    const currentTemplateBlock = template.blocks[blockIndex];
-    return {
-      answerTimeLimit: template.answerTimeLimitSec,
-      blockDuration: currentTemplateBlock?.durationSec ?? 600,
-      totalBlocks: blocks.length,
-    };
+  // Calculate context (simplified - no per-block duration)
+  const context: ReducerContext = {
+    answerTimeLimit: template.answerTimeLimitSec,
+    totalBlocks: blocks.length,
   };
 
   const { state, dispatch } = useInterviewSession(interview.id, token, {
     blockNumber: blocks[startBlockIndex]?.blockNumber ?? 1,
-    context: getContext(startBlockIndex),
+    context,
     onMediaStream: (stream) => {
       mediaStreamRef.current = stream;
     },

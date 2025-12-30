@@ -143,12 +143,13 @@ describe("Interview Block Management", () => {
         orderBy: { blockNumber: "asc" },
       });
 
-      // MBA behavioral template has 2 blocks (Chinese + English)
-      expect(blocks).toHaveLength(2);
+      // MBA behavioral template has 6 blocks (one per question)
+      // Blocks 1-3 are Chinese, blocks 4-6 are English
+      expect(blocks).toHaveLength(6);
       expect(blocks[0]?.blockNumber).toBe(1);
       expect(blocks[0]?.language).toBe("ZH");
-      expect(blocks[1]?.blockNumber).toBe(2);
-      expect(blocks[1]?.language).toBe("EN");
+      expect(blocks[3]?.blockNumber).toBe(4);
+      expect(blocks[3]?.language).toBe("EN");
     });
 
     it("should set blocks to PENDING status initially", async () => {
@@ -249,7 +250,8 @@ describe("Interview Block Management", () => {
       });
 
       expect(context.systemPrompt).toBeDefined();
-      expect(context.systemPrompt).toContain("block 1");
+      // New format: "question 1 of 6" (one block = one question)
+      expect(context.systemPrompt).toContain("question 1 of");
     });
 
     it("should return block language in response", async () => {
@@ -268,22 +270,22 @@ describe("Interview Block Management", () => {
 
       createdInterviewIds.push(interview.id);
 
-      // Block 1 should be Chinese
+      // Block 1 should be Chinese (one block per question now)
       const context1 = await workerCaller.interviewWorker.getContext({
         interviewId: interview.id,
         blockNumber: 1,
       });
       expect(context1.language).toBe("zh");
 
-      // Block 2 should be English
-      const context2 = await workerCaller.interviewWorker.getContext({
+      // Block 4 should be English (blocks 1-3 are Chinese, 4-6 are English)
+      const context4 = await workerCaller.interviewWorker.getContext({
         interviewId: interview.id,
-        blockNumber: 2,
+        blockNumber: 4,
       });
-      expect(context2.language).toBe("en");
+      expect(context4.language).toBe("en");
     });
 
-    it("should return block duration", async () => {
+    it("should return answer time limit as duration", async () => {
       const interview = await userCaller.interview.createSession({
         jobDescription: {
           type: "text",
@@ -304,8 +306,8 @@ describe("Interview Block Management", () => {
         blockNumber: 1,
       });
 
-      // Template specifies 180 seconds (3 min) per block
-      expect(context.durationMs).toBe(180 * 1000);
+      // Template specifies 90 seconds answer limit (one block = one question)
+      expect(context.durationMs).toBe(90 * 1000);
     });
 
     it("should mark block as IN_PROGRESS when context requested", async () => {

@@ -148,13 +148,12 @@
       "nextBlockLanguage": "下一部分的语言是{language}",
       "english": "英语",
       "chinese": "中文",
-      "blockDetails": "{questions} 个问题 | ~{minutes} 分钟",
       "continue": "继续下一部分",
       "blockProgress": "部分 {current} / {total}",
-      "blockTimer": "部分时间：{minutes}:{seconds}",
       "timer": "回答时间：{minutes}:{seconds}",
       "timesUpTitle": "时间到！",
-      "timesUpMessage": "请现在结束你的回答。"
+      "timesUpMessage": "请现在结束你的回答。",
+      "nextQuestion": "下一题"
     },
     "feedback": {
       "title": "面试反馈",

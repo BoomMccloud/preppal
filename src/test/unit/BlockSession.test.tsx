@@ -1,5 +1,5 @@
 /**
- * BlockSession Component Tests
+ * BlockSession Component Tests (v6: One Block = One Question)
  * Tests UI rendering based on provided state (controlled component pattern)
  * State transition logic is tested in reducer.test.ts
  */
@@ -25,8 +25,6 @@ vi.mock("next-intl", () => ({
     () => (key: string, values?: Record<string, string | number>) => {
       if (key === "blockProgress")
         return `Block ${values?.current} of ${values?.total}`;
-      if (key === "blockTimer")
-        return `Section: ${values?.minutes}:${values?.seconds}`;
       if (key === "timer")
         return `Answer: ${values?.minutes}:${values?.seconds}`;
       if (key === "blockComplete") return `Block ${values?.number} Complete`;
@@ -37,18 +35,18 @@ vi.mock("next-intl", () => ({
       if (key === "timesUpTitle") return "Time's Up!";
       if (key === "timesUpMessage") return "Please wrap up your answer now.";
       if (key === "continue") return "Continue to Next Block";
+      if (key === "nextQuestion") return "Next Question";
       return key;
     },
 }));
 
-// Mock TRPC
-const mockCompleteBlockMutate = vi.fn();
+// Mock TRPC (completeBlock is now called via commands, not directly)
 vi.mock("~/trpc/react", () => ({
   api: {
     interview: {
       completeBlock: {
         useMutation: () => ({
-          mutate: mockCompleteBlockMutate,
+          mutate: vi.fn(),
         }),
       },
     },
@@ -90,19 +88,18 @@ const mockInterview = {
   status: "PENDING",
 };
 
+// Updated template: single question per block (no durationSec)
 const mockTemplate = {
   id: "template-abc",
   answerTimeLimitSec: 120,
   blocks: [
     {
       language: "zh" as const,
-      durationSec: 600,
-      questions: [{ content: "Chinese Q1" }, { content: "Chinese Q2" }],
+      question: { content: "Chinese Q1" },
     },
     {
       language: "en" as const,
-      durationSec: 600,
-      questions: [{ content: "English Q1" }],
+      question: { content: "English Q1" },
     },
   ],
 };
@@ -141,7 +138,6 @@ describe("BlockSession", () => {
   beforeEach(() => {
     capturedSessionContentProps = {};
     mockPush.mockClear();
-    mockCompleteBlockMutate.mockClear();
     mockDispatch.mockClear();
     vi.clearAllTimers();
     vi.setSystemTime(new Date("2024-01-01T00:00:00Z"));
@@ -166,7 +162,7 @@ describe("BlockSession", () => {
     expect(capturedSessionContentProps.onConnectionReady).toBeDefined();
   });
 
-  test("renders block progress and timers in ANSWERING state", () => {
+  test("renders block progress and answer timer in ANSWERING state", () => {
     const answeringState: SessionState = {
       ...baseState,
       status: "ANSWERING",
@@ -188,9 +184,40 @@ describe("BlockSession", () => {
 
     // Should show block progress
     expect(screen.getByText("Block 1 of 2")).toBeInTheDocument();
-    // Should show timers (calculated from timestamps)
-    expect(screen.getByText(/Section:/)).toBeInTheDocument();
+    // Should show answer timer (only one timer now)
     expect(screen.getByText(/Answer:/)).toBeInTheDocument();
+    // Should show "Next Question" button
+    expect(screen.getByText("Next Question")).toBeInTheDocument();
+  });
+
+  test("dispatches USER_CLICKED_NEXT when Next Question button is clicked", async () => {
+    const answeringState: SessionState = {
+      ...baseState,
+      status: "ANSWERING",
+      connectionState: "live",
+      blockIndex: 0,
+      blockStartTime: baseTime,
+      answerStartTime: baseTime,
+    };
+
+    render(
+      <BlockSession
+        interview={mockInterview}
+        blocks={mockBlocks}
+        template={mockTemplate}
+        state={answeringState}
+        dispatch={mockDispatch}
+      />,
+    );
+
+    const nextButton = screen.getByText("Next Question");
+    await act(async () => {
+      nextButton.click();
+    });
+
+    expect(mockDispatch).toHaveBeenCalledWith({
+      type: "USER_CLICKED_NEXT",
+    });
   });
 
   test("shows Time's Up banner in ANSWER_TIMEOUT_PAUSE state", () => {
@@ -276,33 +303,6 @@ describe("BlockSession", () => {
 
     expect(mockDispatch).toHaveBeenCalledWith({
       type: "USER_CLICKED_CONTINUE",
-    });
-  });
-
-  test("calls completeBlock mutation when entering BLOCK_COMPLETE_SCREEN", () => {
-    const completeState: SessionState = {
-      ...baseState,
-      status: "BLOCK_COMPLETE_SCREEN",
-      connectionState: "live",
-      blockIndex: 0,
-      completedBlockIndex: 0,
-      blockStartTime: baseTime,
-      answerStartTime: baseTime,
-    };
-
-    render(
-      <BlockSession
-        interview={mockInterview}
-        blocks={mockBlocks}
-        template={mockTemplate}
-        state={completeState}
-        dispatch={mockDispatch}
-      />,
-    );
-
-    expect(mockCompleteBlockMutate).toHaveBeenCalledWith({
-      interviewId: "interview-123",
-      blockNumber: 1,
     });
   });
 

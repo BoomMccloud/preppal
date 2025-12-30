@@ -11,9 +11,9 @@ import {
 
 const baseContext: BlockContext = {
   blockNumber: 1,
+  totalBlocks: 6,
   language: "en",
-  durationSec: 600,
-  questions: ["Question 1?", "Question 2?", "Question 3?"],
+  question: "Tell me about yourself",
   answerTimeLimitSec: 180,
   jobDescription: "Software Engineer at Google",
   candidateResume: "5 years experience",
@@ -21,12 +21,10 @@ const baseContext: BlockContext = {
 };
 
 describe("buildBlockPrompt", () => {
-  it("should include all questions", () => {
+  it("should include the question", () => {
     const prompt = buildBlockPrompt(baseContext);
 
-    expect(prompt).toContain("Question 1?");
-    expect(prompt).toContain("Question 2?");
-    expect(prompt).toContain("Question 3?");
+    expect(prompt).toContain("Tell me about yourself");
   });
 
   it("should include English instruction for en language", () => {
@@ -45,5 +43,23 @@ describe("buildBlockPrompt", () => {
       prompt.includes("中文");
 
     expect(hasChinese).toBe(true);
+  });
+
+  it("should indicate block number and total", () => {
+    const prompt = buildBlockPrompt({
+      ...baseContext,
+      blockNumber: 2,
+      totalBlocks: 6,
+    });
+
+    expect(prompt).toContain("2");
+    expect(prompt).toContain("6");
+  });
+
+  it("should include candidate context", () => {
+    const prompt = buildBlockPrompt(baseContext);
+
+    expect(prompt).toContain("Software Engineer at Google");
+    expect(prompt).toContain("5 years experience");
   });
 });

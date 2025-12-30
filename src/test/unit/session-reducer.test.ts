@@ -1,6 +1,6 @@
-// Unit tests for the session reducer (v5: Dumb Driver Architecture)
+// Unit tests for the session reducer (v6: One Block = One Question)
 // Tests cover all state transitions, edge cases, command generation, and the full state machine flow
-// Tests verify the new ReducerResult { state, commands } return type
+// Answer timeout now goes to BLOCK_COMPLETE_SCREEN (not back to ANSWERING)
 
 import { describe, it, expect } from "vitest";
 import { sessionReducer } from "~/app/[locale]/(interview)/interview/[interviewId]/session/reducer";
@@ -14,11 +14,10 @@ import type {
   TranscriptEntry,
 } from "~/app/[locale]/(interview)/interview/[interviewId]/session/types";
 
-describe("sessionReducer (v5: Command Generation)", () => {
-  // Helper: Standard context for most tests
+describe("sessionReducer (v6: One Block = One Question)", () => {
+  // Helper: Standard context for most tests (no blockDuration)
   const defaultContext: ReducerContext = {
     answerTimeLimit: 120,
-    blockDuration: 600,
     totalBlocks: 3,
   };
 
@@ -102,7 +101,7 @@ describe("sessionReducer (v5: Command Generation)", () => {
   });
 
   describe("ANSWERING state", () => {
-    it("should remain in ANSWERING when time limits are not exceeded", () => {
+    it("should remain in ANSWERING when time limit is not exceeded", () => {
       const now = 1000000;
       const state: SessionState = {
         status: "ANSWERING",
@@ -128,7 +127,7 @@ describe("sessionReducer (v5: Command Generation)", () => {
       const state: SessionState = {
         status: "ANSWERING",
         blockIndex: 0,
-        blockStartTime: now - 10000, // 10s ago
+        blockStartTime: now - 10000,
         answerStartTime: now - 125000, // 125s ago (over 120s limit)
         ...createCommonFields(),
       };
@@ -146,7 +145,6 @@ describe("sessionReducer (v5: Command Generation)", () => {
         blockStartTime: now - 10000,
         pauseStartedAt: now,
       });
-      // Critical: Should generate MUTE_MIC command
       expect(result.commands).toContainEqual({ type: "MUTE_MIC" });
     });
 
@@ -171,19 +169,19 @@ describe("sessionReducer (v5: Command Generation)", () => {
       expect(result.commands).toContainEqual({ type: "MUTE_MIC" });
     });
 
-    it("should transition to BLOCK_COMPLETE_SCREEN when block time limit is reached", () => {
+    it("should transition to BLOCK_COMPLETE_SCREEN when USER_CLICKED_NEXT", () => {
       const now = 1000000;
       const state: SessionState = {
         status: "ANSWERING",
         blockIndex: 1,
-        blockStartTime: now - 605000, // 605s ago (over 600s limit)
-        answerStartTime: now - 10000,
+        blockStartTime: now - 10000,
+        answerStartTime: now - 5000,
         ...createCommonFields(),
       };
 
       const result = sessionReducer(
         state,
-        { type: "TICK" },
+        { type: "USER_CLICKED_NEXT" },
         defaultContext,
         now,
       );
@@ -192,54 +190,13 @@ describe("sessionReducer (v5: Command Generation)", () => {
         status: "BLOCK_COMPLETE_SCREEN",
         completedBlockIndex: 1,
       });
-      expect(result.commands).toEqual([]);
+      expect(result.commands).toContainEqual({
+        type: "COMPLETE_BLOCK",
+        blockNumber: 2,
+      });
     });
 
-    it("should transition to BLOCK_COMPLETE_SCREEN exactly at block time limit", () => {
-      const now = 1000000;
-      const state: SessionState = {
-        status: "ANSWERING",
-        blockIndex: 0,
-        blockStartTime: now - 600000, // Exactly 600s ago
-        answerStartTime: now - 10000,
-        ...createCommonFields(),
-      };
-
-      const result = sessionReducer(
-        state,
-        { type: "TICK" },
-        defaultContext,
-        now,
-      );
-
-      expect(result.state.status).toBe("BLOCK_COMPLETE_SCREEN");
-      expect(result.commands).toEqual([]);
-    });
-
-    it("should prioritize block timeout over answer timeout", () => {
-      const now = 1000000;
-      // Both limits exceeded, but block limit is checked first (hard limit)
-      const state: SessionState = {
-        status: "ANSWERING",
-        blockIndex: 0,
-        blockStartTime: now - 605000, // Block limit exceeded
-        answerStartTime: now - 125000, // Answer limit exceeded
-        ...createCommonFields(),
-      };
-
-      const result = sessionReducer(
-        state,
-        { type: "TICK" },
-        defaultContext,
-        now,
-      );
-
-      // Should transition to BLOCK_COMPLETE_SCREEN (block timeout is hard limit)
-      expect(result.state.status).toBe("BLOCK_COMPLETE_SCREEN");
-      expect(result.commands).toEqual([]);
-    });
-
-    it("should ignore non-TICK events in ANSWERING state", () => {
+    it("should ignore USER_CLICKED_CONTINUE in ANSWERING state", () => {
       const now = 1000000;
       const state: SessionState = {
         status: "ANSWERING",
@@ -283,7 +240,7 @@ describe("sessionReducer (v5: Command Generation)", () => {
       expect(result.commands).toEqual([]);
     });
 
-    it("should transition back to ANSWERING after 3-second pause", () => {
+    it("should transition to BLOCK_COMPLETE_SCREEN after 3-second pause", () => {
       const now = 1000000;
       const state: SessionState = {
         status: "ANSWER_TIMEOUT_PAUSE",
@@ -301,13 +258,13 @@ describe("sessionReducer (v5: Command Generation)", () => {
       );
 
       expect(result.state).toMatchObject({
-        status: "ANSWERING",
-        blockIndex: 0,
-        blockStartTime: now - 10000, // Preserved
-        answerStartTime: now, // Reset to current time
+        status: "BLOCK_COMPLETE_SCREEN",
+        completedBlockIndex: 0,
       });
-      // Critical: Should generate UNMUTE_MIC command
-      expect(result.commands).toContainEqual({ type: "UNMUTE_MIC" });
+      expect(result.commands).toContainEqual({
+        type: "COMPLETE_BLOCK",
+        blockNumber: 1,
+      });
     });
 
     it("should transition exactly at 3 seconds", () => {
@@ -327,31 +284,11 @@ describe("sessionReducer (v5: Command Generation)", () => {
         now,
       );
 
-      expect(result.state.status).toBe("ANSWERING");
-      expect(result.commands).toContainEqual({ type: "UNMUTE_MIC" });
-    });
-
-    it("should preserve blockStartTime (block timer continues during pause)", () => {
-      const now = 1000000;
-      const originalBlockStartTime = now - 50000;
-      const state: SessionState = {
-        status: "ANSWER_TIMEOUT_PAUSE",
-        blockIndex: 1,
-        blockStartTime: originalBlockStartTime,
-        pauseStartedAt: now - 3500,
-        ...createCommonFields(),
-      };
-
-      const result = sessionReducer(
-        state,
-        { type: "TICK" },
-        defaultContext,
-        now,
-      );
-
-      if (result.state.status === "ANSWERING") {
-        expect(result.state.blockStartTime).toBe(originalBlockStartTime);
-      }
+      expect(result.state.status).toBe("BLOCK_COMPLETE_SCREEN");
+      expect(result.commands).toContainEqual({
+        type: "COMPLETE_BLOCK",
+        blockNumber: 1,
+      });
     });
 
     it("should ignore non-TICK events in ANSWER_TIMEOUT_PAUSE state", () => {
@@ -435,7 +372,8 @@ describe("sessionReducer (v5: Command Generation)", () => {
       );
 
       expect(result.state.status).toBe("INTERVIEW_COMPLETE");
-      expect(result.commands).toEqual([]);
+      expect(result.commands).toContainEqual({ type: "STOP_AUDIO" });
+      expect(result.commands).toContainEqual({ type: "CLOSE_CONNECTION" });
     });
 
     it("should handle single-block interview completion", () => {
@@ -459,7 +397,8 @@ describe("sessionReducer (v5: Command Generation)", () => {
       );
 
       expect(result.state.status).toBe("INTERVIEW_COMPLETE");
-      expect(result.commands).toEqual([]);
+      expect(result.commands).toContainEqual({ type: "STOP_AUDIO" });
+      expect(result.commands).toContainEqual({ type: "CLOSE_CONNECTION" });
     });
   });
 
@@ -557,29 +496,9 @@ describe("sessionReducer (v5: Command Generation)", () => {
       expect(result.commands).toContainEqual({ type: "STOP_AUDIO" });
       expect(result.commands).toContainEqual({ type: "CLOSE_CONNECTION" });
     });
-
-    it("should generate cleanup commands from WAITING_FOR_CONNECTION state", () => {
-      const now = 1000000;
-      const state: SessionState = {
-        status: "WAITING_FOR_CONNECTION",
-        ...createCommonFields(),
-      };
-
-      const result = sessionReducer(
-        state,
-        { type: "INTERVIEW_ENDED" },
-        defaultContext,
-        now,
-      );
-
-      expect(result.state.status).toBe("INTERVIEW_COMPLETE");
-      expect(result.commands).toHaveLength(2);
-      expect(result.commands).toContainEqual({ type: "STOP_AUDIO" });
-      expect(result.commands).toContainEqual({ type: "CLOSE_CONNECTION" });
-    });
   });
 
-  describe("New Events: Driver Event Handlers (v5)", () => {
+  describe("New Events: Driver Event Handlers", () => {
     describe("CONNECTION_ESTABLISHED event", () => {
       it("should update connectionState to 'live'", () => {
         const state: SessionState = {
@@ -617,7 +536,7 @@ describe("sessionReducer (v5: Command Generation)", () => {
         );
 
         expect(result.state.connectionState).toBe("ending");
-        expect(result.commands).toEqual([]); // No commands - connection already closed
+        expect(result.commands).toEqual([]);
       });
     });
 
@@ -673,124 +592,6 @@ describe("sessionReducer (v5: Command Generation)", () => {
         expect(result.state.transcript[1]).toEqual(newEntry);
         expect(result.commands).toEqual([]);
       });
-
-      it("should handle first transcript entry", () => {
-        const state: SessionState = {
-          status: "ANSWERING",
-          blockIndex: 0,
-          blockStartTime: Date.now(),
-          answerStartTime: Date.now(),
-          ...createCommonFields(),
-          transcript: [],
-        };
-
-        const entry: TranscriptEntry = {
-          text: "Hello",
-          speaker: "AI",
-          is_final: true,
-        };
-
-        const result = sessionReducer(
-          state,
-          { type: "TRANSCRIPT_COMMIT", entry },
-          defaultContext,
-        );
-
-        expect(result.state.transcript).toEqual([entry]);
-        expect(result.commands).toEqual([]);
-      });
-    });
-
-    describe("TRANSCRIPT_PENDING event", () => {
-      it("should update pending buffers", () => {
-        const state: SessionState = {
-          status: "ANSWERING",
-          blockIndex: 0,
-          blockStartTime: Date.now(),
-          answerStartTime: Date.now(),
-          ...createCommonFields(),
-        };
-
-        const result = sessionReducer(
-          state,
-          {
-            type: "TRANSCRIPT_PENDING",
-            buffers: { user: "Thinking...", ai: "Listening..." },
-          },
-          defaultContext,
-        );
-
-        expect(result.state.pendingUser).toBe("Thinking...");
-        expect(result.state.pendingAI).toBe("Listening...");
-        expect(result.commands).toEqual([]);
-      });
-
-      it("should handle partial buffer updates", () => {
-        const state: SessionState = {
-          status: "ANSWERING",
-          blockIndex: 0,
-          blockStartTime: Date.now(),
-          answerStartTime: Date.now(),
-          ...createCommonFields(),
-          pendingUser: "Old user text",
-          pendingAI: "Old AI text",
-        };
-
-        const result = sessionReducer(
-          state,
-          {
-            type: "TRANSCRIPT_PENDING",
-            buffers: { user: "New user text" },
-          },
-          defaultContext,
-        );
-
-        expect(result.state.pendingUser).toBe("New user text");
-        expect(result.state.pendingAI).toBeUndefined();
-        expect(result.commands).toEqual([]);
-      });
-    });
-
-    describe("AI_SPEAKING_CHANGED event", () => {
-      it("should update isAiSpeaking flag", () => {
-        const state: SessionState = {
-          status: "ANSWERING",
-          blockIndex: 0,
-          blockStartTime: Date.now(),
-          answerStartTime: Date.now(),
-          ...createCommonFields(),
-          isAiSpeaking: false,
-        };
-
-        const result = sessionReducer(
-          state,
-          { type: "AI_SPEAKING_CHANGED", isSpeaking: true },
-          defaultContext,
-        );
-
-        expect(result.state.isAiSpeaking).toBe(true);
-        expect(result.commands).toEqual([]);
-      });
-
-      it("should handle speaking -> not speaking transition", () => {
-        const state: SessionState = {
-          status: "ANSWERING",
-          blockIndex: 0,
-          blockStartTime: Date.now(),
-          answerStartTime: Date.now(),
-          ...createCommonFields(),
-          isAiSpeaking: true,
-        };
-
-        const result = sessionReducer(
-          state,
-          { type: "AI_SPEAKING_CHANGED", isSpeaking: false },
-          defaultContext,
-        );
-
-        expect(result.state.isAiSpeaking).toBe(false);
-        expect(result.commands).toEqual([]);
-      });
     });
 
     describe("TIMER_TICK event", () => {
@@ -813,34 +614,13 @@ describe("sessionReducer (v5: Command Generation)", () => {
         expect(result.state.elapsedTime).toBe(43);
         expect(result.commands).toEqual([]);
       });
-
-      it("should handle elapsedTime starting from 0", () => {
-        const state: SessionState = {
-          status: "ANSWERING",
-          blockIndex: 0,
-          blockStartTime: Date.now(),
-          answerStartTime: Date.now(),
-          ...createCommonFields(),
-          elapsedTime: 0,
-        };
-
-        const result = sessionReducer(
-          state,
-          { type: "TIMER_TICK" },
-          defaultContext,
-        );
-
-        expect(result.state.elapsedTime).toBe(1);
-        expect(result.commands).toEqual([]);
-      });
     });
   });
 
-  describe("Full state machine flow with commands (v5)", () => {
-    it("should complete full interview flow and generate correct commands", () => {
+  describe("Full state machine flow (one block = one question)", () => {
+    it("should complete full interview flow with manual advancement", () => {
       const context: ReducerContext = {
-        answerTimeLimit: 5, // 5 seconds for testing
-        blockDuration: 10, // 10 seconds for testing
+        answerTimeLimit: 5,
         totalBlocks: 2,
       };
 
@@ -863,35 +643,23 @@ describe("sessionReducer (v5: Command Generation)", () => {
         type: "START_CONNECTION",
         blockNumber: 0,
       });
-      if (result.state.status === "ANSWERING") {
-        expect(result.state.blockIndex).toBe(0);
-      }
       state = result.state;
 
-      // 2. Answer timeout after 5s -> Should generate MUTE_MIC command
-      now += 5100; // 5.1s later
-      result = sessionReducer(state, { type: "TICK" }, context, now);
-      expect(result.state.status).toBe("ANSWER_TIMEOUT_PAUSE");
-      expect(result.commands).toContainEqual({ type: "MUTE_MIC" });
-      state = result.state;
-
-      // 3. Resume after 3s pause -> Should generate UNMUTE_MIC command
-      now += 3100; // 3.1s later
-      result = sessionReducer(state, { type: "TICK" }, context, now);
-      expect(result.state.status).toBe("ANSWERING");
-      expect(result.commands).toContainEqual({ type: "UNMUTE_MIC" });
-      state = result.state;
-
-      // 4. Block timeout -> No special commands
-      now += 2000; // 2s later
-      result = sessionReducer(state, { type: "TICK" }, context, now);
+      // 2. User clicks Next -> Goes to BLOCK_COMPLETE_SCREEN
+      result = sessionReducer(
+        state,
+        { type: "USER_CLICKED_NEXT" },
+        context,
+        now,
+      );
       expect(result.state.status).toBe("BLOCK_COMPLETE_SCREEN");
-      if (result.state.status === "BLOCK_COMPLETE_SCREEN") {
-        expect(result.state.completedBlockIndex).toBe(0);
-      }
+      expect(result.commands).toContainEqual({
+        type: "COMPLETE_BLOCK",
+        blockNumber: 1,
+      });
       state = result.state;
 
-      // 5. User clicks continue to next block -> No special commands
+      // 3. User clicks continue to next block
       now += 5000;
       result = sessionReducer(
         state,
@@ -905,7 +673,7 @@ describe("sessionReducer (v5: Command Generation)", () => {
       }
       state = result.state;
 
-      // 6. Complete second block with same pattern
+      // 4. Answer timeout -> pause -> BLOCK_COMPLETE_SCREEN
       now += 5100;
       result = sessionReducer(state, { type: "TICK" }, context, now);
       expect(result.state.status).toBe("ANSWER_TIMEOUT_PAUSE");
@@ -914,16 +682,14 @@ describe("sessionReducer (v5: Command Generation)", () => {
 
       now += 3100;
       result = sessionReducer(state, { type: "TICK" }, context, now);
-      expect(result.state.status).toBe("ANSWERING");
-      expect(result.commands).toContainEqual({ type: "UNMUTE_MIC" });
-      state = result.state;
-
-      now += 2000;
-      result = sessionReducer(state, { type: "TICK" }, context, now);
       expect(result.state.status).toBe("BLOCK_COMPLETE_SCREEN");
+      expect(result.commands).toContainEqual({
+        type: "COMPLETE_BLOCK",
+        blockNumber: 2,
+      });
       state = result.state;
 
-      // 7. Complete interview
+      // 5. Complete interview
       result = sessionReducer(
         state,
         { type: "USER_CLICKED_CONTINUE" },
@@ -931,52 +697,8 @@ describe("sessionReducer (v5: Command Generation)", () => {
         now,
       );
       expect(result.state.status).toBe("INTERVIEW_COMPLETE");
-      expect(result.commands).toEqual([]);
-    });
-  });
-
-  describe("Dynamic context (blockDuration varies per block)", () => {
-    it("should respect different block durations from context", () => {
-      const now = 1000000;
-
-      // Block 0: short duration (60s)
-      const contextBlock0: ReducerContext = {
-        answerTimeLimit: 120,
-        blockDuration: 60,
-        totalBlocks: 2,
-      };
-
-      let state: SessionState = {
-        status: "ANSWERING",
-        blockIndex: 0,
-        blockStartTime: now - 65000, // 65s ago
-        answerStartTime: now - 10000,
-        ...createCommonFields(),
-      };
-
-      // Should timeout with 60s limit
-      let result = sessionReducer(state, { type: "TICK" }, contextBlock0, now);
-      expect(result.state.status).toBe("BLOCK_COMPLETE_SCREEN");
-
-      // Block 1: long duration (900s)
-      const contextBlock1: ReducerContext = {
-        answerTimeLimit: 120,
-        blockDuration: 900,
-        totalBlocks: 2,
-      };
-
-      state = {
-        status: "ANSWERING",
-        blockIndex: 1,
-        blockStartTime: now - 65000, // Same 65s elapsed
-        answerStartTime: now - 10000,
-        ...createCommonFields(),
-      };
-
-      // Should NOT timeout with 900s limit
-      result = sessionReducer(state, { type: "TICK" }, contextBlock1, now);
-      expect(result.state.status).toBe("ANSWERING"); // Still answering
-      expect(result.commands).toEqual([]);
+      expect(result.commands).toContainEqual({ type: "STOP_AUDIO" });
+      expect(result.commands).toContainEqual({ type: "CLOSE_CONNECTION" });
     });
   });
 
@@ -986,8 +708,8 @@ describe("sessionReducer (v5: Command Generation)", () => {
       const state: SessionState = {
         status: "ANSWERING",
         blockIndex: 0,
-        blockStartTime: now - 119900, // 119.9s ago (just under 120s)
-        answerStartTime: now - 119900,
+        blockStartTime: now - 119900,
+        answerStartTime: now - 119900, // 119.9s ago (just under 120s)
         ...createCommonFields(),
       };
 
@@ -1007,7 +729,7 @@ describe("sessionReducer (v5: Command Generation)", () => {
       expect(result.commands).toContainEqual({ type: "MUTE_MIC" });
     });
 
-    it("should handle timer values at millisecond precision", () => {
+    it("should handle timer values at millisecond precision for pause", () => {
       const now = 1000000;
       const state: SessionState = {
         status: "ANSWER_TIMEOUT_PAUSE",
@@ -1022,77 +744,13 @@ describe("sessionReducer (v5: Command Generation)", () => {
       expect(result.state.status).toBe("ANSWER_TIMEOUT_PAUSE");
       expect(result.commands).toEqual([]);
 
-      // 1ms later -> exactly 3s
+      // 1ms later -> exactly 3s -> goes to BLOCK_COMPLETE_SCREEN
       result = sessionReducer(state, { type: "TICK" }, defaultContext, now + 1);
-      expect(result.state.status).toBe("ANSWERING");
-      expect(result.commands).toContainEqual({ type: "UNMUTE_MIC" });
-    });
-  });
-
-  describe("Command Generation Edge Cases (v5)", () => {
-    it("should not generate duplicate commands on re-render", () => {
-      const now = 1000000;
-      const state: SessionState = {
-        status: "ANSWERING",
-        blockIndex: 0,
-        blockStartTime: now - 10000,
-        answerStartTime: now - 125000, // Over limit
-        ...createCommonFields(),
-      };
-
-      // Call reducer twice with same inputs
-      const result1 = sessionReducer(
-        state,
-        { type: "TICK" },
-        defaultContext,
-        now,
-      );
-      const result2 = sessionReducer(
-        state,
-        { type: "TICK" },
-        defaultContext,
-        now,
-      );
-
-      expect(result1.commands).toEqual(result2.commands);
-      expect(result1.commands).toContainEqual({ type: "MUTE_MIC" });
-    });
-
-    it("should generate START_CONNECTION command with correct blockNumber", () => {
-      const state: SessionState = {
-        status: "WAITING_FOR_CONNECTION",
-        ...createCommonFields(),
-      };
-
-      const result = sessionReducer(
-        state,
-        { type: "CONNECTION_READY", initialBlockIndex: 5 },
-        defaultContext,
-        Date.now(),
-      );
-
+      expect(result.state.status).toBe("BLOCK_COMPLETE_SCREEN");
       expect(result.commands).toContainEqual({
-        type: "START_CONNECTION",
-        blockNumber: 5,
+        type: "COMPLETE_BLOCK",
+        blockNumber: 1,
       });
-    });
-
-    it("should generate CLOSE_CONNECTION command on CONNECTION_CLOSED", () => {
-      const state: SessionState = {
-        status: "ANSWERING",
-        blockIndex: 0,
-        blockStartTime: Date.now(),
-        answerStartTime: Date.now(),
-        ...createCommonFields(),
-      };
-
-      const result = sessionReducer(
-        state,
-        { type: "CONNECTION_CLOSED", code: 1000 },
-        defaultContext,
-      );
-
-      expect(result.commands).toEqual([]); // No commands - connection already closed
     });
   });
 
@@ -1117,7 +775,9 @@ describe("sessionReducer (v5: Command Generation)", () => {
 
         expect(result.state.status).toBe("BLOCK_COMPLETE_SCREEN");
         expect(result.state).toHaveProperty("completedBlockIndex", 1);
-        expect(result.commands).toEqual([]);
+        expect(result.commands).toEqual([
+          { type: "COMPLETE_BLOCK", blockNumber: 2 },
+        ]);
       });
 
       it("should transition ANSWER_TIMEOUT_PAUSE to BLOCK_COMPLETE_SCREEN", () => {
@@ -1139,21 +799,9 @@ describe("sessionReducer (v5: Command Generation)", () => {
 
         expect(result.state.status).toBe("BLOCK_COMPLETE_SCREEN");
         expect(result.state).toHaveProperty("completedBlockIndex", 2);
-      });
-
-      it("should be a no-op in WAITING_FOR_CONNECTION state", () => {
-        const state: SessionState = {
-          status: "WAITING_FOR_CONNECTION",
-          ...createCommonFields(),
-        };
-
-        const result = sessionReducer(
-          state,
-          { type: "DEV_FORCE_BLOCK_COMPLETE" },
-          defaultContext,
-        );
-
-        expect(result.state.status).toBe("WAITING_FOR_CONNECTION");
+        expect(result.commands).toEqual([
+          { type: "COMPLETE_BLOCK", blockNumber: 3 },
+        ]);
       });
     });
 
@@ -1178,43 +826,6 @@ describe("sessionReducer (v5: Command Generation)", () => {
         expect(result.state.status).toBe("ANSWER_TIMEOUT_PAUSE");
         expect(result.state).toHaveProperty("pauseStartedAt", now);
         expect(result.commands).toContainEqual({ type: "MUTE_MIC" });
-      });
-
-      it("should be a no-op in ANSWER_TIMEOUT_PAUSE state", () => {
-        const now = 1000000;
-        const state: SessionState = {
-          status: "ANSWER_TIMEOUT_PAUSE",
-          blockIndex: 0,
-          blockStartTime: now - 60000,
-          pauseStartedAt: now - 1000,
-          ...createCommonFields(),
-        };
-
-        const result = sessionReducer(
-          state,
-          { type: "DEV_FORCE_ANSWER_TIMEOUT" },
-          defaultContext,
-          now,
-        );
-
-        expect(result.state.status).toBe("ANSWER_TIMEOUT_PAUSE");
-        expect(result.commands).toEqual([]);
-      });
-
-      it("should be a no-op in BLOCK_COMPLETE_SCREEN state", () => {
-        const state: SessionState = {
-          status: "BLOCK_COMPLETE_SCREEN",
-          completedBlockIndex: 0,
-          ...createCommonFields(),
-        };
-
-        const result = sessionReducer(
-          state,
-          { type: "DEV_FORCE_ANSWER_TIMEOUT" },
-          defaultContext,
-        );
-
-        expect(result.state.status).toBe("BLOCK_COMPLETE_SCREEN");
       });
     });
   });

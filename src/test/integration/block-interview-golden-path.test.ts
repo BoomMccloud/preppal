@@ -2,11 +2,11 @@
  * Block-Based Interview Golden Path Test
  *
  * This test verifies the complete user journey for block-based interviews:
- * 1. User creates an interview with a template (2 language blocks)
+ * 1. User creates an interview with a template (6 blocks: 3 Chinese, 3 English)
  * 2. Worker processes block 1 (Chinese)
  * 3. Frontend completes block 1
- * 4. Worker processes block 2 (English)
- * 5. Frontend completes block 2
+ * 4. Worker processes block 4 (first English block)
+ * 5. Frontend completes block 4
  * 6. Worker submits aggregated feedback
  * 7. User views their feedback
  *
@@ -103,10 +103,10 @@ describe("Block-Based Interview Golden Path", () => {
   });
 
   // ===========================================================================
-  // Golden Path: Complete 2-Block Interview
+  // Golden Path: Complete Multi-Block Interview with Both Languages
   // ===========================================================================
 
-  it("user can complete a block-based interview with 2 language blocks", async () => {
+  it("user can complete a block-based interview with Chinese and English blocks", async () => {
     // ========================================
     // STEP 1: User creates interview with template
     // ========================================
@@ -137,11 +137,11 @@ describe("Block-Based Interview Golden Path", () => {
       orderBy: { blockNumber: "asc" },
     });
 
-    expect(initialBlocks).toHaveLength(2);
-    expect(initialBlocks[0]?.language).toBe("ZH");
+    expect(initialBlocks).toHaveLength(6); // One block per question
+    expect(initialBlocks[0]?.language).toBe("ZH"); // First 3 are Chinese
     expect(initialBlocks[0]?.status).toBe("PENDING");
-    expect(initialBlocks[1]?.language).toBe("EN");
-    expect(initialBlocks[1]?.status).toBe("PENDING");
+    expect(initialBlocks[3]?.language).toBe("EN"); // Last 3 are English
+    expect(initialBlocks[3]?.status).toBe("PENDING");
 
     // ========================================
     // STEP 2: Worker gets context for block 1 (Chinese)
@@ -153,7 +153,7 @@ describe("Block-Based Interview Golden Path", () => {
 
     expect(block1Context.systemPrompt).toBeDefined();
     expect(block1Context.language).toBe("zh");
-    expect(block1Context.durationMs).toBe(180 * 1000); // 3 minutes
+    expect(block1Context.durationMs).toBe(90 * 1000); // answerTimeLimitSec
 
     // Verify system prompt has Chinese instructions
     expect(
@@ -218,29 +218,29 @@ describe("Block-Based Interview Golden Path", () => {
     expect(block1Completed?.status).toBe("COMPLETED");
 
     // ========================================
-    // STEP 6: Worker gets context for block 2 (English)
+    // STEP 6: Worker gets context for block 4 (first English block)
     // ========================================
-    const block2Context = await workerCaller.interviewWorker.getContext({
+    const block4Context = await workerCaller.interviewWorker.getContext({
       interviewId: interview.id,
-      blockNumber: 2,
+      blockNumber: 4,
     });
 
-    expect(block2Context.systemPrompt).toBeDefined();
-    expect(block2Context.language).toBe("en");
+    expect(block4Context.systemPrompt).toBeDefined();
+    expect(block4Context.language).toBe("en");
 
     // Verify system prompt has English instructions
-    expect(block2Context.systemPrompt?.toLowerCase()).toContain("english");
+    expect(block4Context.systemPrompt?.toLowerCase()).toContain("english");
 
-    // Block 2 should be IN_PROGRESS
-    const block2InProgress = await db.interviewBlock.findFirst({
-      where: { interviewId: interview.id, blockNumber: 2 },
+    // Block 4 should be IN_PROGRESS
+    const block4InProgress = await db.interviewBlock.findFirst({
+      where: { interviewId: interview.id, blockNumber: 4 },
     });
-    expect(block2InProgress?.status).toBe("IN_PROGRESS");
+    expect(block4InProgress?.status).toBe("IN_PROGRESS");
 
     // ========================================
-    // STEP 7: Worker submits block 2 transcript
+    // STEP 7: Worker submits block 4 transcript
     // ========================================
-    const block2Transcript = Buffer.from(
+    const block4Transcript = Buffer.from(
       JSON.stringify({
         turns: [
           {
@@ -260,23 +260,23 @@ describe("Block-Based Interview Golden Path", () => {
 
     await workerCaller.interviewWorker.submitTranscript({
       interviewId: interview.id,
-      transcript: block2Transcript,
+      transcript: block4Transcript,
       endedAt: new Date().toISOString(),
-      blockNumber: 2,
+      blockNumber: 4,
     });
 
     // ========================================
-    // STEP 8: Frontend calls completeBlock for block 2
+    // STEP 8: Frontend calls completeBlock for block 4
     // ========================================
     await userCaller.interview.completeBlock({
       interviewId: interview.id,
-      blockNumber: 2,
+      blockNumber: 4,
     });
 
-    const block2Completed = await db.interviewBlock.findFirst({
-      where: { interviewId: interview.id, blockNumber: 2 },
+    const block4Completed = await db.interviewBlock.findFirst({
+      where: { interviewId: interview.id, blockNumber: 4 },
     });
-    expect(block2Completed?.status).toBe("COMPLETED");
+    expect(block4Completed?.status).toBe("COMPLETED");
 
     // ========================================
     // STEP 9: Worker submits aggregated feedback
@@ -565,9 +565,9 @@ describe("Block-Based Interview Golden Path", () => {
         orderBy: { blockNumber: "asc" },
       });
 
-      expect(initialBlocks).toHaveLength(2);
+      expect(initialBlocks).toHaveLength(6); // One block per question
       expect(initialBlocks[0]?.status).toBe("PENDING");
-      expect(initialBlocks[1]?.status).toBe("PENDING");
+      expect(initialBlocks[5]?.status).toBe("PENDING");
 
       // Simulate the command-driven flow:
       // 1. Reducer detects block timeout (unit test verifies this)
@@ -620,34 +620,30 @@ describe("Block-Based Interview Golden Path", () => {
 
       createdInterviewIds.push(interview.id);
 
-      // Complete block 1
-      await userCaller.interview.completeBlock({
-        interviewId: interview.id,
-        blockNumber: 1,
-      });
+      // Complete all 6 blocks
+      for (let i = 1; i <= 6; i++) {
+        await userCaller.interview.completeBlock({
+          interviewId: interview.id,
+          blockNumber: i,
+        });
+      }
 
-      // Complete block 2 (last block)
-      await userCaller.interview.completeBlock({
-        interviewId: interview.id,
-        blockNumber: 2,
-      });
-
-      // Verify both blocks completed in database
+      // Verify all blocks completed in database
       const blocks = await db.interviewBlock.findMany({
         where: { interviewId: interview.id },
         orderBy: { blockNumber: "asc" },
       });
 
-      expect(blocks).toHaveLength(2);
+      expect(blocks).toHaveLength(6); // One block per question
       expect(blocks[0]?.status).toBe("COMPLETED");
       expect(blocks[0]?.blockNumber).toBe(1);
-      expect(blocks[1]?.status).toBe("COMPLETED");
-      expect(blocks[1]?.blockNumber).toBe(2);
+      expect(blocks[5]?.status).toBe("COMPLETED");
+      expect(blocks[5]?.blockNumber).toBe(6);
 
       // Note: The CLOSE_CONNECTION command that triggers feedback generation
       // is verified in unit tests (session-golden-path.test.ts).
       // This integration test verifies the database side effects are correct.
-    });
+    }, 15000); // 15s timeout for completing 6 blocks
 
     it("should allow multiple blocks to complete independently", async () => {
       // This test verifies blocks can be completed in any state:
@@ -699,7 +695,7 @@ describe("Block-Based Interview Golden Path", () => {
       // Both blocks now completed
       expect(blocksAfter[0]?.status).toBe("COMPLETED");
       expect(blocksAfter[1]?.status).toBe("COMPLETED");
-    });
+    }, 15000); // 15s timeout for multiple block operations
 
     it("should maintain block completion idempotency", async () => {
       // This test verifies calling completeBlock multiple times is safe:

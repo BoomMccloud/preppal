@@ -13,11 +13,10 @@ export const InterviewQuestionSchema = z.object({
   translation: z.string().optional(),
 });
 
-/** Interview block - a segment with specific language and questions */
+/** Interview block - a segment with specific language and a single question */
 export const InterviewBlockSchema = z.object({
   language: LanguageSchema,
-  durationSec: z.number().int().positive(),
-  questions: z.array(InterviewQuestionSchema).min(1),
+  question: InterviewQuestionSchema,
 });
 
 /** Complete interview template definition */

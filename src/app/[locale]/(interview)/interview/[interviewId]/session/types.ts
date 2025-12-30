@@ -56,6 +56,7 @@ export type SessionEvent =
   | { type: "CONNECTION_READY"; initialBlockIndex: number }
   | { type: "TICK" }
   | { type: "USER_CLICKED_CONTINUE" }
+  | { type: "USER_CLICKED_NEXT" } // User manually advances to next block
   | { type: "INTERVIEW_ENDED" }
   // New driver events
   | { type: "CONNECTION_ESTABLISHED" }
@@ -71,7 +72,6 @@ export type SessionEvent =
 
 export interface ReducerContext {
   answerTimeLimit: number; // seconds, 0 = no limit
-  blockDuration: number; // seconds, 0 = no limit
   totalBlocks: number;
 }
 

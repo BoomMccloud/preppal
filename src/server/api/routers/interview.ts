@@ -110,7 +110,7 @@ export const interviewRouter = createTRPCRouter({
             interviewId: interview.id,
             blockNumber: index + 1, // 1-indexed
             language: block.language.toUpperCase() as BlockLanguage,
-            questions: block.questions.map((q) => q.content),
+            questions: block.question.content, // Single question per block
             status: "PENDING" as const,
           }));
 

@@ -148,13 +148,12 @@
       "nextBlockLanguage": "El siguiente bloque será en {language}",
       "english": "Inglés",
       "chinese": "Chino",
-      "blockDetails": "{questions} preguntas | ~{minutes} minutos",
       "continue": "Continuar al Siguiente Bloque",
       "blockProgress": "Bloque {current} de {total}",
-      "blockTimer": "Sección: {minutes}:{seconds}",
       "timer": "Respuesta: {minutes}:{seconds}",
       "timesUpTitle": "¡Se Acabó el Tiempo!",
-      "timesUpMessage": "Por favor, termina tu respuesta ahora."
+      "timesUpMessage": "Por favor, termina tu respuesta ahora.",
+      "nextQuestion": "Siguiente Pregunta"
     },
     "feedback": {
       "title": "Retroalimentación de Entrevista",

@@ -87,15 +87,6 @@ export function BlockSession({
             </p>
           </div>
 
-          <div className="text-secondary-text">
-            <p>
-              {t("blockDetails", {
-                questions: nextTemplateBlock?.questions.length ?? 0,
-                minutes: Math.floor((nextTemplateBlock?.durationSec ?? 0) / 60),
-              })}
-            </p>
-          </div>
-
           <div className="mt-8 flex justify-center gap-4">
             <button
               onClick={() => {
@@ -121,13 +112,8 @@ export function BlockSession({
       return <div>Error: Invalid block configuration</div>;
     }
 
-    // Calculate remaining times from state timestamps
+    // Calculate remaining time from state timestamp
     const now = Date.now();
-    const blockTimeRemaining = getRemainingSeconds(
-      state.blockStartTime,
-      templateBlock.durationSec,
-      now,
-    );
     const answerTimeRemaining =
       state.status === "ANSWER_TIMEOUT_PAUSE"
         ? 0
@@ -148,18 +134,6 @@ export function BlockSession({
           </div>
           <div
             className={`rounded-full px-4 py-2 text-sm font-bold shadow-md backdrop-blur-sm transition-colors duration-300 ${
-              blockTimeRemaining < 60
-                ? "bg-warning animate-pulse text-white"
-                : "border-secondary bg-primary/90 text-primary-text border"
-            }`}
-          >
-            {t("blockTimer", {
-              minutes: Math.floor(blockTimeRemaining / 60),
-              seconds: String(blockTimeRemaining % 60).padStart(2, "0"),
-            })}
-          </div>
-          <div
-            className={`rounded-full px-4 py-2 text-sm font-bold shadow-md backdrop-blur-sm transition-colors duration-300 ${
               answerTimeRemaining < 30
                 ? "bg-danger animate-pulse text-white"
                 : "border-secondary bg-primary/90 text-primary-text border"
@@ -170,6 +144,15 @@ export function BlockSession({
               seconds: String(answerTimeRemaining % 60).padStart(2, "0"),
             })}
           </div>
+          {/* Next Question button */}
+          {state.status === "ANSWERING" && (
+            <button
+              onClick={() => dispatch({ type: "USER_CLICKED_NEXT" })}
+              className="bg-secondary hover:bg-secondary/80 text-secondary-text pointer-events-auto rounded-full px-4 py-2 text-sm font-medium shadow-md transition-colors"
+            >
+              {t("nextQuestion")}
+            </button>
+          )}
         </div>
 
         {/* Time's up banner */}

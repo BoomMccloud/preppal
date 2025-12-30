@@ -151,9 +151,9 @@ async function handleGetContext(
   // Build block-specific system prompt
   const systemPrompt = buildBlockPrompt({
     blockNumber,
+    totalBlocks: template.blocks.length,
     language: templateBlock.language,
-    durationSec: templateBlock.durationSec,
-    questions: templateBlock.questions.map((q) => q.content),
+    question: templateBlock.question.content,
     answerTimeLimitSec: template.answerTimeLimitSec,
     jobDescription: interview.jobDescriptionSnapshot ?? "",
     candidateResume: interview.resumeSnapshot ?? "",
@@ -164,7 +164,7 @@ async function handleGetContext(
     jobDescription: interview.jobDescriptionSnapshot ?? "",
     resume: interview.resumeSnapshot ?? "",
     persona: template.persona ?? "professional interviewer",
-    durationMs: templateBlock.durationSec * 1000,
+    durationMs: template.answerTimeLimitSec * 1000, // Use answer time limit
     systemPrompt,
     language: templateBlock.language,
   });

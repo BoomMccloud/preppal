@@ -1,6 +1,6 @@
-// Golden Path Test (v5: Dumb Driver Architecture)
+// Golden Path Test (v6: One Block = One Question)
 // This is the SINGLE MOST IMPORTANT test - it verifies the complete interview lifecycle
-// If this test passes, the core state machine and command execution flow is functional
+// Answer timeout now goes to BLOCK_COMPLETE_SCREEN (not back to ANSWERING)
 
 import { describe, it, expect } from "vitest";
 import { sessionReducer } from "~/app/[locale]/(interview)/interview/[interviewId]/session/reducer";
@@ -13,32 +13,24 @@ import type {
 } from "~/app/[locale]/(interview)/interview/[interviewId]/session/types";
 
 /**
- * Golden Path: Complete Interview Flow
+ * Golden Path: Complete Interview Flow (One Block = One Question)
  *
  * This test simulates a complete interview session from start to finish:
  * 1. User lands on interview page (WAITING_FOR_CONNECTION)
  * 2. WebSocket connects (CONNECTION_READY -> START_CONNECTION command)
- * 3. User answers questions (ANSWERING)
- * 4. Answer timeout occurs (ANSWER_TIMEOUT_PAUSE -> MUTE_MIC command)
- * 5. Pause completes, user resumes (ANSWERING -> UNMUTE_MIC command)
- * 6. Block completes (BLOCK_COMPLETE_SCREEN)
- * 7. User continues to next block (ANSWERING)
- * 8. Second block completes
- * 9. Interview ends (INTERVIEW_COMPLETE)
- *
- * This test verifies:
- * - All state transitions work correctly
- * - Commands are generated at the right times
- * - Timer logic is accurate
- * - Multi-block flow works
+ * 3. User answers question 1 (ANSWERING)
+ * 4. User clicks "Next" (BLOCK_COMPLETE_SCREEN)
+ * 5. User continues to question 2 (ANSWERING)
+ * 6. Answer timeout occurs (ANSWER_TIMEOUT_PAUSE -> MUTE_MIC command)
+ * 7. Pause completes (BLOCK_COMPLETE_SCREEN)
+ * 8. Interview ends (INTERVIEW_COMPLETE)
  */
 
-describe("Golden Path: Complete Interview Session (v5)", () => {
-  it("should complete full 2-block interview with all state transitions and commands", () => {
-    // Context: Short timers for testing
+describe("Golden Path: Complete Interview Session (v6)", () => {
+  it("should complete full 2-block interview with manual advancement", () => {
+    // Context: Short timers for testing (no blockDuration)
     const context: ReducerContext = {
       answerTimeLimit: 5, // 5 seconds per answer
-      blockDuration: 10, // 10 seconds per block
       totalBlocks: 2, // 2 blocks total
     };
 
@@ -114,99 +106,36 @@ describe("Golden Path: Complete Interview Session (v5)", () => {
     expect(result.commands).toEqual([]); // No commands
 
     // ====================
-    // PHASE 3: Answer Timeout
+    // PHASE 3: User Clicks "Next"
     // ====================
 
-    console.log("\n=== PHASE 3: Answer Timeout ===");
+    console.log("\n=== PHASE 3: User Clicks Next ===");
 
-    // User goes over 5s answer limit
-    now += 2500; // Total: 5.5s
-    result = sessionReducer(state, { type: "TICK" }, context, now);
+    result = sessionReducer(state, { type: "USER_CLICKED_NEXT" }, context, now);
     executeCommands(result);
     state = result.state;
 
-    console.log("After 5.5s (timeout):", state.status);
-    expect(state.status).toBe("ANSWER_TIMEOUT_PAUSE");
-    expect(state).toMatchObject({
-      status: "ANSWER_TIMEOUT_PAUSE",
-      blockIndex: 0,
-      pauseStartedAt: now,
-    });
-
-    // Verify MUTE_MIC command was generated
-    expect(executedCommands).toContainEqual({ type: "MUTE_MIC" });
-
-    // ====================
-    // PHASE 4: Pause Duration
-    // ====================
-
-    console.log("\n=== PHASE 4: Pause Duration ===");
-
-    // Wait 2 seconds during pause (still under 3s)
-    now += 2000;
-    result = sessionReducer(state, { type: "TICK" }, context, now);
-    state = result.state;
-
-    console.log("After 2s pause:", state.status);
-    expect(state.status).toBe("ANSWER_TIMEOUT_PAUSE"); // Still paused
-
-    // ====================
-    // PHASE 5: Resume from Pause
-    // ====================
-
-    console.log("\n=== PHASE 5: Resume from Pause ===");
-
-    // Pause completes (over 3s)
-    now += 1500; // Total pause: 3.5s
-    result = sessionReducer(state, { type: "TICK" }, context, now);
-    executeCommands(result);
-    state = result.state;
-
-    console.log("After 3.5s pause (resume):", state.status);
-    expect(state.status).toBe("ANSWERING");
-    expect(state).toMatchObject({
-      status: "ANSWERING",
-      blockIndex: 0,
-      answerStartTime: now, // Reset
-    });
-
-    // Verify UNMUTE_MIC command was generated
-    expect(executedCommands).toContainEqual({ type: "UNMUTE_MIC" });
-
-    // ====================
-    // PHASE 6: Block 1 Completion
-    // ====================
-
-    console.log("\n=== PHASE 6: Block 1 Completion ===");
-
-    // Block elapsed time check:
-    // - Started at 1000000
-    // - Answered for 3s (1003000)
-    // - Timeout pause for 3.5s (1006500)
-    // - Resumed at 1006500
-    // - Need to reach 10s total from block start (1010000)
-    // - Need 3.5s more
-
-    now += 4000; // Total block time: ~10.5s
-    result = sessionReducer(state, { type: "TICK" }, context, now);
-    executeCommands(result);
-    state = result.state;
-
-    console.log("After ~10.5s block time:", state.status);
+    console.log("After USER_CLICKED_NEXT:", state.status);
     expect(state.status).toBe("BLOCK_COMPLETE_SCREEN");
     expect(state).toMatchObject({
       status: "BLOCK_COMPLETE_SCREEN",
       completedBlockIndex: 0,
     });
 
+    // Verify COMPLETE_BLOCK command was generated
+    expect(executedCommands).toContainEqual({
+      type: "COMPLETE_BLOCK",
+      blockNumber: 1,
+    });
+
     // ====================
-    // PHASE 7: Transition to Block 2
+    // PHASE 4: Transition to Block 2
     // ====================
 
-    console.log("\n=== PHASE 7: Transition to Block 2 ===");
+    console.log("\n=== PHASE 4: Transition to Block 2 ===");
 
     // User clicks "Continue"
-    now += 2000; // User reads completion screen
+    now += 2000;
     result = sessionReducer(
       state,
       { type: "USER_CLICKED_CONTINUE" },
@@ -220,49 +149,64 @@ describe("Golden Path: Complete Interview Session (v5)", () => {
     expect(state.status).toBe("ANSWERING");
     expect(state).toMatchObject({
       status: "ANSWERING",
-      blockIndex: 1, // Second block
+      blockIndex: 1,
       blockStartTime: now,
       answerStartTime: now,
     });
 
     // ====================
-    // PHASE 8: Block 2 - Quick Answer
+    // PHASE 5: Block 2 - Answer Timeout
     // ====================
 
-    console.log("\n=== PHASE 8: Block 2 - Quick Answer ===");
+    console.log("\n=== PHASE 5: Block 2 - Answer Timeout ===");
 
-    // User answers quickly, no timeout
-    now += 3000; // 3s into block 2
-    result = sessionReducer(state, { type: "TICK" }, context, now);
-    state = result.state;
-
-    console.log("After 3s in block 2:", state.status);
-    expect(state.status).toBe("ANSWERING"); // Still answering
-
-    // ====================
-    // PHASE 9: Block 2 Completion
-    // ====================
-
-    console.log("\n=== PHASE 9: Block 2 Completion ===");
-
-    // Block 2 completes after 10s
-    now += 7500; // Total: 10.5s
+    // User goes over 5s answer limit
+    now += 5500;
     result = sessionReducer(state, { type: "TICK" }, context, now);
     executeCommands(result);
     state = result.state;
 
-    console.log("After 10.5s block 2:", state.status);
+    console.log("After 5.5s (timeout):", state.status);
+    expect(state.status).toBe("ANSWER_TIMEOUT_PAUSE");
+    expect(state).toMatchObject({
+      status: "ANSWER_TIMEOUT_PAUSE",
+      blockIndex: 1,
+      pauseStartedAt: now,
+    });
+
+    // Verify MUTE_MIC command was generated
+    expect(executedCommands).toContainEqual({ type: "MUTE_MIC" });
+
+    // ====================
+    // PHASE 6: Pause Completes -> Block Complete
+    // ====================
+
+    console.log("\n=== PHASE 6: Pause Completes ===");
+
+    // Pause completes (over 3s) -> Goes to BLOCK_COMPLETE_SCREEN
+    now += 3500;
+    result = sessionReducer(state, { type: "TICK" }, context, now);
+    executeCommands(result);
+    state = result.state;
+
+    console.log("After 3.5s pause:", state.status);
     expect(state.status).toBe("BLOCK_COMPLETE_SCREEN");
     expect(state).toMatchObject({
       status: "BLOCK_COMPLETE_SCREEN",
       completedBlockIndex: 1,
     });
 
+    // Verify COMPLETE_BLOCK command was generated
+    expect(executedCommands).toContainEqual({
+      type: "COMPLETE_BLOCK",
+      blockNumber: 2,
+    });
+
     // ====================
-    // PHASE 10: Interview Complete
+    // PHASE 7: Interview Complete
     // ====================
 
-    console.log("\n=== PHASE 10: Interview Complete ===");
+    console.log("\n=== PHASE 7: Interview Complete ===");
 
     // User completes final block
     now += 1000;
@@ -277,6 +221,8 @@ describe("Golden Path: Complete Interview Session (v5)", () => {
 
     console.log("After completing block 2:", state.status);
     expect(state.status).toBe("INTERVIEW_COMPLETE");
+    expect(executedCommands).toContainEqual({ type: "STOP_AUDIO" });
+    expect(executedCommands).toContainEqual({ type: "CLOSE_CONNECTION" });
 
     // ====================
     // Verify Command Sequence
@@ -284,9 +230,6 @@ describe("Golden Path: Complete Interview Session (v5)", () => {
 
     console.log("\n=== Command Execution Summary ===");
     console.log("Total commands executed:", executedCommands.length);
-    executedCommands.forEach((cmd, i) => {
-      console.log(`  ${i + 1}. ${cmd.type}`, cmd);
-    });
 
     // Verify all expected commands were generated
     expect(executedCommands).toContainEqual({
@@ -294,30 +237,24 @@ describe("Golden Path: Complete Interview Session (v5)", () => {
       blockNumber: 0,
     });
     expect(executedCommands).toContainEqual({ type: "MUTE_MIC" });
-    expect(executedCommands).toContainEqual({ type: "UNMUTE_MIC" });
+    expect(executedCommands).toContainEqual({
+      type: "COMPLETE_BLOCK",
+      blockNumber: 1,
+    });
+    expect(executedCommands).toContainEqual({
+      type: "COMPLETE_BLOCK",
+      blockNumber: 2,
+    });
+    expect(executedCommands).toContainEqual({ type: "STOP_AUDIO" });
+    expect(executedCommands).toContainEqual({ type: "CLOSE_CONNECTION" });
 
-    // Verify command order (MUTE before UNMUTE)
-    const muteIndex = executedCommands.findIndex(
-      (cmd) => cmd.type === "MUTE_MIC",
-    );
-    const unmuteIndex = executedCommands.findIndex(
-      (cmd) => cmd.type === "UNMUTE_MIC",
-    );
-    expect(muteIndex).toBeGreaterThan(-1);
-    expect(unmuteIndex).toBeGreaterThan(-1);
-    expect(muteIndex).toBeLessThan(unmuteIndex);
-
-    console.log("\n✅ Golden Path Test Passed!");
-    console.log(
-      "Full interview flow completed successfully with all commands.",
-    );
+    console.log("\n Golden Path Test Passed!");
   });
 
   it("should handle single-block interview (edge case)", () => {
     const context: ReducerContext = {
       answerTimeLimit: 5,
-      blockDuration: 10,
-      totalBlocks: 1, // Only 1 block
+      totalBlocks: 1,
     };
 
     let now = 1000000;
@@ -342,20 +279,13 @@ describe("Golden Path: Complete Interview Session (v5)", () => {
     state = result.state;
     expect(state.status).toBe("ANSWERING");
 
-    // 2. Answer for a bit
-    now += 3000;
-    result = sessionReducer(state, { type: "TICK" }, context, now);
-    state = result.state;
-    expect(state.status).toBe("ANSWERING");
-
-    // 3. Block completes
-    now += 8000; // Total: 11s
-    result = sessionReducer(state, { type: "TICK" }, context, now);
+    // 2. User clicks Next
+    result = sessionReducer(state, { type: "USER_CLICKED_NEXT" }, context, now);
     state = result.state;
     expect(state.status).toBe("BLOCK_COMPLETE_SCREEN");
     expect(state).toMatchObject({ completedBlockIndex: 0 });
 
-    // 4. Complete interview (no more blocks)
+    // 3. Complete interview (no more blocks)
     result = sessionReducer(
       state,
       { type: "USER_CLICKED_CONTINUE" },
@@ -369,7 +299,6 @@ describe("Golden Path: Complete Interview Session (v5)", () => {
   it("should handle interview resumption from middle block", () => {
     const context: ReducerContext = {
       answerTimeLimit: 5,
-      blockDuration: 10,
       totalBlocks: 3,
     };
 
@@ -405,9 +334,8 @@ describe("Golden Path: Complete Interview Session (v5)", () => {
       blockNumber: 2,
     });
 
-    // Complete the block
-    now += 11000;
-    result = sessionReducer(state, { type: "TICK" }, context, now);
+    // User clicks Next
+    result = sessionReducer(state, { type: "USER_CLICKED_NEXT" }, context, now);
     state = result.state;
     expect(state.status).toBe("BLOCK_COMPLETE_SCREEN");
 
@@ -422,74 +350,9 @@ describe("Golden Path: Complete Interview Session (v5)", () => {
     expect(state.status).toBe("INTERVIEW_COMPLETE");
   });
 
-  it("should handle rapid answer timeouts (multiple cycles)", () => {
-    const context: ReducerContext = {
-      answerTimeLimit: 2, // Very short: 2s
-      blockDuration: 20, // Long block: 20s
-      totalBlocks: 1,
-    };
-
-    let now = 1000000;
-    let state: SessionState = {
-      status: "WAITING_FOR_CONNECTION",
-      connectionState: "initializing",
-      transcript: [],
-      pendingUser: "",
-      pendingAI: "",
-      elapsedTime: 0,
-      error: null,
-      isAiSpeaking: false,
-    };
-    const commands: Command[] = [];
-
-    // Connect
-    let result = sessionReducer(
-      state,
-      { type: "CONNECTION_READY", initialBlockIndex: 0 },
-      context,
-      now,
-    );
-    state = result.state;
-    commands.push(...result.commands);
-
-    // Cycle 1: Timeout -> Pause -> Resume
-    now += 2500; // First timeout
-    result = sessionReducer(state, { type: "TICK" }, context, now);
-    state = result.state;
-    commands.push(...result.commands);
-    expect(state.status).toBe("ANSWER_TIMEOUT_PAUSE");
-
-    now += 3500; // Resume
-    result = sessionReducer(state, { type: "TICK" }, context, now);
-    state = result.state;
-    commands.push(...result.commands);
-    expect(state.status).toBe("ANSWERING");
-
-    // Cycle 2: Timeout -> Pause -> Resume
-    now += 2500; // Second timeout
-    result = sessionReducer(state, { type: "TICK" }, context, now);
-    state = result.state;
-    commands.push(...result.commands);
-    expect(state.status).toBe("ANSWER_TIMEOUT_PAUSE");
-
-    now += 3500; // Resume
-    result = sessionReducer(state, { type: "TICK" }, context, now);
-    state = result.state;
-    commands.push(...result.commands);
-    expect(state.status).toBe("ANSWERING");
-
-    // Verify multiple MUTE/UNMUTE cycles
-    const muteCommands = commands.filter((cmd) => cmd.type === "MUTE_MIC");
-    const unmuteCommands = commands.filter((cmd) => cmd.type === "UNMUTE_MIC");
-
-    expect(muteCommands.length).toBeGreaterThanOrEqual(2);
-    expect(unmuteCommands.length).toBeGreaterThanOrEqual(2);
-  });
-
   it("should handle driver events during interview (CONNECTION_ERROR)", () => {
     const context: ReducerContext = {
       answerTimeLimit: 5,
-      blockDuration: 10,
       totalBlocks: 1,
     };
 
@@ -519,15 +382,12 @@ describe("Golden Path: Complete Interview Session (v5)", () => {
 
     expect(state.connectionState).toBe("error");
     expect(state.error).toBe("Network timeout");
-
-    // CONNECTION_ERROR now ends the interview (Phase 1 fix)
     expect(state.status).toBe("INTERVIEW_COMPLETE");
   });
 
   it("should handle transcript events during interview", () => {
     const context: ReducerContext = {
       answerTimeLimit: 5,
-      blockDuration: 10,
       totalBlocks: 1,
     };
 
@@ -588,11 +448,10 @@ describe("Golden Path: Complete Interview Session (v5)", () => {
     expect(result.commands).toEqual([]);
   });
 
-  describe("Block Completion Commands (FEAT31)", () => {
-    it("should emit COMPLETE_BLOCK when block times out", () => {
+  describe("Block Completion Commands", () => {
+    it("should emit COMPLETE_BLOCK when user clicks Next", () => {
       const context: ReducerContext = {
         answerTimeLimit: 90,
-        blockDuration: 600, // 10 minutes
         totalBlocks: 3,
       };
 
@@ -611,26 +470,53 @@ describe("Golden Path: Complete Interview Session (v5)", () => {
         isAiSpeaking: false,
       };
 
-      // Simulate time passing beyond block duration (601 seconds)
-      const laterTime = now + 601 * 1000;
       const result = sessionReducer(
         state,
-        { type: "TICK" },
+        { type: "USER_CLICKED_NEXT" },
         context,
-        laterTime,
+        now,
       );
 
       expect(result.state.status).toBe("BLOCK_COMPLETE_SCREEN");
       expect(result.commands).toContainEqual({
         type: "COMPLETE_BLOCK",
-        blockNumber: 1, // 1-indexed
+        blockNumber: 1,
+      });
+    });
+
+    it("should emit COMPLETE_BLOCK after answer timeout pause", () => {
+      const context: ReducerContext = {
+        answerTimeLimit: 90,
+        totalBlocks: 3,
+      };
+
+      const now = 1000000;
+      const state: SessionState = {
+        status: "ANSWER_TIMEOUT_PAUSE",
+        blockIndex: 1,
+        blockStartTime: now - 100000,
+        pauseStartedAt: now - 3500, // Over 3s pause
+        connectionState: "live",
+        transcript: [],
+        pendingUser: "",
+        pendingAI: "",
+        elapsedTime: 100,
+        error: null,
+        isAiSpeaking: false,
+      };
+
+      const result = sessionReducer(state, { type: "TICK" }, context, now);
+
+      expect(result.state.status).toBe("BLOCK_COMPLETE_SCREEN");
+      expect(result.commands).toContainEqual({
+        type: "COMPLETE_BLOCK",
+        blockNumber: 2,
       });
     });
 
     it("should emit CLOSE_CONNECTION when last block completes", () => {
       const context: ReducerContext = {
         answerTimeLimit: 90,
-        blockDuration: 600,
         totalBlocks: 3,
       };
 
@@ -660,7 +546,6 @@ describe("Golden Path: Complete Interview Session (v5)", () => {
     it("should NOT emit CLOSE_CONNECTION for non-last blocks", () => {
       const context: ReducerContext = {
         answerTimeLimit: 90,
-        blockDuration: 600,
         totalBlocks: 3,
       };
 
@@ -684,42 +569,6 @@ describe("Golden Path: Complete Interview Session (v5)", () => {
 
       expect(result.state.status).toBe("ANSWERING");
       expect(result.commands).not.toContainEqual({ type: "CLOSE_CONNECTION" });
-    });
-
-    it("should emit correct blockNumber for middle block", () => {
-      const context: ReducerContext = {
-        answerTimeLimit: 90,
-        blockDuration: 600,
-        totalBlocks: 3,
-      };
-
-      const now = 1000000;
-      const state: SessionState = {
-        status: "ANSWERING",
-        blockIndex: 1, // Second block (0-indexed)
-        blockStartTime: now,
-        answerStartTime: now,
-        connectionState: "live",
-        transcript: [],
-        pendingUser: "",
-        pendingAI: "",
-        elapsedTime: 0,
-        error: null,
-        isAiSpeaking: false,
-      };
-
-      const laterTime = now + 601 * 1000;
-      const result = sessionReducer(
-        state,
-        { type: "TICK" },
-        context,
-        laterTime,
-      );
-
-      expect(result.commands).toContainEqual({
-        type: "COMPLETE_BLOCK",
-        blockNumber: 2, // 1-indexed (blockIndex 1 + 1)
-      });
     });
   });
 });

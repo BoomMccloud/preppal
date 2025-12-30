@@ -159,7 +159,7 @@ export function SessionContentDev({
   }
 
   return (
-    <div data-testid="session-dev" className="flex h-screen overflow-hidden">
+    <div data-testid="session-dev" className="flex h-full overflow-hidden">
       {/* LEFT PANEL: Interactive Simulation */}
       <div className="bg-secondary flex flex-1 flex-col transition-all">
         {/* Header */}

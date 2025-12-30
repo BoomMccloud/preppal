@@ -76,15 +76,9 @@ export default function CreateInterviewPage() {
 
   // Calculate template stats for display
   const getTemplateStats = (template: InterviewTemplate) => {
-    const totalQuestions = template.blocks.reduce(
-      (acc, b) => acc + b.questions.length,
-      0,
-    );
+    const totalQuestions = template.blocks.length; // One question per block
     const languages = [...new Set(template.blocks.map((b) => b.language))];
-    const totalDuration = template.blocks.reduce(
-      (acc, b) => acc + b.durationSec,
-      0,
-    );
+    const totalDuration = template.blocks.length * template.answerTimeLimitSec;
     return { totalQuestions, languages, totalDuration };
   };
 

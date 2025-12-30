@@ -1,6 +1,7 @@
 /**
  * Unit tests for interview template Zod schema validation.
  * Tests only the essential validation behavior, not Zod internals.
+ * Schema uses single `question` per block (one block = one question model).
  */
 
 import { describe, it, expect } from "vitest";
@@ -13,13 +14,11 @@ describe("InterviewTemplateSchema", () => {
     blocks: [
       {
         language: "zh",
-        durationSec: 600,
-        questions: [{ content: "Tell me about yourself." }],
+        question: { content: "Tell me about yourself." },
       },
       {
         language: "en",
-        durationSec: 600,
-        questions: [{ content: "What is your greatest achievement?" }],
+        question: { content: "What is your greatest achievement?" },
       },
     ],
   };
@@ -45,9 +44,7 @@ describe("InterviewTemplateSchema", () => {
   it("should reject invalid language codes", () => {
     const invalid = {
       ...validTemplate,
-      blocks: [
-        { language: "fr", durationSec: 600, questions: [{ content: "Q" }] },
-      ],
+      blocks: [{ language: "fr", question: { content: "Q" } }],
     };
 
     const result = InterviewTemplateSchema.safeParse(invalid);
@@ -67,10 +64,10 @@ describe("InterviewTemplateSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("should reject block with empty questions array", () => {
+  it("should reject block without question", () => {
     const invalid = {
       ...validTemplate,
-      blocks: [{ language: "en", durationSec: 600, questions: [] }],
+      blocks: [{ language: "en" }], // missing question
     };
 
     const result = InterviewTemplateSchema.safeParse(invalid);
