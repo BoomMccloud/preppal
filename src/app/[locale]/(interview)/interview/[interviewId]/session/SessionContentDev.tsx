@@ -164,8 +164,8 @@ export function SessionContentDev({
         <div className="flex items-center justify-between border-b bg-white px-6 py-4 shadow-sm">
           <div className="flex items-center gap-4">
             <h1 className="text-xl font-bold text-gray-800">{t("title")}</h1>
-            <span className="flex items-center gap-1.5 rounded-full bg-blue-100 px-3 py-1 text-xs font-bold uppercase tracking-wider text-blue-800">
-              <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse"></span>
+            <span className="flex items-center gap-1.5 rounded-full bg-blue-100 px-3 py-1 text-xs font-bold tracking-wider text-blue-800 uppercase">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500"></span>
               Dev Mode
             </span>
           </div>
@@ -193,13 +193,13 @@ export function SessionContentDev({
         </div>
 
         {/* Transcript Area - The "Streaming Buffer" View */}
-        <div className="flex-1 overflow-y-auto p-6 scroll-smooth">
+        <div className="flex-1 overflow-y-auto scroll-smooth p-6">
           <div className="mx-auto max-w-3xl space-y-6">
             {transcript.length === 0 && !pendingUser && !pendingAI ? (
               <div className="flex flex-col items-center justify-center py-12 text-center text-gray-400">
                 <div className="mb-3 text-4xl">💬</div>
                 <p>{t("waitingToBegin")}</p>
-                <p className="mt-2 text-xs font-mono text-gray-400">
+                <p className="mt-2 font-mono text-xs text-gray-400">
                   Status: {connectionState}
                 </p>
               </div>
@@ -214,12 +214,12 @@ export function SessionContentDev({
                     <div
                       className={`relative max-w-[80%] rounded-2xl px-6 py-4 shadow-sm ${
                         entry.speaker === "AI"
-                          ? "bg-white text-gray-800 border border-gray-100"
+                          ? "border border-gray-100 bg-white text-gray-800"
                           : "bg-blue-600 text-white"
                       }`}
                     >
                       <div
-                        className={`mb-1 text-xs font-bold uppercase tracking-wider opacity-70 ${
+                        className={`mb-1 text-xs font-bold tracking-wider uppercase opacity-70 ${
                           entry.speaker === "AI"
                             ? "text-gray-500"
                             : "text-blue-100"
@@ -227,7 +227,7 @@ export function SessionContentDev({
                       >
                         {entry.speaker === "AI" ? t("aiInterviewer") : t("you")}
                       </div>
-                      <div className="whitespace-pre-wrap leading-relaxed">
+                      <div className="leading-relaxed whitespace-pre-wrap">
                         {entry.text}
                       </div>
                     </div>
@@ -238,11 +238,11 @@ export function SessionContentDev({
                 {pendingAI && (
                   <div className="flex justify-start">
                     <div className="relative max-w-[80%] rounded-2xl border border-blue-100 bg-blue-50 px-6 py-4 shadow-sm">
-                      <div className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-blue-400">
+                      <div className="mb-1 flex items-center gap-2 text-xs font-bold tracking-wider text-blue-400 uppercase">
                         {t("aiInterviewer")}
                         <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-blue-400"></span>
                       </div>
-                      <div className="whitespace-pre-wrap leading-relaxed text-gray-600">
+                      <div className="leading-relaxed whitespace-pre-wrap text-gray-600">
                         {pendingAI}
                         <span className="animate-pulse font-light text-blue-400">
                           ...
@@ -256,11 +256,11 @@ export function SessionContentDev({
                 {pendingUser && (
                   <div className="flex justify-end">
                     <div className="relative max-w-[80%] rounded-2xl border border-blue-400 bg-blue-500/90 px-6 py-4 shadow-sm backdrop-blur-sm">
-                      <div className="mb-1 flex items-center justify-end gap-2 text-xs font-bold uppercase tracking-wider text-blue-100">
+                      <div className="mb-1 flex items-center justify-end gap-2 text-xs font-bold tracking-wider text-blue-100 uppercase">
                         <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-white"></span>
                         {t("you")}
                       </div>
-                      <div className="whitespace-pre-wrap leading-relaxed text-white">
+                      <div className="leading-relaxed whitespace-pre-wrap text-white">
                         {pendingUser}
                         <span className="animate-pulse">_</span>
                       </div>
@@ -290,7 +290,7 @@ export function SessionContentDev({
       {/* RIGHT PANEL: Dev Tools (Fixed Width) */}
       <div className="flex w-[400px] flex-col border-l border-gray-800 bg-gray-950 text-gray-300">
         <div className="flex items-center justify-between border-b border-gray-800 px-4 py-3">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-gray-500">
+          <h2 className="text-xs font-bold tracking-wider text-gray-500 uppercase">
             Dev Console
           </h2>
           <div className="flex h-2 w-2">
@@ -309,10 +309,10 @@ export function SessionContentDev({
         <div className="custom-scrollbar flex-1 space-y-8 overflow-y-auto p-4">
           {/* Section: Status Grid */}
           <section>
-            <h3 className="mb-3 text-[10px] font-bold uppercase tracking-widest text-gray-600">
+            <h3 className="mb-3 text-[10px] font-bold tracking-widest text-gray-600 uppercase">
               State Monitor
             </h3>
-            <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+            <div className="grid grid-cols-2 gap-2 font-mono text-xs">
               <div className="rounded bg-gray-900 p-2.5">
                 <div className="mb-1 text-[10px] text-gray-500">Connection</div>
                 <div
@@ -348,7 +348,7 @@ export function SessionContentDev({
 
           {/* Section: Live Buffers (Raw View) */}
           <section>
-            <h3 className="mb-3 text-[10px] font-bold uppercase tracking-widest text-gray-600">
+            <h3 className="mb-3 text-[10px] font-bold tracking-widest text-gray-600 uppercase">
               Raw Buffers
             </h3>
             <div className="space-y-2 font-mono text-xs">
@@ -359,9 +359,9 @@ export function SessionContentDev({
                     {pendingUser?.length ?? 0} chars
                   </span>
                 </div>
-                <div className="break-all text-blue-300 min-h-[1.5em]">
+                <div className="min-h-[1.5em] break-all text-blue-300">
                   {pendingUser || (
-                    <span className="italic text-gray-700">null</span>
+                    <span className="text-gray-700 italic">null</span>
                   )}
                 </div>
               </div>
@@ -372,9 +372,9 @@ export function SessionContentDev({
                     {pendingAI?.length ?? 0} chars
                   </span>
                 </div>
-                <div className="break-all text-green-300 min-h-[1.5em]">
+                <div className="min-h-[1.5em] break-all text-green-300">
                   {pendingAI || (
-                    <span className="italic text-gray-700">null</span>
+                    <span className="text-gray-700 italic">null</span>
                   )}
                 </div>
               </div>
@@ -383,12 +383,12 @@ export function SessionContentDev({
 
           {/* Section: Raw Inspector */}
           <section>
-            <h3 className="mb-3 text-[10px] font-bold uppercase tracking-widest text-gray-600">
+            <h3 className="mb-3 text-[10px] font-bold tracking-widest text-gray-600 uppercase">
               State Inspector
             </h3>
             <div className="overflow-hidden rounded border border-gray-800 bg-black">
               <div className="max-h-[300px] overflow-auto p-3">
-                <pre className="text-[10px] font-mono leading-relaxed text-gray-400">
+                <pre className="font-mono text-[10px] leading-relaxed text-gray-400">
                   {JSON.stringify(
                     state,
                     (key, value) => {
@@ -407,13 +407,36 @@ export function SessionContentDev({
 
           {/* Section: Debug Actions */}
           <section>
-            <h3 className="mb-3 text-[10px] font-bold uppercase tracking-widest text-gray-600">
+            <h3 className="mb-3 text-[10px] font-bold tracking-widest text-gray-600 uppercase">
               Actions
             </h3>
             <div className="space-y-3">
+              {/* Block Controls - dev-only buttons to step through states */}
+              <div className="mb-4 space-y-2">
+                <h4 className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">
+                  Block Controls
+                </h4>
+                <button
+                  onClick={() => dispatch({ type: "DEV_FORCE_BLOCK_COMPLETE" })}
+                  disabled={
+                    state.status !== "ANSWERING" &&
+                    state.status !== "ANSWER_TIMEOUT_PAUSE"
+                  }
+                  className="w-full rounded bg-yellow-600 px-3 py-2 text-xs font-bold tracking-wide text-white uppercase transition-colors hover:bg-yellow-500 disabled:opacity-50"
+                >
+                  Skip Block
+                </button>
+                <button
+                  onClick={() => dispatch({ type: "DEV_FORCE_ANSWER_TIMEOUT" })}
+                  disabled={state.status !== "ANSWERING"}
+                  className="w-full rounded bg-orange-600 px-3 py-2 text-xs font-bold tracking-wide text-white uppercase transition-colors hover:bg-orange-500 disabled:opacity-50"
+                >
+                  Answer Timeout
+                </button>
+              </div>
               <button
                 onClick={handleCheckStatus}
-                className="w-full rounded bg-gray-800 px-3 py-2 text-xs font-bold uppercase tracking-wide text-gray-300 transition-colors hover:bg-gray-700 hover:text-white"
+                className="w-full rounded bg-gray-800 px-3 py-2 text-xs font-bold tracking-wide text-gray-300 uppercase transition-colors hover:bg-gray-700 hover:text-white"
               >
                 Log Status to Console
               </button>
@@ -431,4 +454,3 @@ export function SessionContentDev({
     </div>
   );
 }
-

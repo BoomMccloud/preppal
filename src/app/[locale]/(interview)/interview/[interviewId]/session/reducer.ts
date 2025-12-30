@@ -53,6 +53,43 @@ export function sessionReducer(
     };
   }
 
+  // Dev-only events - only processed in development mode
+  // These allow developers to step through block states without waiting for timers
+  if (process.env.NODE_ENV !== "production") {
+    // DEV_FORCE_BLOCK_COMPLETE: Skip directly to block complete screen
+    if (event.type === "DEV_FORCE_BLOCK_COMPLETE") {
+      if (
+        state.status === "ANSWERING" ||
+        state.status === "ANSWER_TIMEOUT_PAUSE"
+      ) {
+        return {
+          state: {
+            ...state,
+            status: "BLOCK_COMPLETE_SCREEN",
+            completedBlockIndex: state.blockIndex,
+          },
+          commands: [],
+        };
+      }
+      return { state, commands: [] };
+    }
+
+    // DEV_FORCE_ANSWER_TIMEOUT: Trigger answer timeout immediately
+    if (event.type === "DEV_FORCE_ANSWER_TIMEOUT") {
+      if (state.status === "ANSWERING") {
+        return {
+          state: {
+            ...state,
+            status: "ANSWER_TIMEOUT_PAUSE",
+            pauseStartedAt: now,
+          },
+          commands: [{ type: "MUTE_MIC" }],
+        };
+      }
+      return { state, commands: [] };
+    }
+  }
+
   // Handle new driver events (work across all states)
   switch (event.type) {
     case "CONNECTION_ESTABLISHED":

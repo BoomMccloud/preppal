@@ -63,7 +63,10 @@ export type SessionEvent =
   | { type: "TRANSCRIPT_COMMIT"; entry: TranscriptEntry }
   | { type: "TRANSCRIPT_PENDING"; buffers: { user?: string; ai?: string } }
   | { type: "AI_SPEAKING_CHANGED"; isSpeaking: boolean }
-  | { type: "TIMER_TICK" };
+  | { type: "TIMER_TICK" }
+  // Dev-only events (only processed in development mode)
+  | { type: "DEV_FORCE_BLOCK_COMPLETE" }
+  | { type: "DEV_FORCE_ANSWER_TIMEOUT" };
 
 export interface ReducerContext {
   answerTimeLimit: number; // seconds, 0 = no limit

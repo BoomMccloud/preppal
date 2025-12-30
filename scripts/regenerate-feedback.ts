@@ -6,11 +6,26 @@ import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 
 const FeedbackSchema = z.object({
-  summary: z.string().nullable().transform((v) => v ?? ""),
-  strengths: z.string().nullable().transform((v) => v ?? ""),
-  contentAndStructure: z.string().nullable().transform((v) => v ?? ""),
-  communicationAndDelivery: z.string().nullable().transform((v) => v ?? ""),
-  presentation: z.string().nullable().transform((v) => v ?? ""),
+  summary: z
+    .string()
+    .nullable()
+    .transform((v) => v ?? ""),
+  strengths: z
+    .string()
+    .nullable()
+    .transform((v) => v ?? ""),
+  contentAndStructure: z
+    .string()
+    .nullable()
+    .transform((v) => v ?? ""),
+  communicationAndDelivery: z
+    .string()
+    .nullable()
+    .transform((v) => v ?? ""),
+  presentation: z
+    .string()
+    .nullable()
+    .transform((v) => v ?? ""),
 });
 
 async function regenerateFeedback(interviewId: string) {
@@ -86,7 +101,9 @@ Output JSON only.
 
     let cleanText = text.trim();
     if (cleanText.startsWith("```")) {
-      cleanText = cleanText.replace(/^```(json)?\n?/, "").replace(/\n?```$/, "");
+      cleanText = cleanText
+        .replace(/^```(json)?\n?/, "")
+        .replace(/\n?```$/, "");
     }
 
     const json = JSON.parse(cleanText);

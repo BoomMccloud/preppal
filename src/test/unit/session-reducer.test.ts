@@ -1095,4 +1095,127 @@ describe("sessionReducer (v5: Command Generation)", () => {
       expect(result.commands).toEqual([]); // No commands - connection already closed
     });
   });
+
+  describe("Dev-only events", () => {
+    describe("DEV_FORCE_BLOCK_COMPLETE", () => {
+      it("should transition ANSWERING to BLOCK_COMPLETE_SCREEN", () => {
+        const now = 1000000;
+        const state: SessionState = {
+          status: "ANSWERING",
+          blockIndex: 1,
+          blockStartTime: now - 60000,
+          answerStartTime: now - 30000,
+          ...createCommonFields(),
+        };
+
+        const result = sessionReducer(
+          state,
+          { type: "DEV_FORCE_BLOCK_COMPLETE" },
+          defaultContext,
+          now,
+        );
+
+        expect(result.state.status).toBe("BLOCK_COMPLETE_SCREEN");
+        expect(result.state).toHaveProperty("completedBlockIndex", 1);
+        expect(result.commands).toEqual([]);
+      });
+
+      it("should transition ANSWER_TIMEOUT_PAUSE to BLOCK_COMPLETE_SCREEN", () => {
+        const now = 1000000;
+        const state: SessionState = {
+          status: "ANSWER_TIMEOUT_PAUSE",
+          blockIndex: 2,
+          blockStartTime: now - 60000,
+          pauseStartedAt: now - 1000,
+          ...createCommonFields(),
+        };
+
+        const result = sessionReducer(
+          state,
+          { type: "DEV_FORCE_BLOCK_COMPLETE" },
+          defaultContext,
+          now,
+        );
+
+        expect(result.state.status).toBe("BLOCK_COMPLETE_SCREEN");
+        expect(result.state).toHaveProperty("completedBlockIndex", 2);
+      });
+
+      it("should be a no-op in WAITING_FOR_CONNECTION state", () => {
+        const state: SessionState = {
+          status: "WAITING_FOR_CONNECTION",
+          ...createCommonFields(),
+        };
+
+        const result = sessionReducer(
+          state,
+          { type: "DEV_FORCE_BLOCK_COMPLETE" },
+          defaultContext,
+        );
+
+        expect(result.state.status).toBe("WAITING_FOR_CONNECTION");
+      });
+    });
+
+    describe("DEV_FORCE_ANSWER_TIMEOUT", () => {
+      it("should transition ANSWERING to ANSWER_TIMEOUT_PAUSE with MUTE_MIC command", () => {
+        const now = 1000000;
+        const state: SessionState = {
+          status: "ANSWERING",
+          blockIndex: 0,
+          blockStartTime: now - 60000,
+          answerStartTime: now - 30000,
+          ...createCommonFields(),
+        };
+
+        const result = sessionReducer(
+          state,
+          { type: "DEV_FORCE_ANSWER_TIMEOUT" },
+          defaultContext,
+          now,
+        );
+
+        expect(result.state.status).toBe("ANSWER_TIMEOUT_PAUSE");
+        expect(result.state).toHaveProperty("pauseStartedAt", now);
+        expect(result.commands).toContainEqual({ type: "MUTE_MIC" });
+      });
+
+      it("should be a no-op in ANSWER_TIMEOUT_PAUSE state", () => {
+        const now = 1000000;
+        const state: SessionState = {
+          status: "ANSWER_TIMEOUT_PAUSE",
+          blockIndex: 0,
+          blockStartTime: now - 60000,
+          pauseStartedAt: now - 1000,
+          ...createCommonFields(),
+        };
+
+        const result = sessionReducer(
+          state,
+          { type: "DEV_FORCE_ANSWER_TIMEOUT" },
+          defaultContext,
+          now,
+        );
+
+        expect(result.state.status).toBe("ANSWER_TIMEOUT_PAUSE");
+        expect(result.commands).toEqual([]);
+      });
+
+      it("should be a no-op in BLOCK_COMPLETE_SCREEN state", () => {
+        const state: SessionState = {
+          status: "BLOCK_COMPLETE_SCREEN",
+          completedBlockIndex: 0,
+          ...createCommonFields(),
+        };
+
+        const result = sessionReducer(
+          state,
+          { type: "DEV_FORCE_ANSWER_TIMEOUT" },
+          defaultContext,
+        );
+
+        expect(result.state.status).toBe("BLOCK_COMPLETE_SCREEN");
+      });
+    });
+  });
 });
