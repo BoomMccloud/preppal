@@ -32,7 +32,10 @@ type CommonStateFields = {
 
 // Discriminated union with common fields via intersection types
 export type SessionState =
-  | ({ status: "WAITING_FOR_CONNECTION" } & CommonStateFields)
+  | ({
+      status: "WAITING_FOR_CONNECTION";
+      targetBlockIndex?: number;
+    } & CommonStateFields)
   | ({
       status: "ANSWERING";
       blockIndex: number;

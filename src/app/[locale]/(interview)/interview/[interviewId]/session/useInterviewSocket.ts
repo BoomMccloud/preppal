@@ -6,12 +6,7 @@ import { useCallback, useEffect, useRef, useMemo } from "react";
 import { api } from "~/trpc/react";
 import { AudioSession } from "~/lib/audio/AudioSession";
 import { TranscriptManager } from "~/lib/audio/TranscriptManager";
-import {
-  WS_CLOSE_USER_INITIATED,
-  WS_CLOSE_TIMEOUT,
-  WS_CLOSE_GEMINI_ENDED,
-  WS_CLOSE_ERROR,
-} from "~/lib/constants/interview";
+import { WS_CLOSE_BLOCK_RECONNECT } from "~/lib/constants/interview";
 import {
   encodeAudioChunk,
   encodeEndRequest,
@@ -142,17 +137,29 @@ export function useInterviewSocket(
       ws.binaryType = "arraybuffer";
 
       ws.onopen = () => {
+        // Stale socket guard: ignore events from old sockets
+        if (wsRef.current !== ws) {
+          console.log(`[WebSocket] Ignoring onopen from stale socket`);
+          return;
+        }
         activeConnectionsRef.current += 1;
         console.log(
           `[WebSocket] Connected successfully (Active: ${activeConnectionsRef.current})`,
         );
         events.onConnectionOpen();
 
-        // Setup audio after connection opens
-        void setupAudio();
+        // Setup audio after connection opens (only if we don't already have one)
+        if (!audioSessionRef.current) {
+          void setupAudio();
+        }
       };
 
       ws.onmessage = (event: MessageEvent) => {
+        // Stale socket guard: ignore events from old sockets
+        if (wsRef.current !== ws) {
+          console.log(`[WebSocket] Ignoring message from stale socket`);
+          return;
+        }
         if (!(event.data instanceof ArrayBuffer)) return;
 
         const message = decodeServerMessage(event.data);
@@ -192,11 +199,23 @@ export function useInterviewSocket(
       };
 
       ws.onerror = (event) => {
+        // Stale socket guard: ignore events from old sockets
+        if (wsRef.current !== ws) {
+          console.log(`[WebSocket] Ignoring error from stale socket`);
+          return;
+        }
         console.error(`[WebSocket] Error:`, event);
         events.onConnectionError("Connection error.");
       };
 
       ws.onclose = (event) => {
+        // Stale socket guard: ignore events from old sockets
+        if (wsRef.current !== ws) {
+          console.log(
+            `[WebSocket] Ignoring close from stale socket (code: ${event.code})`,
+          );
+          return;
+        }
         activeConnectionsRef.current = Math.max(
           0,
           activeConnectionsRef.current - 1,
@@ -205,20 +224,8 @@ export function useInterviewSocket(
           `[WebSocket] Closed with code ${event.code}: ${event.reason} (Active: ${activeConnectionsRef.current})`,
         );
 
-        // Handle close based on code
-        switch (event.code) {
-          case WS_CLOSE_USER_INITIATED:
-          case WS_CLOSE_TIMEOUT:
-          case WS_CLOSE_GEMINI_ENDED:
-            events.onConnectionClose(event.code);
-            break;
-          case WS_CLOSE_ERROR:
-            events.onConnectionError("Session error");
-            break;
-          default:
-            // Unexpected close
-            events.onConnectionError("Connection lost");
-        }
+        // Dumb pipe: always emit the raw close code, let reducer decide what it means
+        events.onConnectionClose(event.code);
       };
     },
     [interviewId, events, setupAudio],
@@ -290,15 +297,17 @@ export function useInterviewSocket(
       // Update block ref for the new connection URL
       currentBlockRef.current = newBlockNumber;
 
-      // Close existing WebSocket connection
+      // Close existing WebSocket connection with 4005 (block transition)
+      // The stale socket guard will filter any late events from this socket
       if (wsRef.current) {
-        wsRef.current.close();
+        wsRef.current.close(WS_CLOSE_BLOCK_RECONNECT, "Block transition");
         wsRef.current = null;
       }
 
-      // Stop current audio session (new one will start on connection)
-      audioSessionRef.current?.stop();
-      audioSessionRef.current = null;
+      // HOT MIC: Keep audio session alive during block transitions
+      // Audio chunks will be silently dropped until new socket opens
+      // (see the wsRef.current?.readyState check in onAudioData callback)
+      // DO NOT call audioSessionRef.current?.stop() here!
 
       // Reset connection guard so generateToken triggers a new connection
       hasInitiatedConnection.current = false;
@@ -336,6 +345,14 @@ export function useInterviewSocket(
         activeConnections: activeConnectionsRef.current,
       },
     }),
-    [connect, disconnect, mute, unmute, stopAudio, isAudioMuted, reconnectForBlock],
+    [
+      connect,
+      disconnect,
+      mute,
+      unmute,
+      stopAudio,
+      isAudioMuted,
+      reconnectForBlock,
+    ],
   );
 }

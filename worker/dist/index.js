@@ -25254,7 +25254,9 @@ var index_default = {
         if (isNaN(blockNum) || blockNum < 1) {
           return new Response("Invalid block number", { status: 400 });
         }
-        const id = env.GEMINI_SESSION.idFromName(`${interviewId}_block${block}`);
+        const id = env.GEMINI_SESSION.idFromName(
+          `${interviewId}_block${block}`
+        );
         const stub = env.GEMINI_SESSION.get(id);
         const headers = new Headers(request.headers);
         headers.set("X-User-Id", payload.userId);

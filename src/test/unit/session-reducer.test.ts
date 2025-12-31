@@ -332,7 +332,7 @@ describe("sessionReducer (v6: One Block = One Question)", () => {
       expect(result.commands).toEqual([]);
     });
 
-    it("should transition to next block when USER_CLICKED_CONTINUE", () => {
+    it("should transition to WAITING_FOR_CONNECTION when USER_CLICKED_CONTINUE", () => {
       const now = 1000000;
       const state: SessionState = {
         status: "BLOCK_COMPLETE_SCREEN",
@@ -347,12 +347,12 @@ describe("sessionReducer (v6: One Block = One Question)", () => {
         now,
       );
 
-      expect(result.state).toMatchObject({
-        status: "ANSWERING",
-        blockIndex: 1,
-        blockStartTime: now,
-        answerStartTime: now,
-      });
+      // Now goes through WAITING_FOR_CONNECTION first (FEAT40)
+      expect(result.state.status).toBe("WAITING_FOR_CONNECTION");
+      if (result.state.status === "WAITING_FOR_CONNECTION") {
+        expect(result.state.targetBlockIndex).toBe(1);
+        expect(result.state.connectionState).toBe("connecting");
+      }
       expect(result.commands).toContainEqual({
         type: "RECONNECT_FOR_BLOCK",
         blockNumber: 2, // blockIndex 1 + 1 = blockNumber 2 (1-indexed)
@@ -424,12 +424,11 @@ describe("sessionReducer (v6: One Block = One Question)", () => {
         now,
       );
 
-      expect(result.state.status).toBe("ANSWERING");
-      expect(result.state).toMatchObject({
-        blockIndex: 1,
-        blockStartTime: now,
-        answerStartTime: now,
-      });
+      // Now goes through WAITING_FOR_CONNECTION first (FEAT40)
+      expect(result.state.status).toBe("WAITING_FOR_CONNECTION");
+      if (result.state.status === "WAITING_FOR_CONNECTION") {
+        expect(result.state.targetBlockIndex).toBe(1);
+      }
       expect(result.commands).toContainEqual({
         type: "RECONNECT_FOR_BLOCK",
         blockNumber: 2, // blockIndex 1 + 1 = blockNumber 2 (1-indexed)
@@ -722,7 +721,7 @@ describe("sessionReducer (v6: One Block = One Question)", () => {
       });
       state = result.state;
 
-      // 3. User clicks continue to next block
+      // 3. User clicks continue to next block -> WAITING_FOR_CONNECTION
       now += 5000;
       result = sessionReducer(
         state,
@@ -730,9 +729,22 @@ describe("sessionReducer (v6: One Block = One Question)", () => {
         context,
         now,
       );
+      expect(result.state.status).toBe("WAITING_FOR_CONNECTION");
+      if (result.state.status === "WAITING_FOR_CONNECTION") {
+        expect(result.state.targetBlockIndex).toBe(1);
+      }
+      state = result.state;
+
+      // 3b. CONNECTION_READY -> ANSWERING
+      result = sessionReducer(
+        state,
+        { type: "CONNECTION_READY", initialBlockIndex: 0 },
+        context,
+        now,
+      );
       expect(result.state.status).toBe("ANSWERING");
       if (result.state.status === "ANSWERING") {
-        expect(result.state.blockIndex).toBe(1);
+        expect(result.state.blockIndex).toBe(1); // Uses targetBlockIndex
       }
       state = result.state;
 
@@ -889,6 +901,175 @@ describe("sessionReducer (v6: One Block = One Question)", () => {
         expect(result.state.status).toBe("ANSWER_TIMEOUT_PAUSE");
         expect(result.state).toHaveProperty("pauseStartedAt", now);
         expect(result.commands).toContainEqual({ type: "MUTE_MIC" });
+      });
+    });
+  });
+
+  describe("FEAT40: Unified Block Isolation", () => {
+    describe("Block transition goes through WAITING_FOR_CONNECTION", () => {
+      it("should transition BLOCK_COMPLETE_SCREEN to WAITING_FOR_CONNECTION on USER_CLICKED_CONTINUE", () => {
+        const now = 1000000;
+        const state: SessionState = {
+          status: "BLOCK_COMPLETE_SCREEN",
+          completedBlockIndex: 0,
+          ...createCommonFields(),
+        };
+
+        const result = sessionReducer(
+          state,
+          { type: "USER_CLICKED_CONTINUE" },
+          defaultContext,
+          now,
+        );
+
+        expect(result.state.status).toBe("WAITING_FOR_CONNECTION");
+        if (result.state.status === "WAITING_FOR_CONNECTION") {
+          expect(result.state.targetBlockIndex).toBe(1);
+          expect(result.state.connectionState).toBe("connecting");
+        }
+        expect(result.commands).toContainEqual({
+          type: "RECONNECT_FOR_BLOCK",
+          blockNumber: 2,
+        });
+      });
+
+      it("should transition WAITING_FOR_CONNECTION to ANSWERING on CONNECTION_READY using targetBlockIndex", () => {
+        const now = 1000000;
+        const state: SessionState = {
+          status: "WAITING_FOR_CONNECTION",
+          targetBlockIndex: 2,
+          ...createCommonFields(),
+          connectionState: "connecting",
+        };
+
+        const result = sessionReducer(
+          state,
+          { type: "CONNECTION_READY", initialBlockIndex: 0 }, // initialBlockIndex should be ignored
+          defaultContext,
+          now,
+        );
+
+        expect(result.state.status).toBe("ANSWERING");
+        if (result.state.status === "ANSWERING") {
+          expect(result.state.blockIndex).toBe(2); // Uses targetBlockIndex, not initialBlockIndex
+          expect(result.state.blockStartTime).toBe(now);
+          expect(result.state.answerStartTime).toBe(now);
+        }
+      });
+    });
+
+    describe("Connection failure during WAITING_FOR_CONNECTION", () => {
+      it("should transition to INTERVIEW_COMPLETE with error when connection fails during reconnection", () => {
+        const state: SessionState = {
+          status: "WAITING_FOR_CONNECTION",
+          targetBlockIndex: 1,
+          ...createCommonFields(),
+          connectionState: "connecting",
+        };
+
+        const result = sessionReducer(
+          state,
+          { type: "CONNECTION_CLOSED", code: 1006 }, // Abnormal closure
+          defaultContext,
+        );
+
+        expect(result.state.status).toBe("INTERVIEW_COMPLETE");
+        expect(result.state.connectionState).toBe("error");
+        expect(result.state.error).toBe("Connection failed");
+        expect(result.commands).toContainEqual({ type: "STOP_AUDIO" });
+      });
+
+      it("should NOT ignore CONNECTION_CLOSED during WAITING_FOR_CONNECTION (no double guard trap)", () => {
+        // This test verifies we don't have the "double guard trap" bug
+        // where CONNECTION_CLOSED is ignored in WAITING state
+        const state: SessionState = {
+          status: "WAITING_FOR_CONNECTION",
+          ...createCommonFields(),
+          connectionState: "connecting",
+        };
+
+        const result = sessionReducer(
+          state,
+          { type: "CONNECTION_CLOSED", code: 4004 }, // WS_CLOSE_ERROR
+          defaultContext,
+        );
+
+        // Should NOT stay in WAITING_FOR_CONNECTION (that would be the bug)
+        expect(result.state.status).not.toBe("WAITING_FOR_CONNECTION");
+        expect(result.state.status).toBe("INTERVIEW_COMPLETE");
+      });
+    });
+
+    describe("Error handling during ANSWERING", () => {
+      it("should transition to INTERVIEW_COMPLETE with error on WS_CLOSE_ERROR (4004)", () => {
+        const now = 1000000;
+        const state: SessionState = {
+          status: "ANSWERING",
+          blockIndex: 0,
+          blockStartTime: now - 10000,
+          answerStartTime: now - 10000,
+          ...createCommonFields(),
+          connectionState: "live",
+        };
+
+        const result = sessionReducer(
+          state,
+          { type: "CONNECTION_CLOSED", code: 4004 }, // WS_CLOSE_ERROR
+          defaultContext,
+        );
+
+        expect(result.state.status).toBe("INTERVIEW_COMPLETE");
+        expect(result.state.connectionState).toBe("error");
+        expect(result.state.error).toBe("Connection lost");
+        expect(result.commands).toContainEqual({ type: "STOP_AUDIO" });
+      });
+
+      it("should handle normal close (4001, 4002, 4003) without error during ANSWERING", () => {
+        const now = 1000000;
+        const state: SessionState = {
+          status: "ANSWERING",
+          blockIndex: 0,
+          blockStartTime: now - 10000,
+          answerStartTime: now - 10000,
+          ...createCommonFields(),
+          connectionState: "live",
+        };
+
+        // Test each normal close code
+        for (const code of [4001, 4002, 4003]) {
+          const result = sessionReducer(
+            state,
+            { type: "CONNECTION_CLOSED", code },
+            defaultContext,
+          );
+
+          expect(result.state.connectionState).toBe("ending");
+          expect(result.state.status).toBe("ANSWERING"); // Status unchanged
+          expect(result.state.error).toBeNull();
+        }
+      });
+    });
+
+    describe("Initial connection still works", () => {
+      it("should use initialBlockIndex from CONNECTION_READY when targetBlockIndex is not set", () => {
+        const now = 1000000;
+        const state: SessionState = {
+          status: "WAITING_FOR_CONNECTION",
+          // No targetBlockIndex - this is initial connection
+          ...createCommonFields(),
+        };
+
+        const result = sessionReducer(
+          state,
+          { type: "CONNECTION_READY", initialBlockIndex: 0 },
+          defaultContext,
+          now,
+        );
+
+        expect(result.state.status).toBe("ANSWERING");
+        if (result.state.status === "ANSWERING") {
+          expect(result.state.blockIndex).toBe(0); // Uses initialBlockIndex
+        }
       });
     });
   });

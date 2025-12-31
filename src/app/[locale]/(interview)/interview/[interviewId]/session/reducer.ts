@@ -3,6 +3,12 @@
 // The reducer accepts injectable 'now' parameter for deterministic testing
 
 import { isTimeUp } from "~/lib/countdown-timer";
+import {
+  WS_CLOSE_USER_INITIATED,
+  WS_CLOSE_TIMEOUT,
+  WS_CLOSE_GEMINI_ENDED,
+  WS_CLOSE_ERROR,
+} from "~/lib/constants/interview";
 import type {
   SessionState,
   SessionEvent,
@@ -101,11 +107,54 @@ export function sessionReducer(
         commands: [],
       };
 
-    case "CONNECTION_CLOSED":
+    case "CONNECTION_CLOSED": {
+      // If we're here, the event passed the driver's stale socket guard,
+      // meaning it's from the CURRENT socket. Always handle it.
+
+      // Check if this is an error close code
+      const isNormalClose =
+        event.code === WS_CLOSE_USER_INITIATED ||
+        event.code === WS_CLOSE_TIMEOUT ||
+        event.code === WS_CLOSE_GEMINI_ENDED ||
+        event.code === 1000; // Standard WebSocket normal close
+
+      const isErrorCode =
+        event.code === WS_CLOSE_ERROR ||
+        (!isNormalClose && event.code !== 1000);
+
+      // Connection closed while WAITING = connection failed to establish
+      // This handles the "new socket fails" race condition
+      if (state.status === "WAITING_FOR_CONNECTION") {
+        return {
+          state: {
+            ...state,
+            status: "INTERVIEW_COMPLETE",
+            connectionState: "error",
+            error: "Connection failed",
+          },
+          commands: [{ type: "STOP_AUDIO" }],
+        };
+      }
+
+      // Error code during active session = error state
+      if (isErrorCode) {
+        return {
+          state: {
+            ...state,
+            status: "INTERVIEW_COMPLETE",
+            connectionState: "error",
+            error: "Connection lost",
+          },
+          commands: [{ type: "STOP_AUDIO" }],
+        };
+      }
+
+      // Normal close (timeout, user-initiated, Gemini ended)
       return {
         state: { ...state, connectionState: "ending" },
-        commands: [], // Connection already closed - no action needed
+        commands: [],
       };
+    }
 
     case "CONNECTION_ERROR":
       return {
@@ -157,17 +206,17 @@ export function sessionReducer(
   switch (state.status) {
     case "WAITING_FOR_CONNECTION":
       if (event.type === "CONNECTION_READY") {
+        // Use targetBlockIndex if set (block transition), otherwise use event's initialBlockIndex (initial connection)
+        const blockIndex = state.targetBlockIndex ?? event.initialBlockIndex;
         return {
           state: {
             status: "ANSWERING",
-            blockIndex: event.initialBlockIndex,
+            blockIndex,
             blockStartTime: now,
             answerStartTime: now,
             ...createCommonFields(state),
           },
-          commands: [
-            { type: "START_CONNECTION", blockNumber: event.initialBlockIndex },
-          ],
+          commands: [{ type: "START_CONNECTION", blockNumber: blockIndex }],
         };
       }
       return { state, commands: [] };
@@ -237,13 +286,14 @@ export function sessionReducer(
             commands: [{ type: "STOP_AUDIO" }, { type: "CLOSE_CONNECTION" }],
           };
         }
+        // Go through WAITING_FOR_CONNECTION to avoid race conditions
+        // CONNECTION_READY will transition to ANSWERING with fresh timestamps
         return {
           state: {
             ...state,
-            status: "ANSWERING",
-            blockIndex: nextIdx,
-            blockStartTime: now,
-            answerStartTime: now,
+            status: "WAITING_FOR_CONNECTION",
+            targetBlockIndex: nextIdx,
+            connectionState: "connecting",
           },
           commands: [{ type: "RECONNECT_FOR_BLOCK", blockNumber: nextIdx + 1 }],
         };

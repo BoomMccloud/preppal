@@ -96,7 +96,9 @@ export default {
 
         // Create or get Durable Object instance using interviewId + block
         // Each block gets its own DO with independent timeout timer
-        const id = env.GEMINI_SESSION.idFromName(`${interviewId}_block${block}`);
+        const id = env.GEMINI_SESSION.idFromName(
+          `${interviewId}_block${block}`,
+        );
         const stub = env.GEMINI_SESSION.get(id);
 
         // Forward the request to the Durable Object with user context

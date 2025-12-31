@@ -112,6 +112,14 @@ if (context.blockDuration > 0 && isTimeUp(...)) {
 }
 ```
 
+### 5. Decoupled Flow Control
+
+The UI (Reducer) determines the flow; the Server (API) executes specific tasks. We avoid "magic" server-side logic that couples independent concepts.
+
+*   **Explicit End of Block:** The `completeBlock` API only marks the block as complete. It does **not** auto-complete the interview, even if it's the last block.
+*   **Explicit End of Interview:** The UI explicitly commands `COMPLETE_INTERVIEW` when the flow requires it.
+*   **Lazy Completion:** We emit `COMPLETE_BLOCK` when the user **exits** the "Block Complete" screen (clicks Continue), not when they enter it. This prevents race conditions where the backend completes the interview before the user sees the summary.
+
 ## State Machine
 
 ```

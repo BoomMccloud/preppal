@@ -30,3 +30,4 @@ export const WS_CLOSE_USER_INITIATED = 4001;
 export const WS_CLOSE_TIMEOUT = 4002;
 export const WS_CLOSE_GEMINI_ENDED = 4003;
 export const WS_CLOSE_ERROR = 4004;
+export const WS_CLOSE_BLOCK_RECONNECT = 4005;

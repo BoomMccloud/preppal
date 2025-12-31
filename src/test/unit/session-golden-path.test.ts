@@ -134,7 +134,7 @@ describe("Golden Path: Complete Interview Session (v6)", () => {
 
     console.log("\n=== PHASE 4: Transition to Block 2 ===");
 
-    // User clicks "Continue"
+    // User clicks "Continue" -> Goes to WAITING_FOR_CONNECTION (FEAT40)
     now += 2000;
     result = sessionReducer(
       state,
@@ -146,10 +146,32 @@ describe("Golden Path: Complete Interview Session (v6)", () => {
     state = result.state;
 
     console.log("After USER_CLICKED_CONTINUE:", state.status);
+    expect(state.status).toBe("WAITING_FOR_CONNECTION");
+    if (state.status === "WAITING_FOR_CONNECTION") {
+      expect(state.targetBlockIndex).toBe(1);
+    }
+
+    // Verify RECONNECT_FOR_BLOCK command was generated
+    expect(executedCommands).toContainEqual({
+      type: "RECONNECT_FOR_BLOCK",
+      blockNumber: 2,
+    });
+
+    // CONNECTION_READY -> ANSWERING (FEAT40)
+    result = sessionReducer(
+      state,
+      { type: "CONNECTION_READY", initialBlockIndex: 0 },
+      context,
+      now,
+    );
+    executeCommands(result);
+    state = result.state;
+
+    console.log("After CONNECTION_READY:", state.status);
     expect(state.status).toBe("ANSWERING");
     expect(state).toMatchObject({
       status: "ANSWERING",
-      blockIndex: 1,
+      blockIndex: 1, // Uses targetBlockIndex from WAITING_FOR_CONNECTION
       blockStartTime: now,
       answerStartTime: now,
     });
@@ -567,7 +589,8 @@ describe("Golden Path: Complete Interview Session (v6)", () => {
         context,
       );
 
-      expect(result.state.status).toBe("ANSWERING");
+      // Now goes through WAITING_FOR_CONNECTION first (FEAT40)
+      expect(result.state.status).toBe("WAITING_FOR_CONNECTION");
       expect(result.commands).not.toContainEqual({ type: "CLOSE_CONNECTION" });
     });
   });
