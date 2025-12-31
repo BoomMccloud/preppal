@@ -10,6 +10,7 @@ Features with detailed specs ready for implementation:
 | FEAT26 | China Accessibility Testing | Pending | [FEAT26_china_accessibility.md](./FEAT26_china_accessibility.md) |
 | FEAT27 | Segmented Interview Architecture | Pending | [FEAT27_interview_templates.md](./FEAT27_interview_templates.md) |
 | FEAT28 | Results Storage & Extended Feedback | Pending | [FEAT28_extended_feedback_dimensions.md](./FEAT28_extended_feedback_dimensions.md) |
+| FEAT42 | Protobuf Reason Mapping | Ready | [FEAT42_protobuf_reason_mapping.md](./FEAT42_protobuf_reason_mapping.md) |
 
 ### FEAT27: Segmented Interview Architecture (Priority: High)
 

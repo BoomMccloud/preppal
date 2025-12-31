@@ -10,7 +10,6 @@ import { SessionContent } from "./SessionContent";
 import { useTranslations } from "next-intl";
 import type { InterviewBlock } from "@prisma/client";
 import type { InterviewTemplate } from "~/lib/interview-templates/schema";
-import { getRemainingSeconds } from "~/lib/countdown-timer";
 import type { SessionState, SessionEvent } from "./types";
 import type { Dispatch } from "react";
 
@@ -57,6 +56,8 @@ export function BlockSession({
         state={state}
         dispatch={dispatch}
         onConnectionReady={handleConnectionReady}
+        totalBlocks={blocks.length}
+        answerTimeLimit={answerTimeLimit}
       />
     );
   }
@@ -105,78 +106,19 @@ export function BlockSession({
   // Render: ANSWERING or ANSWER_TIMEOUT_PAUSE
   if (state.status === "ANSWERING" || state.status === "ANSWER_TIMEOUT_PAUSE") {
     const blockIdx = state.blockIndex;
-    const block = blocks[blockIdx];
-    const templateBlock = template.blocks[blockIdx];
 
-    if (!block || !templateBlock) {
-      return <div>Error: Invalid block configuration</div>;
-    }
-
-    // Calculate remaining time from state timestamp
-    const now = Date.now();
-    const answerTimeRemaining =
-      state.status === "ANSWER_TIMEOUT_PAUSE"
-        ? 0
-        : getRemainingSeconds(state.answerStartTime, answerTimeLimit, now);
-
-    const isMicMuted = state.status === "ANSWER_TIMEOUT_PAUSE";
-
-    // Active session view
+    // Active session view - timer/controls are now handled by SessionContent components
     return (
-      <>
-        {/* Progress & Timer overlay */}
-        <div className="pointer-events-none fixed top-20 right-4 z-50 flex flex-col items-end space-y-2">
-          <div className="border-secondary bg-primary/90 text-primary-text rounded-full border px-4 py-2 text-sm font-medium shadow-md backdrop-blur-sm">
-            {t("blockProgress", {
-              current: blockIdx + 1,
-              total: blocks.length,
-            })}
-          </div>
-          <div
-            className={`rounded-full px-4 py-2 text-sm font-bold shadow-md backdrop-blur-sm transition-colors duration-300 ${
-              answerTimeRemaining < 30
-                ? "bg-danger animate-pulse text-white"
-                : "border-secondary bg-primary/90 text-primary-text border"
-            }`}
-          >
-            {t("timer", {
-              minutes: Math.floor(answerTimeRemaining / 60),
-              seconds: String(answerTimeRemaining % 60).padStart(2, "0"),
-            })}
-          </div>
-          {/* Next Question button */}
-          {state.status === "ANSWERING" && (
-            <button
-              onClick={() => dispatch({ type: "USER_CLICKED_NEXT" })}
-              className="bg-secondary hover:bg-secondary/80 text-secondary-text pointer-events-auto rounded-full px-4 py-2 text-sm font-medium shadow-md transition-colors"
-            >
-              {t("nextQuestion")}
-            </button>
-          )}
-        </div>
-
-        {/* Time's up banner */}
-        {isMicMuted && (
-          <div className="fixed top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2 transform">
-            <div className="border-warning bg-warning/10 rounded-lg border px-8 py-6 text-center shadow-xl">
-              <div className="mb-2 text-3xl">⏱️</div>
-              <h3 className="text-warning mb-1 text-xl font-bold">
-                {t("timesUpTitle")}
-              </h3>
-              <p className="text-warning">{t("timesUpMessage")}</p>
-            </div>
-          </div>
-        )}
-
-        <SessionContent
-          key={`block-${blockIdx}`}
-          interviewId={interview.id}
-          guestToken={guestToken}
-          state={state}
-          dispatch={dispatch}
-          onConnectionReady={handleConnectionReady}
-        />
-      </>
+      <SessionContent
+        key={`block-${blockIdx}`}
+        interviewId={interview.id}
+        guestToken={guestToken}
+        state={state}
+        dispatch={dispatch}
+        onConnectionReady={handleConnectionReady}
+        totalBlocks={blocks.length}
+        answerTimeLimit={answerTimeLimit}
+      />
     );
   }
 

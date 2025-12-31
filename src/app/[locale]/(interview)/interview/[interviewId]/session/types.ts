@@ -17,7 +17,8 @@ export type Command =
   | { type: "SETUP_AUDIO" }
   | { type: "STOP_AUDIO" }
   | { type: "COMPLETE_BLOCK"; blockNumber: number }
-  | { type: "RECONNECT_FOR_BLOCK"; blockNumber: number };
+  | { type: "RECONNECT_FOR_BLOCK"; blockNumber: number }
+  | { type: "COMPLETE_INTERVIEW" };
 
 // Common fields shared across all state variants
 type CommonStateFields = {

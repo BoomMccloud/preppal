@@ -13,7 +13,7 @@ export const languageTransitionTestV1: InterviewTemplate = {
     "Test template for validating language transitions and multi-block consistency",
   persona:
     "Professional interviewer testing bilingual communication skills. Neutral and consistent.",
-  answerTimeLimitSec: 60,
+  answerTimeLimitSec: 25,
   blocks: [
     {
       language: "zh",

@@ -3819,6 +3819,7 @@ var ApiClient = class {
 var WS_CLOSE_USER_INITIATED = 4001;
 var WS_CLOSE_TIMEOUT = 4002;
 var WS_CLOSE_GEMINI_ENDED = 4003;
+var WS_CLOSE_BLOCK_RECONNECT = 4005;
 var ERROR_CODE_INTERNAL = 5e3;
 var ERROR_CODE_AI_SERVICE = 4002;
 var GEMINI_MODEL = "gemini-2.5-flash-native-audio-preview-12-2025";
@@ -23717,6 +23718,8 @@ var GeminiSession = class {
     this.env = env;
     this.isDebug = false;
     this.userInitiatedClose = false;
+    this.blockTransitionClose = false;
+    // Client closing for block transition (not an error)
     this.sessionEnded = false;
     this.DEFAULT_DURATION_MS = 30 * 60 * 1e3;
     // 30 minutes
@@ -23862,8 +23865,8 @@ var GeminiSession = class {
     ws.addEventListener("message", async (event) => {
       await this.handleWebSocketMessage(ws, event);
     });
-    ws.addEventListener("close", () => {
-      this.handleWebSocketClose();
+    ws.addEventListener("close", (event) => {
+      this.handleWebSocketClose(event.code);
     });
     ws.addEventListener("error", (event) => {
       this.handleWebSocketError(event);
@@ -23947,13 +23950,13 @@ var GeminiSession = class {
       `[GeminiSession] Stream closed for interview ${this.interviewId}`
     );
     this.sessionEnded = true;
-    if (!this.userInitiatedClose && !this.isDebug) {
+    if (!this.userInitiatedClose && !this.blockTransitionClose && !this.isDebug) {
       await this.lifecycleManager.handleError(
         this.interviewId,
         new Error("Gemini connection closed unexpectedly")
       );
     }
-    if (!this.userInitiatedClose) {
+    if (!this.userInitiatedClose && !this.blockTransitionClose) {
       const endMsg = createSessionEnded(2 /* GEMINI_ENDED */);
       this.safeSend(ws, encodeServerMessage(endMsg));
       ws.close(WS_CLOSE_GEMINI_ENDED, "AI ended session");
@@ -23962,10 +23965,16 @@ var GeminiSession = class {
   /**
    * Handle WebSocket closed
    */
-  handleWebSocketClose() {
+  handleWebSocketClose(code) {
     console.log(
-      `[GeminiSession] WebSocket closed for interview ${this.interviewId}`
+      `[GeminiSession] WebSocket closed for interview ${this.interviewId} with code ${code}`
     );
+    if (code === WS_CLOSE_BLOCK_RECONNECT) {
+      console.log(
+        `[GeminiSession] Block transition close for interview ${this.interviewId} - not treating as error`
+      );
+      this.blockTransitionClose = true;
+    }
     this.cleanup();
   }
   /**
@@ -23999,11 +24008,15 @@ var GeminiSession = class {
    */
   async finalizeSessionIfNotDebug() {
     if (this.isDebug) return;
+    console.log(
+      `[GeminiSession] Finalizing session for interview ${this.interviewId}${this.blockNumber ? ` block ${this.blockNumber}` : ""}`
+    );
     const transcriptManager = this.streamHandler.getTranscriptManager();
     await this.lifecycleManager.finalizeSession(
       this.interviewId,
       transcriptManager,
-      this.interviewContext
+      this.interviewContext,
+      this.blockNumber
     );
   }
   /**

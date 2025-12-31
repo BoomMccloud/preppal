@@ -17,6 +17,7 @@ import {
   WS_CLOSE_USER_INITIATED,
   WS_CLOSE_TIMEOUT,
   WS_CLOSE_GEMINI_ENDED,
+  WS_CLOSE_BLOCK_RECONNECT,
   ERROR_CODE_INTERNAL,
   ERROR_CODE_AI_SERVICE,
 } from "./constants";
@@ -35,6 +36,7 @@ export class GeminiSession implements DurableObject {
   private blockNumber?: number;
   private isDebug = false;
   private userInitiatedClose = false;
+  private blockTransitionClose = false; // Client closing for block transition (not an error)
   private sessionEnded = false;
   private durationTimeoutId?: ReturnType<typeof setTimeout>;
   private readonly DEFAULT_DURATION_MS = 30 * 60 * 1000; // 30 minutes
@@ -227,8 +229,8 @@ export class GeminiSession implements DurableObject {
       await this.handleWebSocketMessage(ws, event);
     });
 
-    ws.addEventListener("close", () => {
-      this.handleWebSocketClose();
+    ws.addEventListener("close", (event: CloseEvent) => {
+      this.handleWebSocketClose(event.code);
     });
 
     ws.addEventListener("error", (event: Event) => {
@@ -336,14 +338,15 @@ export class GeminiSession implements DurableObject {
 
     this.sessionEnded = true;
 
-    if (!this.userInitiatedClose && !this.isDebug) {
+    // Only report error if this was NOT a user-initiated close, block transition, or debug mode
+    if (!this.userInitiatedClose && !this.blockTransitionClose && !this.isDebug) {
       await this.lifecycleManager.handleError(
         this.interviewId!,
         new Error("Gemini connection closed unexpectedly"),
       );
     }
 
-    if (!this.userInitiatedClose) {
+    if (!this.userInitiatedClose && !this.blockTransitionClose) {
       const endMsg = createSessionEnded(SessionEnded_Reason.GEMINI_ENDED);
       this.safeSend(ws, encodeServerMessage(endMsg));
       ws.close(WS_CLOSE_GEMINI_ENDED, "AI ended session");
@@ -353,10 +356,19 @@ export class GeminiSession implements DurableObject {
   /**
    * Handle WebSocket closed
    */
-  private handleWebSocketClose(): void {
+  private handleWebSocketClose(code: number): void {
     console.log(
-      `[GeminiSession] WebSocket closed for interview ${this.interviewId}`,
+      `[GeminiSession] WebSocket closed for interview ${this.interviewId} with code ${code}`,
     );
+
+    // Check if this is a block transition close (not an error)
+    if (code === WS_CLOSE_BLOCK_RECONNECT) {
+      console.log(
+        `[GeminiSession] Block transition close for interview ${this.interviewId} - not treating as error`,
+      );
+      this.blockTransitionClose = true;
+    }
+
     this.cleanup();
   }
 
@@ -396,11 +408,17 @@ export class GeminiSession implements DurableObject {
    */
   private async finalizeSessionIfNotDebug(): Promise<void> {
     if (this.isDebug) return;
+    
+    console.log(
+      `[GeminiSession] Finalizing session for interview ${this.interviewId}${this.blockNumber ? ` block ${this.blockNumber}` : ""}`,
+    );
+
     const transcriptManager = this.streamHandler.getTranscriptManager();
     await this.lifecycleManager.finalizeSession(
       this.interviewId!,
       transcriptManager,
       this.interviewContext,
+      this.blockNumber,
     );
   }
 

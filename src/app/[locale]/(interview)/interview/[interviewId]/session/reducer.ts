@@ -8,6 +8,7 @@ import {
   WS_CLOSE_TIMEOUT,
   WS_CLOSE_GEMINI_ENDED,
   WS_CLOSE_ERROR,
+  WS_CLOSE_BLOCK_RECONNECT,
 } from "~/lib/constants/interview";
 import type {
   SessionState,
@@ -47,6 +48,24 @@ export function sessionReducer(
   context: ReducerContext,
   now = Date.now(),
 ): ReducerResult {
+  // Debug: Log all events that could terminate the interview
+  if (
+    event.type === "INTERVIEW_ENDED" ||
+    event.type === "CONNECTION_CLOSED" ||
+    event.type === "CONNECTION_ERROR" ||
+    event.type === "USER_CLICKED_CONTINUE"
+  ) {
+    console.log("[Reducer] Event received:", {
+      eventType: event.type,
+      currentStatus: state.status,
+      context: { totalBlocks: context.totalBlocks },
+      ...(state.status === "BLOCK_COMPLETE_SCREEN" && {
+        completedBlockIndex: state.completedBlockIndex,
+      }),
+      ...(event.type === "CONNECTION_CLOSED" && { closeCode: event.code }),
+    });
+  }
+
   // Global Event Handler: INTERVIEW_ENDED
   // Can happen from any state (e.g., user clicks "End Interview")
   if (event.type === "INTERVIEW_ENDED") {
@@ -55,7 +74,11 @@ export function sessionReducer(
         ...state,
         status: "INTERVIEW_COMPLETE",
       },
-      commands: [{ type: "STOP_AUDIO" }, { type: "CLOSE_CONNECTION" }],
+      commands: [
+        { type: "STOP_AUDIO" },
+        { type: "CLOSE_CONNECTION" },
+        { type: "COMPLETE_INTERVIEW" },
+      ],
     };
   }
 
@@ -116,15 +139,29 @@ export function sessionReducer(
         event.code === WS_CLOSE_USER_INITIATED ||
         event.code === WS_CLOSE_TIMEOUT ||
         event.code === WS_CLOSE_GEMINI_ENDED ||
+        event.code === WS_CLOSE_BLOCK_RECONNECT ||
         event.code === 1000; // Standard WebSocket normal close
 
       const isErrorCode =
         event.code === WS_CLOSE_ERROR ||
         (!isNormalClose && event.code !== 1000);
 
+      // Block reconnect close (4005) during WAITING_FOR_CONNECTION is expected
+      // This happens when the old socket closes while we're waiting for the new one
+      if (event.code === WS_CLOSE_BLOCK_RECONNECT) {
+        return {
+          state: { ...state, connectionState: "ending" },
+          commands: [],
+        };
+      }
+
       // Connection closed while WAITING = connection failed to establish
       // This handles the "new socket fails" race condition
       if (state.status === "WAITING_FOR_CONNECTION") {
+        console.log("[Reducer] >>> ENDING INTERVIEW: Connection closed while WAITING_FOR_CONNECTION", {
+          closeCode: event.code,
+          targetBlockIndex: state.targetBlockIndex,
+        });
         return {
           state: {
             ...state,
@@ -138,6 +175,10 @@ export function sessionReducer(
 
       // Error code during active session = error state
       if (isErrorCode) {
+        console.log("[Reducer] >>> ENDING INTERVIEW: Error close code during active session", {
+          closeCode: event.code,
+          currentStatus: state.status,
+        });
         return {
           state: {
             ...state,
@@ -157,6 +198,10 @@ export function sessionReducer(
     }
 
     case "CONNECTION_ERROR":
+      console.log("[Reducer] >>> ENDING INTERVIEW: CONNECTION_ERROR", {
+        error: event.error,
+        currentStatus: state.status,
+      });
       return {
         state: {
           ...state,
@@ -277,15 +322,31 @@ export function sessionReducer(
     case "BLOCK_COMPLETE_SCREEN":
       if (event.type === "USER_CLICKED_CONTINUE") {
         const nextIdx = state.completedBlockIndex + 1;
+        console.log("[Reducer] BLOCK_COMPLETE_SCREEN -> USER_CLICKED_CONTINUE:", {
+          completedBlockIndex: state.completedBlockIndex,
+          nextIdx,
+          totalBlocks: context.totalBlocks,
+          isLastBlock: nextIdx >= context.totalBlocks,
+        });
         if (nextIdx >= context.totalBlocks) {
+          console.log("[Reducer] >>> ENDING INTERVIEW: Last block completed");
           return {
             state: {
               ...state,
               status: "INTERVIEW_COMPLETE",
             },
-            commands: [{ type: "STOP_AUDIO" }, { type: "CLOSE_CONNECTION" }],
+            commands: [
+              { type: "STOP_AUDIO" },
+              { type: "CLOSE_CONNECTION" },
+              {
+                type: "COMPLETE_BLOCK",
+                blockNumber: state.completedBlockIndex + 1,
+              },
+              { type: "COMPLETE_INTERVIEW" },
+            ],
           };
         }
+        console.log("[Reducer] >>> TRANSITIONING TO NEXT BLOCK:", nextIdx);
         // Go through WAITING_FOR_CONNECTION to avoid race conditions
         // CONNECTION_READY will transition to ANSWERING with fresh timestamps
         return {

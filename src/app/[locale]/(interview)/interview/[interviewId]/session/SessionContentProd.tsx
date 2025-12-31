@@ -11,6 +11,7 @@ import { useTranslations } from "next-intl";
 import type { SessionState, SessionEvent } from "./types";
 import ThemeToggle from "~/app/_components/ThemeToggle";
 import { DevConsole } from "./components/DevConsole";
+import { getRemainingSeconds } from "~/lib/countdown-timer";
 
 interface SessionContentProdProps {
   interviewId: string;
@@ -20,6 +21,8 @@ interface SessionContentProdProps {
   onConnectionReady?: () => void;
   /** Toggle back to dev UI (dev mode only, when previewing prod) */
   onToggleDevView?: () => void;
+  totalBlocks?: number;
+  answerTimeLimit?: number;
 }
 
 export function SessionContentProd({
@@ -27,6 +30,8 @@ export function SessionContentProd({
   dispatch,
   onConnectionReady,
   onToggleDevView,
+  totalBlocks,
+  answerTimeLimit = 0,
 }: SessionContentProdProps) {
   const router = useRouter();
   const t = useTranslations("interview.session");
@@ -59,15 +64,15 @@ export function SessionContentProd({
   };
 
   // Timer state and progress calculations
-  // TODO: Get answerTimeLimit from context when available, defaulting to 120 for now
-  const answerTimeLimit = 120; // seconds
-  const timerState = getTimerState(elapsedTime, answerTimeLimit);
+  // Use answerTimeLimit from props, fallback to 120 for the avatar timer display
+  const effectiveTimeLimit = answerTimeLimit || 120;
+  const timerState = getTimerState(elapsedTime, effectiveTimeLimit);
 
   // Progress ring calculations
   const circumference = 2 * Math.PI * 46; // ~289
-  const remaining = answerTimeLimit - elapsedTime;
+  const remaining = effectiveTimeLimit - elapsedTime;
   const percentRemaining =
-    answerTimeLimit > 0 ? remaining / answerTimeLimit : 1;
+    effectiveTimeLimit > 0 ? remaining / effectiveTimeLimit : 1;
   const progressOffset = circumference * (1 - Math.max(0, percentRemaining));
 
   // Countdown for critical state (last 10 seconds)
@@ -155,9 +160,70 @@ export function SessionContentProd({
           <div className="bg-secondary hidden items-center gap-2 rounded-lg border border-white/5 px-3 py-1.5 md:flex">
             <LayersIcon className="text-secondary-text size-4" />
             <span className="text-primary-text text-sm font-medium">
-              Block {state.status === "ANSWERING" ? state.blockIndex + 1 : 1}/3
+              Block {state.status === "ANSWERING" ? state.blockIndex + 1 : 1}/
+              {totalBlocks ?? 3}
             </span>
           </div>
+          {/* Timer */}
+          {(state.status === "ANSWERING" ||
+            state.status === "ANSWER_TIMEOUT_PAUSE") &&
+            answerTimeLimit > 0 && (
+              <div
+                className={`hidden items-center gap-2 rounded-lg border px-3 py-1.5 md:flex ${(() => {
+                  const remaining =
+                    state.status === "ANSWER_TIMEOUT_PAUSE"
+                      ? 0
+                      : getRemainingSeconds(
+                          state.answerStartTime,
+                          answerTimeLimit,
+                          Date.now(),
+                        );
+                  return remaining < 30
+                    ? "border-danger bg-danger/20"
+                    : "bg-secondary border-white/5";
+                })()}`}
+              >
+                <ClockIcon className="text-secondary-text size-4" />
+                <span
+                  className={`font-mono text-sm font-medium ${(() => {
+                    const remaining =
+                      state.status === "ANSWER_TIMEOUT_PAUSE"
+                        ? 0
+                        : getRemainingSeconds(
+                            state.answerStartTime,
+                            answerTimeLimit,
+                            Date.now(),
+                          );
+                    return remaining < 30
+                      ? "text-danger animate-pulse"
+                      : "text-primary-text";
+                  })()}`}
+                >
+                  {(() => {
+                    const remaining =
+                      state.status === "ANSWER_TIMEOUT_PAUSE"
+                        ? 0
+                        : getRemainingSeconds(
+                            state.answerStartTime,
+                            answerTimeLimit,
+                            Date.now(),
+                          );
+                    const minutes = Math.floor(remaining / 60);
+                    const seconds = remaining % 60;
+                    return `${minutes}:${String(seconds).padStart(2, "0")}`;
+                  })()}
+                </span>
+              </div>
+            )}
+          {/* Next Question Button */}
+          {state.status === "ANSWERING" && answerTimeLimit > 0 && (
+            <button
+              onClick={() => dispatch({ type: "USER_CLICKED_NEXT" })}
+              className="bg-info hover:bg-info/80 hidden rounded-lg px-3 py-1.5 text-sm font-medium text-white md:block"
+            >
+              Next →
+            </button>
+          )}
           {/* Theme Toggle */}
           <ThemeToggle />
         </div>
@@ -389,6 +455,19 @@ function LayersIcon({ className }: { className?: string }) {
       xmlns="http://www.w3.org/2000/svg"
     >
       <path d="M11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27-7.38 5.74zM12 16l7.36-5.73L21 9l-9-7-9 7 1.63 1.27L12 16z" />
+    </svg>
+  );
+}
+
+function ClockIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
     </svg>
   );
 }

@@ -6,7 +6,13 @@ import { useCallback, useEffect, useRef, useMemo } from "react";
 import { api } from "~/trpc/react";
 import { AudioSession } from "~/lib/audio/AudioSession";
 import { TranscriptManager } from "~/lib/audio/TranscriptManager";
-import { WS_CLOSE_BLOCK_RECONNECT } from "~/lib/constants/interview";
+import {
+  WS_CLOSE_BLOCK_RECONNECT,
+  WS_CLOSE_USER_INITIATED,
+  WS_CLOSE_TIMEOUT,
+  WS_CLOSE_GEMINI_ENDED,
+  WS_CLOSE_ERROR,
+} from "~/lib/constants/interview";
 import {
   encodeAudioChunk,
   encodeEndRequest,
@@ -14,6 +20,22 @@ import {
 } from "~/lib/interview/protocol";
 import { handleServerMessage } from "~/lib/interview/handleServerMessage";
 import type { DriverEvents } from "./types";
+
+// Map protobuf SessionEndReason to WebSocket close codes
+// Protobuf: 0=UNSPECIFIED, 1=USER_INITIATED, 2=GEMINI_ENDED, 3=TIMEOUT
+// WebSocket: 4001=USER_INITIATED, 4002=TIMEOUT, 4003=GEMINI_ENDED, 4004=ERROR
+function reasonToCloseCode(reason: number): number {
+  switch (reason) {
+    case 1:
+      return WS_CLOSE_USER_INITIATED;
+    case 2:
+      return WS_CLOSE_GEMINI_ENDED;
+    case 3:
+      return WS_CLOSE_TIMEOUT;
+    default:
+      return WS_CLOSE_ERROR; // UNSPECIFIED or unknown
+  }
+}
 
 export function useInterviewSocket(
   interviewId: string,
@@ -189,7 +211,7 @@ export function useInterviewSocket(
             };
             const reasonName = reasonMap[reason] ?? `UNKNOWN(${reason})`;
             console.log(`[WebSocket] Session ended with reason: ${reasonName}`);
-            events.onConnectionClose(reason);
+            events.onConnectionClose(reasonToCloseCode(reason));
           },
           onError: (errorMessage) => {
             console.log(`[WebSocket] Error from server: ${errorMessage}`);
@@ -293,6 +315,11 @@ export function useInterviewSocket(
       console.log(
         `[useInterviewSocket] reconnectForBlock(${newBlockNumber}) called`,
       );
+      console.log(`[useInterviewSocket] reconnectForBlock state:`, {
+        hasExistingSocket: !!wsRef.current,
+        currentBlockRef: currentBlockRef.current,
+        newBlockNumber,
+      });
 
       // Update block ref for the new connection URL
       currentBlockRef.current = newBlockNumber;
@@ -300,6 +327,7 @@ export function useInterviewSocket(
       // Close existing WebSocket connection with 4005 (block transition)
       // The stale socket guard will filter any late events from this socket
       if (wsRef.current) {
+        console.log(`[useInterviewSocket] Closing existing socket with code 4005`);
         wsRef.current.close(WS_CLOSE_BLOCK_RECONNECT, "Block transition");
         wsRef.current = null;
       }
@@ -311,6 +339,7 @@ export function useInterviewSocket(
 
       // Reset connection guard so generateToken triggers a new connection
       hasInitiatedConnection.current = false;
+      console.log(`[useInterviewSocket] Triggering generateToken for block ${newBlockNumber}`);
 
       // Trigger new connection with updated block number
       generateToken({ interviewId, token: guestToken });

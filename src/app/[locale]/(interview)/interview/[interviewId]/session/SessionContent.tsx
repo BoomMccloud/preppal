@@ -16,6 +16,8 @@ interface SessionContentProps {
   state: SessionState;
   dispatch: Dispatch<SessionEvent>;
   onConnectionReady?: () => void;
+  totalBlocks?: number;
+  answerTimeLimit?: number;
 }
 
 export function SessionContent(props: SessionContentProps) {

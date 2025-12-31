@@ -31,6 +31,7 @@ export function useInterviewSession(
   const router = useRouter();
   const context = config?.context ?? defaultContext;
   const completeBlock = api.interview.completeBlock.useMutation();
+  const updateStatus = api.interview.updateStatus.useMutation();
 
   // Capture commands from reducer
   const pendingCommandsRef = useRef<Command[]>([]);
@@ -105,9 +106,27 @@ export function useInterviewSession(
         case "RECONNECT_FOR_BLOCK":
           driver.reconnectForBlock(cmd.blockNumber);
           break;
+        case "COMPLETE_INTERVIEW":
+          updateStatus.mutate(
+            {
+              interviewId,
+              status: "COMPLETED",
+            },
+            {
+              onError: (err) => {
+                // Log but don't block - navigation works based on client state
+                // Worker's finalize logic provides backup for non-block interviews
+                console.error(
+                  "[COMPLETE_INTERVIEW] Failed to update status:",
+                  err,
+                );
+              },
+            },
+          );
+          break;
       }
     },
-    [driver, interviewId, completeBlock],
+    [driver, interviewId, completeBlock, updateStatus],
   );
 
   // Execute commands after state updates

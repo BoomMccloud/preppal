@@ -25,7 +25,7 @@ When a block ends, the following sequence occurs:
 3. COMPLETE_BLOCK command emitted IMMEDIATELY
 4. completeBlock API called
 5. API auto-completes interview if last block (lines 555-568 in interview.ts)
-6. page.tsx polls interview status, sees COMPLETED
+6. page.tsx queries interview status, sees COMPLETED
 7. page.tsx redirects to feedback
 8. User never sees BLOCK_COMPLETE_SCREEN
 ```
@@ -69,7 +69,7 @@ This architecture was reviewed against the five first-principles for clean state
 | 2. Side-Effect Control | ✅ Pass | Intent-based command architecture (not reactive useEffect chains) |
 | 3. Hardware Driver | ✅ Pass | Removes business logic from API - API becomes "dumb driver" |
 | 4. Lifecycle & Concurrency | ✅ Pass | Eliminates race condition; state machine guards concurrent actions |
-| 5. Testability | ✅ Pass | Reducer is headless-testable via `processEvents()` |
+| 5. Testability | ✅ Pass | Reducer is headless-testable via `sessionReducer()` |
 
 **Litmus Test:** ✅ Pass - The entire interview flow can be tested without rendering React components or making network calls.
 
@@ -200,7 +200,7 @@ if (nextIdx >= context.totalBlocks) {
 
 Note: We also emit COMPLETE_BLOCK for the final block here, since user clicked Continue.
 
-#### 4. Handle COMPLETE_INTERVIEW Command (`useInterviewSession.ts`)
+#### 4. Handle COMPLETE_INTERVIEW Command (`hooks/useInterviewSession.ts`)
 
 ```typescript
 const updateStatus = api.interview.updateStatus.useMutation();
@@ -266,7 +266,7 @@ if (event.type === "INTERVIEW_ENDED") {
 
 ### Phase 2: Add COMPLETE_INTERVIEW Command
 - [ ] Add `COMPLETE_INTERVIEW` to Command type in `types.ts`
-- [ ] Add command handler in `useInterviewSession.ts` (call updateStatus)
+- [ ] Add command handler in `hooks/useInterviewSession.ts` (call updateStatus)
 
 ### Phase 3: Emit Command from Reducer
 - [ ] Update INTERVIEW_ENDED handler to emit COMPLETE_INTERVIEW
@@ -279,18 +279,33 @@ if (event.type === "INTERVIEW_ENDED") {
   - [ ] `USER_CLICKED_CONTINUE` (not last block) → verify NO `COMPLETE_INTERVIEW` (negative test)
 - [ ] Update `session-golden-path.test.ts` if affected
 
-**Example test case:**
+**Example test cases** (using codebase patterns):
 ```typescript
+// Helper used in tests (already exists in session-reducer.test.ts)
+const createCommonFields = () => ({
+  connectionState: "initializing" as const,
+  transcript: [] as TranscriptEntry[],
+  pendingUser: "",
+  pendingAI: "",
+  elapsedTime: 0,
+  error: null,
+  isAiSpeaking: false,
+});
+
 it("should emit COMPLETE_INTERVIEW when completing final block", () => {
-  const state = createState({
+  const now = 1000000;
+  const state: SessionState = {
     status: "BLOCK_COMPLETE_SCREEN",
-    blockIndex: 2,
     completedBlockIndex: 2,
-  });
-  const result = processEvents(
+    ...createCommonFields(),
+  };
+  const context: ReducerContext = { answerTimeLimit: 120, totalBlocks: 3 };
+
+  const result = sessionReducer(
     state,
-    { totalBlocks: 3 },
-    [{ type: "USER_CLICKED_CONTINUE" }]
+    { type: "USER_CLICKED_CONTINUE" },
+    context,
+    now,
   );
 
   expect(result.state.status).toBe("INTERVIEW_COMPLETE");
@@ -299,19 +314,47 @@ it("should emit COMPLETE_INTERVIEW when completing final block", () => {
 });
 
 it("should NOT emit COMPLETE_INTERVIEW when completing non-final block", () => {
-  const state = createState({
+  const now = 1000000;
+  const state: SessionState = {
     status: "BLOCK_COMPLETE_SCREEN",
-    blockIndex: 0,
     completedBlockIndex: 0,
-  });
-  const result = processEvents(
+    ...createCommonFields(),
+  };
+  const context: ReducerContext = { answerTimeLimit: 120, totalBlocks: 3 };
+
+  const result = sessionReducer(
     state,
-    { totalBlocks: 3 },
-    [{ type: "USER_CLICKED_CONTINUE" }]
+    { type: "USER_CLICKED_CONTINUE" },
+    context,
+    now,
   );
 
   expect(result.state.status).toBe("WAITING_FOR_CONNECTION");
-  expect(result.commands).not.toContainEqual({ type: "COMPLETE_INTERVIEW" });
+  expect(result.commands).not.toContainEqual(
+    expect.objectContaining({ type: "COMPLETE_INTERVIEW" }),
+  );
+});
+
+it("should emit COMPLETE_INTERVIEW on INTERVIEW_ENDED from any state", () => {
+  const now = 1000000;
+  const state: SessionState = {
+    status: "ANSWERING",
+    blockIndex: 1,
+    blockStartTime: now - 10000,
+    answerStartTime: now - 5000,
+    ...createCommonFields(),
+  };
+  const context: ReducerContext = { answerTimeLimit: 120, totalBlocks: 3 };
+
+  const result = sessionReducer(
+    state,
+    { type: "INTERVIEW_ENDED" },
+    context,
+    now,
+  );
+
+  expect(result.state.status).toBe("INTERVIEW_COMPLETE");
+  expect(result.commands).toContainEqual({ type: "COMPLETE_INTERVIEW" });
 });
 ```
 

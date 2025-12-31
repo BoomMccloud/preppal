@@ -552,21 +552,8 @@ export const interviewRouter = createTRPCRouter({
         },
       });
 
-      // Check if this was the last block
-      const totalBlocks = await ctx.db.interviewBlock.count({
-        where: { interviewId: input.interviewId },
-      });
-
-      if (input.blockNumber === totalBlocks) {
-        await ctx.db.interview.update({
-          where: { id: input.interviewId },
-          data: {
-            status: "COMPLETED",
-            endedAt: new Date(),
-          },
-        });
-      }
-
+      // Block marked as COMPLETED - that's all this API does
+      // Interview completion is handled by the UI via updateStatus
       return updatedBlock;
     }),
 

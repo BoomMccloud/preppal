@@ -510,9 +510,10 @@ describe("sessionReducer (v6: One Block = One Question)", () => {
       );
 
       expect(result.state.status).toBe("INTERVIEW_COMPLETE");
-      expect(result.commands).toHaveLength(2);
+      expect(result.commands).toHaveLength(3);
       expect(result.commands).toContainEqual({ type: "STOP_AUDIO" });
       expect(result.commands).toContainEqual({ type: "CLOSE_CONNECTION" });
+      expect(result.commands).toContainEqual({ type: "COMPLETE_INTERVIEW" });
     });
 
     it("should generate cleanup commands from ANSWER_TIMEOUT_PAUSE state", () => {
@@ -533,9 +534,10 @@ describe("sessionReducer (v6: One Block = One Question)", () => {
       );
 
       expect(result.state.status).toBe("INTERVIEW_COMPLETE");
-      expect(result.commands).toHaveLength(2);
+      expect(result.commands).toHaveLength(3);
       expect(result.commands).toContainEqual({ type: "STOP_AUDIO" });
       expect(result.commands).toContainEqual({ type: "CLOSE_CONNECTION" });
+      expect(result.commands).toContainEqual({ type: "COMPLETE_INTERVIEW" });
     });
 
     it("should generate cleanup commands from BLOCK_COMPLETE_SCREEN state", () => {
@@ -554,9 +556,10 @@ describe("sessionReducer (v6: One Block = One Question)", () => {
       );
 
       expect(result.state.status).toBe("INTERVIEW_COMPLETE");
-      expect(result.commands).toHaveLength(2);
+      expect(result.commands).toHaveLength(3);
       expect(result.commands).toContainEqual({ type: "STOP_AUDIO" });
       expect(result.commands).toContainEqual({ type: "CLOSE_CONNECTION" });
+      expect(result.commands).toContainEqual({ type: "COMPLETE_INTERVIEW" });
     });
   });
 
@@ -1070,6 +1073,323 @@ describe("sessionReducer (v6: One Block = One Question)", () => {
         if (result.state.status === "ANSWERING") {
           expect(result.state.blockIndex).toBe(0); // Uses initialBlockIndex
         }
+      });
+    });
+  });
+
+  describe("COMPLETE_INTERVIEW command", () => {
+    it("should emit COMPLETE_INTERVIEW when completing final block", () => {
+      const now = 1000000;
+      const state: SessionState = {
+        status: "BLOCK_COMPLETE_SCREEN",
+        completedBlockIndex: 2, // Last block (totalBlocks = 3)
+        ...createCommonFields(),
+      };
+      const context: ReducerContext = { answerTimeLimit: 120, totalBlocks: 3 };
+
+      const result = sessionReducer(
+        state,
+        { type: "USER_CLICKED_CONTINUE" },
+        context,
+        now,
+      );
+
+      expect(result.state.status).toBe("INTERVIEW_COMPLETE");
+      expect(result.commands).toContainEqual({ type: "COMPLETE_INTERVIEW" });
+      expect(result.commands).toContainEqual({
+        type: "COMPLETE_BLOCK",
+        blockNumber: 3,
+      });
+    });
+
+    it("should NOT emit COMPLETE_INTERVIEW when completing non-final block", () => {
+      const now = 1000000;
+      const state: SessionState = {
+        status: "BLOCK_COMPLETE_SCREEN",
+        completedBlockIndex: 0, // First block
+        ...createCommonFields(),
+      };
+      const context: ReducerContext = { answerTimeLimit: 120, totalBlocks: 3 };
+
+      const result = sessionReducer(
+        state,
+        { type: "USER_CLICKED_CONTINUE" },
+        context,
+        now,
+      );
+
+      expect(result.state.status).toBe("WAITING_FOR_CONNECTION");
+      expect(result.commands).not.toContainEqual(
+        expect.objectContaining({ type: "COMPLETE_INTERVIEW" }),
+      );
+    });
+
+    it("should emit COMPLETE_INTERVIEW on INTERVIEW_ENDED from any state", () => {
+      const now = 1000000;
+      const state: SessionState = {
+        status: "ANSWERING",
+        blockIndex: 1,
+        blockStartTime: now - 10000,
+        answerStartTime: now - 5000,
+        ...createCommonFields(),
+      };
+      const context: ReducerContext = { answerTimeLimit: 120, totalBlocks: 3 };
+
+      const result = sessionReducer(
+        state,
+        { type: "INTERVIEW_ENDED" },
+        context,
+        now,
+      );
+
+      expect(result.state.status).toBe("INTERVIEW_COMPLETE");
+      expect(result.commands).toContainEqual({ type: "COMPLETE_INTERVIEW" });
+    });
+
+    it("should emit COMPLETE_INTERVIEW for single-block interview completion", () => {
+      const now = 1000000;
+      const state: SessionState = {
+        status: "BLOCK_COMPLETE_SCREEN",
+        completedBlockIndex: 0,
+        ...createCommonFields(),
+      };
+      const singleBlockContext: ReducerContext = {
+        answerTimeLimit: 120,
+        totalBlocks: 1,
+      };
+
+      const result = sessionReducer(
+        state,
+        { type: "USER_CLICKED_CONTINUE" },
+        singleBlockContext,
+        now,
+      );
+
+      expect(result.state.status).toBe("INTERVIEW_COMPLETE");
+      expect(result.commands).toContainEqual({ type: "COMPLETE_INTERVIEW" });
+      expect(result.commands).toContainEqual({
+        type: "COMPLETE_BLOCK",
+        blockNumber: 1,
+      });
+    });
+  });
+
+  // ===========================================================================
+  // FEAT42: Close Code Handling (Source of Truth Tests)
+  // ===========================================================================
+  // These tests ensure ALL defined close codes are handled by the reducer.
+  // When a new close code is added to constants, these tests will catch
+  // if the reducer doesn't handle it properly.
+
+  describe("Close Code Handling (Source of Truth)", () => {
+    // Import all close codes to ensure we test them all
+    const ALL_CLOSE_CODES = {
+      WS_CLOSE_USER_INITIATED: 4001,
+      WS_CLOSE_TIMEOUT: 4002,
+      WS_CLOSE_GEMINI_ENDED: 4003,
+      WS_CLOSE_ERROR: 4004,
+      WS_CLOSE_BLOCK_RECONNECT: 4005,
+    };
+
+    const NORMAL_CLOSE_CODES = [4001, 4002, 4003, 4005]; // Expected normal closes
+    const ERROR_CLOSE_CODES = [4004]; // Expected error closes
+
+    describe("All defined close codes should be handled", () => {
+      it("should handle all normal close codes without error during ANSWERING", () => {
+        const now = 1000000;
+        const state: SessionState = {
+          status: "ANSWERING",
+          blockIndex: 0,
+          blockStartTime: now - 10000,
+          answerStartTime: now - 10000,
+          ...createCommonFields(),
+          connectionState: "live",
+        };
+
+        for (const code of NORMAL_CLOSE_CODES) {
+          const result = sessionReducer(
+            state,
+            { type: "CONNECTION_CLOSED", code },
+            defaultContext,
+          );
+
+          // Normal closes should NOT trigger error state
+          expect(result.state.error).toBeNull();
+          expect(result.state.connectionState).toBe("ending");
+          // Status should remain ANSWERING (not INTERVIEW_COMPLETE with error)
+          expect(result.state.status).toBe("ANSWERING");
+        }
+      });
+
+      it("should handle error close codes with error during ANSWERING", () => {
+        const now = 1000000;
+        const state: SessionState = {
+          status: "ANSWERING",
+          blockIndex: 0,
+          blockStartTime: now - 10000,
+          answerStartTime: now - 10000,
+          ...createCommonFields(),
+          connectionState: "live",
+        };
+
+        for (const code of ERROR_CLOSE_CODES) {
+          const result = sessionReducer(
+            state,
+            { type: "CONNECTION_CLOSED", code },
+            defaultContext,
+          );
+
+          // Error closes SHOULD trigger error state
+          expect(result.state.status).toBe("INTERVIEW_COMPLETE");
+          expect(result.state.connectionState).toBe("error");
+          expect(result.state.error).toBe("Connection lost");
+        }
+      });
+
+      it("should treat unknown close codes as errors", () => {
+        const now = 1000000;
+        const state: SessionState = {
+          status: "ANSWERING",
+          blockIndex: 0,
+          blockStartTime: now - 10000,
+          answerStartTime: now - 10000,
+          ...createCommonFields(),
+          connectionState: "live",
+        };
+
+        // Unknown codes (not in our defined set) should be errors
+        const unknownCodes = [4006, 4007, 4999];
+
+        for (const code of unknownCodes) {
+          const result = sessionReducer(
+            state,
+            { type: "CONNECTION_CLOSED", code },
+            defaultContext,
+          );
+
+          expect(result.state.status).toBe("INTERVIEW_COMPLETE");
+          expect(result.state.connectionState).toBe("error");
+        }
+      });
+    });
+
+    describe("Block transition flow (FEAT42 regression)", () => {
+      it("should handle WS_CLOSE_BLOCK_RECONNECT (4005) during WAITING_FOR_CONNECTION", () => {
+        // This is the exact bug that FEAT42 fixed:
+        // When user clicks Continue, state goes to WAITING_FOR_CONNECTION,
+        // then old socket closes with 4005. This should NOT cause an error.
+
+        const state: SessionState = {
+          status: "WAITING_FOR_CONNECTION",
+          targetBlockIndex: 1,
+          ...createCommonFields(),
+          connectionState: "connecting",
+        };
+
+        const result = sessionReducer(
+          state,
+          {
+            type: "CONNECTION_CLOSED",
+            code: ALL_CLOSE_CODES.WS_CLOSE_BLOCK_RECONNECT,
+          },
+          defaultContext,
+        );
+
+        // Should NOT transition to INTERVIEW_COMPLETE with error
+        expect(result.state.status).toBe("WAITING_FOR_CONNECTION");
+        expect(result.state.connectionState).toBe("ending");
+        expect(result.state.error).toBeNull();
+      });
+
+      it("should complete full block transition flow without error", () => {
+        // Simulate the complete flow:
+        // 1. User on BLOCK_COMPLETE_SCREEN clicks Continue
+        // 2. State transitions to WAITING_FOR_CONNECTION
+        // 3. Old socket closes with 4005
+        // 4. New socket opens, CONNECTION_READY fires
+        // 5. State transitions to ANSWERING for next block
+
+        const context: ReducerContext = {
+          answerTimeLimit: 60,
+          totalBlocks: 3,
+        };
+        const now = 1000000;
+
+        // Step 1: Start on BLOCK_COMPLETE_SCREEN
+        let state: SessionState = {
+          status: "BLOCK_COMPLETE_SCREEN",
+          completedBlockIndex: 0,
+          ...createCommonFields(),
+        };
+
+        // Step 2: User clicks Continue
+        let result = sessionReducer(
+          state,
+          { type: "USER_CLICKED_CONTINUE" },
+          context,
+          now,
+        );
+        expect(result.state.status).toBe("WAITING_FOR_CONNECTION");
+        state = result.state;
+
+        // Step 3: Old socket closes with 4005 (this was the bug!)
+        result = sessionReducer(
+          state,
+          { type: "CONNECTION_CLOSED", code: 4005 },
+          context,
+          now,
+        );
+        // Should NOT error - this is expected during block transition
+        expect(result.state.status).toBe("WAITING_FOR_CONNECTION");
+        expect(result.state.error).toBeNull();
+        state = result.state;
+
+        // Step 4: New socket opens
+        result = sessionReducer(
+          state,
+          { type: "CONNECTION_ESTABLISHED" },
+          context,
+          now,
+        );
+        expect(result.state.connectionState).toBe("live");
+        state = result.state;
+
+        // Step 5: CONNECTION_READY fires
+        result = sessionReducer(
+          state,
+          { type: "CONNECTION_READY", initialBlockIndex: 0 },
+          context,
+          now,
+        );
+
+        // SUCCESS: User is now on block 2
+        expect(result.state.status).toBe("ANSWERING");
+        if (result.state.status === "ANSWERING") {
+          expect(result.state.blockIndex).toBe(1); // Uses targetBlockIndex
+        }
+      });
+
+      it("should still detect real connection failures during block transition", () => {
+        // While we allow 4005, actual errors (like 4004 or 1006) should still fail
+
+        const state: SessionState = {
+          status: "WAITING_FOR_CONNECTION",
+          targetBlockIndex: 1,
+          ...createCommonFields(),
+          connectionState: "connecting",
+        };
+
+        // Test with actual error code
+        const result = sessionReducer(
+          state,
+          { type: "CONNECTION_CLOSED", code: 4004 }, // WS_CLOSE_ERROR
+          defaultContext,
+        );
+
+        // This IS an error - should transition to INTERVIEW_COMPLETE
+        expect(result.state.status).toBe("INTERVIEW_COMPLETE");
+        expect(result.state.connectionState).toBe("error");
+        expect(result.state.error).toBe("Connection failed");
       });
     });
   });

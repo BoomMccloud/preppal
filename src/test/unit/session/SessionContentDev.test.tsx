@@ -71,6 +71,11 @@ vi.mock("~/app/_components/AIAvatar", () => ({
   ),
 }));
 
+// Mock ThemeToggle component
+vi.mock("~/app/_components/ThemeToggle", () => ({
+  default: () => <div data-testid="theme-toggle">Theme Toggle</div>,
+}));
+
 // Import after mocks are defined (mocks are hoisted automatically)
 import { SessionContentDev } from "~/app/[locale]/(interview)/interview/[interviewId]/session/SessionContentDev";
 
@@ -79,11 +84,12 @@ import { SessionContentDev } from "~/app/[locale]/(interview)/interview/[intervi
 const mockDispatch = vi.fn();
 
 // Helper: Create base state with common fields
+// Note: connectionState defaults to "live" so component renders main UI (not loading state)
 const createBaseState = (
   overrides: Partial<SessionState> = {},
 ): SessionState => ({
   status: "WAITING_FOR_CONNECTION",
-  connectionState: "initializing",
+  connectionState: "live",
   transcript: [],
   pendingUser: "",
   pendingAI: "",

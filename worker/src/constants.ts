@@ -9,6 +9,7 @@ export const WS_CLOSE_USER_INITIATED = 4001;
 export const WS_CLOSE_TIMEOUT = 4002;
 export const WS_CLOSE_GEMINI_ENDED = 4003;
 export const WS_CLOSE_ERROR = 4004;
+export const WS_CLOSE_BLOCK_RECONNECT = 4005; // Client closing for block transition (not an error)
 
 export const ERROR_CODE_INTERNAL = 5000;
 export const ERROR_CODE_AI_SERVICE = 4002;
