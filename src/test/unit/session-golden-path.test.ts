@@ -67,6 +67,7 @@ describe("Golden Path: Complete Interview Session (v6)", () => {
     expect(state.status).toBe("WAITING_FOR_CONNECTION");
 
     // Event: CONNECTION_ESTABLISHED (WebSocket opens, auto-transitions to ANSWERING)
+    // Note: No START_CONNECTION command - the connection was already initiated by driver.connect()
     result = sessionReducer(
       state,
       { type: "CONNECTION_ESTABLISHED" },
@@ -83,12 +84,6 @@ describe("Golden Path: Complete Interview Session (v6)", () => {
       blockIndex: 0,
       blockStartTime: now,
       answerStartTime: now,
-    });
-
-    // Verify START_CONNECTION command was generated
-    expect(executedCommands).toContainEqual({
-      type: "START_CONNECTION",
-      blockNumber: 1,
     });
 
     // ====================
@@ -255,11 +250,8 @@ describe("Golden Path: Complete Interview Session (v6)", () => {
     console.log("Total commands executed:", executedCommands.length);
 
     // Verify all expected commands were generated
-    // Note: blockNumber = blockIndex + 1 (1-based)
-    expect(executedCommands).toContainEqual({
-      type: "START_CONNECTION",
-      blockNumber: 1, // Block index 0 = blockNumber 1
-    });
+    // Note: No START_CONNECTION commands - connections are initiated by
+    // driver.connect() (initial) or RECONNECT_FOR_BLOCK (block transitions)
     expect(executedCommands).toContainEqual({ type: "MUTE_MIC" });
     expect(executedCommands).toContainEqual({
       type: "COMPLETE_BLOCK",
@@ -354,11 +346,8 @@ describe("Golden Path: Complete Interview Session (v6)", () => {
       expect(state.blockIndex).toBe(2);
     }
 
-    // Verify START_CONNECTION command has correct blockNumber (blockIndex + 1)
-    expect(result.commands).toContainEqual({
-      type: "START_CONNECTION",
-      blockNumber: 3,
-    });
+    // No commands - connection was already initiated by driver.connect()
+    expect(result.commands).toEqual([]);
 
     // User clicks Next
     result = sessionReducer(state, { type: "USER_CLICKED_NEXT" }, context, now);

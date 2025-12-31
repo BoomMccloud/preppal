@@ -109,10 +109,6 @@ export function useInterviewSocket(
           } catch (err) {
             console.error("Error sending audio chunk:", err);
           }
-        } else {
-          console.warn(
-            `[AudioRecorder] WebSocket not open (state: ${wsRef.current?.readyState}), cannot send audio chunk`,
-          );
         }
       });
 
