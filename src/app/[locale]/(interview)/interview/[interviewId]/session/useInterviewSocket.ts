@@ -327,7 +327,9 @@ export function useInterviewSocket(
       // Close existing WebSocket connection with 4005 (block transition)
       // The stale socket guard will filter any late events from this socket
       if (wsRef.current) {
-        console.log(`[useInterviewSocket] Closing existing socket with code 4005`);
+        console.log(
+          `[useInterviewSocket] Closing existing socket with code 4005`,
+        );
         wsRef.current.close(WS_CLOSE_BLOCK_RECONNECT, "Block transition");
         wsRef.current = null;
       }
@@ -339,7 +341,9 @@ export function useInterviewSocket(
 
       // Reset connection guard so generateToken triggers a new connection
       hasInitiatedConnection.current = false;
-      console.log(`[useInterviewSocket] Triggering generateToken for block ${newBlockNumber}`);
+      console.log(
+        `[useInterviewSocket] Triggering generateToken for block ${newBlockNumber}`,
+      );
 
       // Trigger new connection with updated block number
       generateToken({ interviewId, token: guestToken });

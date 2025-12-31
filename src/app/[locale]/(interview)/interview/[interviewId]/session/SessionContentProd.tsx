@@ -5,7 +5,7 @@
  */
 "use client";
 
-import { useEffect, useRef, type Dispatch } from "react";
+import { type Dispatch } from "react";
 import { useRouter } from "~/i18n/navigation";
 import { useTranslations } from "next-intl";
 import type { SessionState, SessionEvent } from "./types";
@@ -18,7 +18,6 @@ interface SessionContentProdProps {
   guestToken?: string;
   state: SessionState;
   dispatch: Dispatch<SessionEvent>;
-  onConnectionReady?: () => void;
   /** Toggle back to dev UI (dev mode only, when previewing prod) */
   onToggleDevView?: () => void;
   totalBlocks?: number;
@@ -28,7 +27,6 @@ interface SessionContentProdProps {
 export function SessionContentProd({
   state,
   dispatch,
-  onConnectionReady,
   onToggleDevView,
   totalBlocks,
   answerTimeLimit = 0,
@@ -38,19 +36,6 @@ export function SessionContentProd({
 
   const { connectionState, transcript, elapsedTime, error, isAiSpeaking } =
     state;
-
-  // Call onConnectionReady when Gemini connection is established
-  const connectionReadyCalledRef = useRef(false);
-  useEffect(() => {
-    if (
-      connectionState === "live" &&
-      onConnectionReady &&
-      !connectionReadyCalledRef.current
-    ) {
-      connectionReadyCalledRef.current = true;
-      onConnectionReady();
-    }
-  }, [connectionState, onConnectionReady]);
 
   // Timer state calculation - pure function for testability
   type TimerState = "normal" | "warning" | "critical" | "expired";

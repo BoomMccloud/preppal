@@ -17,7 +17,7 @@ import type {
  *
  * This test simulates a complete interview session from start to finish:
  * 1. User lands on interview page (WAITING_FOR_CONNECTION)
- * 2. WebSocket connects (CONNECTION_READY -> START_CONNECTION command)
+ * 2. WebSocket connects (CONNECTION_ESTABLISHED auto-transitions to ANSWERING)
  * 3. User answers question 1 (ANSWERING)
  * 4. User clicks "Next" (BLOCK_COMPLETE_SCREEN)
  * 5. User continues to question 2 (ANSWERING)
@@ -53,6 +53,7 @@ describe("Golden Path: Complete Interview Session (v6)", () => {
     // Initial state: Waiting for connection
     state = {
       status: "WAITING_FOR_CONNECTION",
+      targetBlockIndex: 0,
       connectionState: "initializing",
       transcript: [],
       pendingUser: "",
@@ -65,17 +66,17 @@ describe("Golden Path: Complete Interview Session (v6)", () => {
     console.log("Initial state:", state.status);
     expect(state.status).toBe("WAITING_FOR_CONNECTION");
 
-    // Event: CONNECTION_READY (WebSocket opens)
+    // Event: CONNECTION_ESTABLISHED (WebSocket opens, auto-transitions to ANSWERING)
     result = sessionReducer(
       state,
-      { type: "CONNECTION_READY", initialBlockIndex: 0 },
+      { type: "CONNECTION_ESTABLISHED" },
       context,
       now,
     );
     executeCommands(result);
     state = result.state;
 
-    console.log("After CONNECTION_READY:", state.status);
+    console.log("After CONNECTION_ESTABLISHED:", state.status);
     expect(state.status).toBe("ANSWERING");
     expect(state).toMatchObject({
       status: "ANSWERING",
@@ -87,7 +88,7 @@ describe("Golden Path: Complete Interview Session (v6)", () => {
     // Verify START_CONNECTION command was generated
     expect(executedCommands).toContainEqual({
       type: "START_CONNECTION",
-      blockNumber: 0,
+      blockNumber: 1,
     });
 
     // ====================
@@ -157,17 +158,17 @@ describe("Golden Path: Complete Interview Session (v6)", () => {
       blockNumber: 2,
     });
 
-    // CONNECTION_READY -> ANSWERING (FEAT40)
+    // CONNECTION_ESTABLISHED -> ANSWERING (auto-transition using targetBlockIndex)
     result = sessionReducer(
       state,
-      { type: "CONNECTION_READY", initialBlockIndex: 0 },
+      { type: "CONNECTION_ESTABLISHED" },
       context,
       now,
     );
     executeCommands(result);
     state = result.state;
 
-    console.log("After CONNECTION_READY:", state.status);
+    console.log("After CONNECTION_ESTABLISHED:", state.status);
     expect(state.status).toBe("ANSWERING");
     expect(state).toMatchObject({
       status: "ANSWERING",
@@ -254,9 +255,10 @@ describe("Golden Path: Complete Interview Session (v6)", () => {
     console.log("Total commands executed:", executedCommands.length);
 
     // Verify all expected commands were generated
+    // Note: blockNumber = blockIndex + 1 (1-based)
     expect(executedCommands).toContainEqual({
       type: "START_CONNECTION",
-      blockNumber: 0,
+      blockNumber: 1, // Block index 0 = blockNumber 1
     });
     expect(executedCommands).toContainEqual({ type: "MUTE_MIC" });
     expect(executedCommands).toContainEqual({
@@ -282,6 +284,7 @@ describe("Golden Path: Complete Interview Session (v6)", () => {
     let now = 1000000;
     let state: SessionState = {
       status: "WAITING_FOR_CONNECTION",
+      targetBlockIndex: 0,
       connectionState: "initializing",
       transcript: [],
       pendingUser: "",
@@ -291,10 +294,10 @@ describe("Golden Path: Complete Interview Session (v6)", () => {
       isAiSpeaking: false,
     };
 
-    // 1. Connect
+    // 1. Connect (CONNECTION_ESTABLISHED auto-transitions to ANSWERING)
     let result = sessionReducer(
       state,
-      { type: "CONNECTION_READY", initialBlockIndex: 0 },
+      { type: "CONNECTION_ESTABLISHED" },
       context,
       now,
     );
@@ -327,6 +330,7 @@ describe("Golden Path: Complete Interview Session (v6)", () => {
     let now = 1000000;
     let state: SessionState = {
       status: "WAITING_FOR_CONNECTION",
+      targetBlockIndex: 2, // Resume from block 2 (0-indexed)
       connectionState: "initializing",
       transcript: [],
       pendingUser: "",
@@ -336,10 +340,10 @@ describe("Golden Path: Complete Interview Session (v6)", () => {
       isAiSpeaking: false,
     };
 
-    // Resume from block 2 (0-indexed)
+    // CONNECTION_ESTABLISHED auto-transitions to ANSWERING using targetBlockIndex
     let result = sessionReducer(
       state,
-      { type: "CONNECTION_READY", initialBlockIndex: 2 },
+      { type: "CONNECTION_ESTABLISHED" },
       context,
       now,
     );
@@ -350,10 +354,10 @@ describe("Golden Path: Complete Interview Session (v6)", () => {
       expect(state.blockIndex).toBe(2);
     }
 
-    // Verify START_CONNECTION command has correct blockNumber
+    // Verify START_CONNECTION command has correct blockNumber (blockIndex + 1)
     expect(result.commands).toContainEqual({
       type: "START_CONNECTION",
-      blockNumber: 2,
+      blockNumber: 3,
     });
 
     // User clicks Next

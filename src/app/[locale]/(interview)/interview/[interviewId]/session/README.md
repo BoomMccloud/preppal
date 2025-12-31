@@ -23,7 +23,7 @@ This folder implements the real-time interview session using a **Golden Path** a
 │                                                                 │
 │  interview.isBlockBased?                                        │
 │     ├─ YES → BlockInterviewWithState                           │
-│     │         └─ useInterviewSession() ← SINGLE INSTANCE       │
+│     │         └─ useInterviewSession(initialBlockIndex) ← SINGLE│
 │     │         └─ <BlockSession state={} dispatch={} />         │
 │     │              └─ <SessionContent state={} dispatch={} />  │
 │     │                                                           │
@@ -124,9 +124,9 @@ The UI (Reducer) determines the flow; the Server (API) executes specific tasks. 
 
 ```
 ┌─────────────────────────┐
-│ WAITING_FOR_CONNECTION  │ ← Initial state
+│ WAITING_FOR_CONNECTION  │ ← Initial state (with targetBlockIndex)
 └───────────┬─────────────┘
-            │ CONNECTION_READY
+            │ CONNECTION_ESTABLISHED (auto-transitions)
             ▼
 ┌─────────────────────────┐
 │       ANSWERING         │ ← Active interview
@@ -215,13 +215,14 @@ type SessionState =
 
 // Events (what happened)
 type SessionEvent =
-  | { type: "CONNECTION_READY"; initialBlockIndex: number }
   | { type: "TICK" }
   | { type: "TIMER_TICK" }
   | { type: "USER_CLICKED_CONTINUE" }
   | { type: "INTERVIEW_ENDED" }
+  | { type: "CONNECTION_ESTABLISHED" }  // Auto-transitions to ANSWERING
+  | { type: "CONNECTION_CLOSED"; code: number }
   | { type: "CONNECTION_ERROR"; error: string }
-  | ... // driver events
+  | ... // other driver events
 
 // Commands (side effects to execute)
 type Command =

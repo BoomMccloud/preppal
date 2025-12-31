@@ -13,6 +13,7 @@ import type {
 
 interface UseInterviewSessionConfig {
   blockNumber?: number;
+  initialBlockIndex?: number; // 0-based block index for initial state
   context?: ReducerContext;
   onMediaStream?: (stream: MediaStream) => void;
 }
@@ -45,6 +46,7 @@ export function useInterviewSession(
     },
     {
       status: "WAITING_FOR_CONNECTION",
+      targetBlockIndex: config?.initialBlockIndex ?? 0,
       connectionState: "initializing",
       transcript: [],
       pendingUser: "",

@@ -125,6 +125,21 @@ export function sessionReducer(
   // Handle new driver events (work across all states)
   switch (event.type) {
     case "CONNECTION_ESTABLISHED":
+      // If in WAITING_FOR_CONNECTION, auto-transition to ANSWERING
+      if (state.status === "WAITING_FOR_CONNECTION") {
+        const blockIndex = state.targetBlockIndex ?? 0;
+        return {
+          state: {
+            status: "ANSWERING",
+            blockIndex,
+            blockStartTime: now,
+            answerStartTime: now,
+            ...createCommonFields({ ...state, connectionState: "live" }),
+          },
+          commands: [{ type: "START_CONNECTION", blockNumber: blockIndex + 1 }],
+        };
+      }
+      // Otherwise just update connection state
       return {
         state: { ...state, connectionState: "live" },
         commands: [],
@@ -158,10 +173,13 @@ export function sessionReducer(
       // Connection closed while WAITING = connection failed to establish
       // This handles the "new socket fails" race condition
       if (state.status === "WAITING_FOR_CONNECTION") {
-        console.log("[Reducer] >>> ENDING INTERVIEW: Connection closed while WAITING_FOR_CONNECTION", {
-          closeCode: event.code,
-          targetBlockIndex: state.targetBlockIndex,
-        });
+        console.log(
+          "[Reducer] >>> ENDING INTERVIEW: Connection closed while WAITING_FOR_CONNECTION",
+          {
+            closeCode: event.code,
+            targetBlockIndex: state.targetBlockIndex,
+          },
+        );
         return {
           state: {
             ...state,
@@ -175,10 +193,13 @@ export function sessionReducer(
 
       // Error code during active session = error state
       if (isErrorCode) {
-        console.log("[Reducer] >>> ENDING INTERVIEW: Error close code during active session", {
-          closeCode: event.code,
-          currentStatus: state.status,
-        });
+        console.log(
+          "[Reducer] >>> ENDING INTERVIEW: Error close code during active session",
+          {
+            closeCode: event.code,
+            currentStatus: state.status,
+          },
+        );
         return {
           state: {
             ...state,
@@ -250,20 +271,7 @@ export function sessionReducer(
   // State-specific event handlers
   switch (state.status) {
     case "WAITING_FOR_CONNECTION":
-      if (event.type === "CONNECTION_READY") {
-        // Use targetBlockIndex if set (block transition), otherwise use event's initialBlockIndex (initial connection)
-        const blockIndex = state.targetBlockIndex ?? event.initialBlockIndex;
-        return {
-          state: {
-            status: "ANSWERING",
-            blockIndex,
-            blockStartTime: now,
-            answerStartTime: now,
-            ...createCommonFields(state),
-          },
-          commands: [{ type: "START_CONNECTION", blockNumber: blockIndex }],
-        };
-      }
+      // CONNECTION_ESTABLISHED now handles auto-transition to ANSWERING
       return { state, commands: [] };
 
     case "ANSWERING":
@@ -322,12 +330,15 @@ export function sessionReducer(
     case "BLOCK_COMPLETE_SCREEN":
       if (event.type === "USER_CLICKED_CONTINUE") {
         const nextIdx = state.completedBlockIndex + 1;
-        console.log("[Reducer] BLOCK_COMPLETE_SCREEN -> USER_CLICKED_CONTINUE:", {
-          completedBlockIndex: state.completedBlockIndex,
-          nextIdx,
-          totalBlocks: context.totalBlocks,
-          isLastBlock: nextIdx >= context.totalBlocks,
-        });
+        console.log(
+          "[Reducer] BLOCK_COMPLETE_SCREEN -> USER_CLICKED_CONTINUE:",
+          {
+            completedBlockIndex: state.completedBlockIndex,
+            nextIdx,
+            totalBlocks: context.totalBlocks,
+            isLastBlock: nextIdx >= context.totalBlocks,
+          },
+        );
         if (nextIdx >= context.totalBlocks) {
           console.log("[Reducer] >>> ENDING INTERVIEW: Last block completed");
           return {
@@ -348,7 +359,7 @@ export function sessionReducer(
         }
         console.log("[Reducer] >>> TRANSITIONING TO NEXT BLOCK:", nextIdx);
         // Go through WAITING_FOR_CONNECTION to avoid race conditions
-        // CONNECTION_READY will transition to ANSWERING with fresh timestamps
+        // CONNECTION_ESTABLISHED will auto-transition to ANSWERING with fresh timestamps
         return {
           state: {
             ...state,

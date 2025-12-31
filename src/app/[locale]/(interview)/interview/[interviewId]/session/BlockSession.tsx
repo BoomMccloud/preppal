@@ -5,7 +5,7 @@
  */
 "use client";
 
-import { useCallback } from "react";
+import React from "react";
 import { SessionContent } from "./SessionContent";
 import { useTranslations } from "next-intl";
 import type { InterviewBlock } from "@prisma/client";
@@ -32,19 +32,7 @@ export function BlockSession({
 }: BlockSessionProps) {
   const t = useTranslations("interview.blockSession");
 
-  // Resumption Logic: Find first block that isn't completed
-  const initialBlockIndex = blocks.findIndex((b) => b.status !== "COMPLETED");
-  const startBlockIndex = initialBlockIndex === -1 ? 0 : initialBlockIndex;
-
   const answerTimeLimit = template.answerTimeLimitSec;
-
-  // Handler for when Gemini connection is ready
-  const handleConnectionReady = useCallback(() => {
-    dispatch({
-      type: "CONNECTION_READY",
-      initialBlockIndex: startBlockIndex,
-    });
-  }, [startBlockIndex, dispatch]);
 
   // Render: WAITING_FOR_CONNECTION
   if (state.status === "WAITING_FOR_CONNECTION") {
@@ -55,7 +43,6 @@ export function BlockSession({
         guestToken={guestToken}
         state={state}
         dispatch={dispatch}
-        onConnectionReady={handleConnectionReady}
         totalBlocks={blocks.length}
         answerTimeLimit={answerTimeLimit}
       />
@@ -115,7 +102,6 @@ export function BlockSession({
         guestToken={guestToken}
         state={state}
         dispatch={dispatch}
-        onConnectionReady={handleConnectionReady}
         totalBlocks={blocks.length}
         answerTimeLimit={answerTimeLimit}
       />

@@ -339,7 +339,11 @@ export class GeminiSession implements DurableObject {
     this.sessionEnded = true;
 
     // Only report error if this was NOT a user-initiated close, block transition, or debug mode
-    if (!this.userInitiatedClose && !this.blockTransitionClose && !this.isDebug) {
+    if (
+      !this.userInitiatedClose &&
+      !this.blockTransitionClose &&
+      !this.isDebug
+    ) {
       await this.lifecycleManager.handleError(
         this.interviewId!,
         new Error("Gemini connection closed unexpectedly"),
@@ -408,7 +412,7 @@ export class GeminiSession implements DurableObject {
    */
   private async finalizeSessionIfNotDebug(): Promise<void> {
     if (this.isDebug) return;
-    
+
     console.log(
       `[GeminiSession] Finalizing session for interview ${this.interviewId}${this.blockNumber ? ` block ${this.blockNumber}` : ""}`,
     );

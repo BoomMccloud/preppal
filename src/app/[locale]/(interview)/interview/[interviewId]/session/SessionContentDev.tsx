@@ -18,7 +18,6 @@ interface SessionContentDevProps {
   guestToken?: string;
   state: SessionState;
   dispatch: Dispatch<SessionEvent>;
-  onConnectionReady?: () => void;
   /** Toggle to preview prod UI (dev mode only) */
   onToggleProdView?: () => void;
   totalBlocks?: number;
@@ -28,7 +27,6 @@ interface SessionContentDevProps {
 export function SessionContentDev({
   state,
   dispatch,
-  onConnectionReady,
   onToggleProdView,
   totalBlocks,
   answerTimeLimit = 0,
@@ -42,19 +40,6 @@ export function SessionContentDev({
     state;
   const pendingUser = state.pendingUser;
   const pendingAI = state.pendingAI;
-
-  // Call onConnectionReady when Gemini connection is established
-  const connectionReadyCalledRef = useRef(false);
-  useEffect(() => {
-    if (
-      connectionState === "live" &&
-      onConnectionReady &&
-      !connectionReadyCalledRef.current
-    ) {
-      connectionReadyCalledRef.current = true;
-      onConnectionReady();
-    }
-  }, [connectionState, onConnectionReady]);
 
   // Auto-scroll transcript
   useEffect(() => {

@@ -15,7 +15,6 @@ interface SessionContentProps {
   guestToken?: string;
   state: SessionState;
   dispatch: Dispatch<SessionEvent>;
-  onConnectionReady?: () => void;
   totalBlocks?: number;
   answerTimeLimit?: number;
 }

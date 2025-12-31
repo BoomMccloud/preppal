@@ -50,13 +50,18 @@ function BlockInterviewWithState({
   console.log("[BlockInterviewWithState] Context created:", {
     totalBlocks: context.totalBlocks,
     blocksLength: blocks.length,
-    blockIds: blocks.map((b) => ({ id: b.id, status: b.status, blockNumber: b.blockNumber })),
+    blockIds: blocks.map((b) => ({
+      id: b.id,
+      status: b.status,
+      blockNumber: b.blockNumber,
+    })),
     startBlockIndex,
     templateId: template.id,
   });
 
   const { state, dispatch } = useInterviewSession(interview.id, token, {
     blockNumber: blocks[startBlockIndex]?.blockNumber ?? 1,
+    initialBlockIndex: startBlockIndex,
     context,
     onMediaStream: (stream) => {
       mediaStreamRef.current = stream;

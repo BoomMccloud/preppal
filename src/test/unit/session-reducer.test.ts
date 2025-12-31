@@ -49,15 +49,16 @@ describe("sessionReducer (v6: One Block = One Question)", () => {
       expect(result.commands).toEqual([]);
     });
 
-    it("should transition to ANSWERING when CONNECTION_READY is received", () => {
+    it("should transition to ANSWERING when CONNECTION_ESTABLISHED is received", () => {
       const now = 1000000;
       const state: SessionState = {
         status: "WAITING_FOR_CONNECTION",
+        targetBlockIndex: 0,
         ...createCommonFields(),
       };
       const result = sessionReducer(
         state,
-        { type: "CONNECTION_READY", initialBlockIndex: 0 },
+        { type: "CONNECTION_ESTABLISHED" },
         defaultContext,
         now,
       );
@@ -70,19 +71,20 @@ describe("sessionReducer (v6: One Block = One Question)", () => {
       });
       expect(result.commands).toContainEqual({
         type: "START_CONNECTION",
-        blockNumber: 0,
+        blockNumber: 1,
       });
     });
 
-    it("should use the initialBlockIndex from CONNECTION_READY event (resumption)", () => {
+    it("should use the targetBlockIndex for resumption when CONNECTION_ESTABLISHED is received", () => {
       const now = 1000000;
       const state: SessionState = {
         status: "WAITING_FOR_CONNECTION",
+        targetBlockIndex: 2,
         ...createCommonFields(),
       };
       const result = sessionReducer(
         state,
-        { type: "CONNECTION_READY", initialBlockIndex: 2 },
+        { type: "CONNECTION_ESTABLISHED" },
         defaultContext,
         now,
       );
@@ -95,7 +97,7 @@ describe("sessionReducer (v6: One Block = One Question)", () => {
       });
       expect(result.commands).toContainEqual({
         type: "START_CONNECTION",
-        blockNumber: 2,
+        blockNumber: 3,
       });
     });
   });
@@ -565,9 +567,36 @@ describe("sessionReducer (v6: One Block = One Question)", () => {
 
   describe("New Events: Driver Event Handlers", () => {
     describe("CONNECTION_ESTABLISHED event", () => {
-      it("should update connectionState to 'live'", () => {
+      it("should auto-transition to ANSWERING when in WAITING_FOR_CONNECTION", () => {
+        const now = 1000000;
         const state: SessionState = {
           status: "WAITING_FOR_CONNECTION",
+          targetBlockIndex: 0,
+          ...createCommonFields(),
+          connectionState: "connecting",
+        };
+
+        const result = sessionReducer(
+          state,
+          { type: "CONNECTION_ESTABLISHED" },
+          defaultContext,
+          now,
+        );
+
+        expect(result.state.connectionState).toBe("live");
+        expect(result.state.status).toBe("ANSWERING");
+        expect(result.commands).toContainEqual({
+          type: "START_CONNECTION",
+          blockNumber: 1,
+        });
+      });
+
+      it("should only update connectionState when not in WAITING_FOR_CONNECTION", () => {
+        const state: SessionState = {
+          status: "ANSWERING",
+          blockIndex: 0,
+          blockStartTime: Date.now(),
+          answerStartTime: Date.now(),
           ...createCommonFields(),
           connectionState: "connecting",
         };
@@ -579,6 +608,7 @@ describe("sessionReducer (v6: One Block = One Question)", () => {
         );
 
         expect(result.state.connectionState).toBe("live");
+        expect(result.state.status).toBe("ANSWERING");
         expect(result.commands).toEqual([]);
       });
     });
@@ -692,21 +722,22 @@ describe("sessionReducer (v6: One Block = One Question)", () => {
       let now = 1000000;
       let state: SessionState = {
         status: "WAITING_FOR_CONNECTION",
+        targetBlockIndex: 0,
         ...createCommonFields(),
       };
       let result: ReducerResult;
 
-      // 1. CONNECTION_READY -> Should generate START_CONNECTION command
+      // 1. CONNECTION_ESTABLISHED -> Should auto-transition to ANSWERING and generate START_CONNECTION command
       result = sessionReducer(
         state,
-        { type: "CONNECTION_READY", initialBlockIndex: 0 },
+        { type: "CONNECTION_ESTABLISHED" },
         context,
         now,
       );
       expect(result.state.status).toBe("ANSWERING");
       expect(result.commands).toContainEqual({
         type: "START_CONNECTION",
-        blockNumber: 0,
+        blockNumber: 1,
       });
       state = result.state;
 
@@ -738,10 +769,10 @@ describe("sessionReducer (v6: One Block = One Question)", () => {
       }
       state = result.state;
 
-      // 3b. CONNECTION_READY -> ANSWERING
+      // 3b. CONNECTION_ESTABLISHED -> ANSWERING (uses targetBlockIndex from state)
       result = sessionReducer(
         state,
-        { type: "CONNECTION_READY", initialBlockIndex: 0 },
+        { type: "CONNECTION_ESTABLISHED" },
         context,
         now,
       );
@@ -936,7 +967,7 @@ describe("sessionReducer (v6: One Block = One Question)", () => {
         });
       });
 
-      it("should transition WAITING_FOR_CONNECTION to ANSWERING on CONNECTION_READY using targetBlockIndex", () => {
+      it("should transition WAITING_FOR_CONNECTION to ANSWERING on CONNECTION_ESTABLISHED using targetBlockIndex", () => {
         const now = 1000000;
         const state: SessionState = {
           status: "WAITING_FOR_CONNECTION",
@@ -947,17 +978,21 @@ describe("sessionReducer (v6: One Block = One Question)", () => {
 
         const result = sessionReducer(
           state,
-          { type: "CONNECTION_READY", initialBlockIndex: 0 }, // initialBlockIndex should be ignored
+          { type: "CONNECTION_ESTABLISHED" },
           defaultContext,
           now,
         );
 
         expect(result.state.status).toBe("ANSWERING");
         if (result.state.status === "ANSWERING") {
-          expect(result.state.blockIndex).toBe(2); // Uses targetBlockIndex, not initialBlockIndex
+          expect(result.state.blockIndex).toBe(2); // Uses targetBlockIndex
           expect(result.state.blockStartTime).toBe(now);
           expect(result.state.answerStartTime).toBe(now);
         }
+        expect(result.commands).toContainEqual({
+          type: "START_CONNECTION",
+          blockNumber: 3,
+        });
       });
     });
 
@@ -1054,25 +1089,29 @@ describe("sessionReducer (v6: One Block = One Question)", () => {
     });
 
     describe("Initial connection still works", () => {
-      it("should use initialBlockIndex from CONNECTION_READY when targetBlockIndex is not set", () => {
+      it("should default to blockIndex 0 when targetBlockIndex is not set", () => {
         const now = 1000000;
         const state: SessionState = {
           status: "WAITING_FOR_CONNECTION",
-          // No targetBlockIndex - this is initial connection
+          // No targetBlockIndex - defaults to 0
           ...createCommonFields(),
         };
 
         const result = sessionReducer(
           state,
-          { type: "CONNECTION_READY", initialBlockIndex: 0 },
+          { type: "CONNECTION_ESTABLISHED" },
           defaultContext,
           now,
         );
 
         expect(result.state.status).toBe("ANSWERING");
         if (result.state.status === "ANSWERING") {
-          expect(result.state.blockIndex).toBe(0); // Uses initialBlockIndex
+          expect(result.state.blockIndex).toBe(0); // Defaults to 0
         }
+        expect(result.commands).toContainEqual({
+          type: "START_CONNECTION",
+          blockNumber: 1,
+        });
       });
     });
   });
@@ -1306,8 +1345,7 @@ describe("sessionReducer (v6: One Block = One Question)", () => {
         // 1. User on BLOCK_COMPLETE_SCREEN clicks Continue
         // 2. State transitions to WAITING_FOR_CONNECTION
         // 3. Old socket closes with 4005
-        // 4. New socket opens, CONNECTION_READY fires
-        // 5. State transitions to ANSWERING for next block
+        // 4. New socket opens (CONNECTION_ESTABLISHED auto-transitions to ANSWERING)
 
         const context: ReducerContext = {
           answerTimeLimit: 60,
@@ -1344,29 +1382,24 @@ describe("sessionReducer (v6: One Block = One Question)", () => {
         expect(result.state.error).toBeNull();
         state = result.state;
 
-        // Step 4: New socket opens
+        // Step 4: New socket opens - CONNECTION_ESTABLISHED auto-transitions to ANSWERING
         result = sessionReducer(
           state,
           { type: "CONNECTION_ESTABLISHED" },
           context,
           now,
         );
-        expect(result.state.connectionState).toBe("live");
-        state = result.state;
-
-        // Step 5: CONNECTION_READY fires
-        result = sessionReducer(
-          state,
-          { type: "CONNECTION_READY", initialBlockIndex: 0 },
-          context,
-          now,
-        );
 
         // SUCCESS: User is now on block 2
         expect(result.state.status).toBe("ANSWERING");
+        expect(result.state.connectionState).toBe("live");
         if (result.state.status === "ANSWERING") {
           expect(result.state.blockIndex).toBe(1); // Uses targetBlockIndex
         }
+        expect(result.commands).toContainEqual({
+          type: "START_CONNECTION",
+          blockNumber: 2,
+        });
       });
 
       it("should still detect real connection failures during block transition", () => {

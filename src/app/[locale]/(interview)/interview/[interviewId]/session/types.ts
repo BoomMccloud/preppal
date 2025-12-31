@@ -57,8 +57,6 @@ export type SessionState =
 
 // Events - expanded with new driver events
 export type SessionEvent =
-  // Existing events (keep these)
-  | { type: "CONNECTION_READY"; initialBlockIndex: number }
   | { type: "TICK" }
   | { type: "USER_CLICKED_CONTINUE" }
   | { type: "USER_CLICKED_NEXT" } // User manually advances to next block

@@ -50,6 +50,40 @@ Based on feedback from education/training partners:
 
 ## Technical Debt & Refactoring
 
+### Dumb Driver Worker Refactor (Medium Priority)
+**Goal:** Remove business logic from the Cloudflare Worker, making it a true "dumb driver."
+
+**Current State:**
+- Worker's `GeminiSession` contains business logic for error reporting
+- Worker decides when to call `lifecycleManager.handleError()` based on close codes
+- Multiple flags track close intent (`userInitiatedClose`, `blockTransitionClose`)
+- Worker updates interview status directly in database
+
+**Problem (First-Principle Violation):**
+- Worker acts as a second "brain" alongside the client reducer
+- Business logic in infrastructure layer makes testing harder
+- Adding flags for each close scenario is a code smell
+- Race conditions between worker error reporting and client state
+
+**Ideal Architecture:**
+- Worker only: connects to Gemini, forwards audio/transcripts, emits events
+- Worker never: decides if something is an error, updates interview status
+- Client owns: all error detection and reporting to database
+- Clean separation: infrastructure (worker) vs business logic (client reducer)
+
+**Implementation:**
+1. Remove `lifecycleManager.handleError()` calls from worker
+2. Worker emits `SESSION_ENDED` with reason code, doesn't interpret it
+3. Client reducer decides if the close reason constitutes an error
+4. Client dispatches `REPORT_ERROR` command if needed
+5. Remove `userInitiatedClose`, `blockTransitionClose` flags from worker
+
+**Benefit:** Passes the litmus test - "Can I test the entire flow without the worker?" Yes, by mocking driver events.
+
+**Related:** FEAT43 block transition bug was fixed with a flag, but this refactor is the proper long-term solution.
+
+---
+
 ### Consolidate Worker Logic (High Priority)
 **Goal:** Eliminate duplication between the two backend paths used for Worker communication.
 

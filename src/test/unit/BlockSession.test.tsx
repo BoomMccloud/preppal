@@ -159,10 +159,12 @@ describe("BlockSession", () => {
     );
 
     expect(screen.getByTestId("session-content")).toBeInTheDocument();
-    expect(capturedSessionContentProps.onConnectionReady).toBeDefined();
+    // Note: onConnectionReady is no longer used - auto-transition happens on CONNECTION_ESTABLISHED
+    expect(capturedSessionContentProps.totalBlocks).toBe(2);
+    expect(capturedSessionContentProps.answerTimeLimit).toBe(120);
   });
 
-  test("renders block progress and answer timer in ANSWERING state", () => {
+  test("passes correct props to SessionContent in ANSWERING state", () => {
     const answeringState: SessionState = {
       ...baseState,
       status: "ANSWERING",
@@ -182,45 +184,15 @@ describe("BlockSession", () => {
       />,
     );
 
-    // Should show block progress
-    expect(screen.getByText("Block 1 of 2")).toBeInTheDocument();
-    // Should show answer timer (only one timer now)
-    expect(screen.getByText(/Answer:/)).toBeInTheDocument();
-    // Should show "Next Question" button
-    expect(screen.getByText("Next Question")).toBeInTheDocument();
+    // Verify correct props are passed to SessionContent
+    expect(screen.getByTestId("session-content")).toBeInTheDocument();
+    expect(capturedSessionContentProps.state).toEqual(answeringState);
+    expect(capturedSessionContentProps.dispatch).toBe(mockDispatch);
+    expect(capturedSessionContentProps.totalBlocks).toBe(2);
+    expect(capturedSessionContentProps.answerTimeLimit).toBe(120);
   });
 
-  test("dispatches USER_CLICKED_NEXT when Next Question button is clicked", async () => {
-    const answeringState: SessionState = {
-      ...baseState,
-      status: "ANSWERING",
-      connectionState: "live",
-      blockIndex: 0,
-      blockStartTime: baseTime,
-      answerStartTime: baseTime,
-    };
-
-    render(
-      <BlockSession
-        interview={mockInterview}
-        blocks={mockBlocks}
-        template={mockTemplate}
-        state={answeringState}
-        dispatch={mockDispatch}
-      />,
-    );
-
-    const nextButton = screen.getByText("Next Question");
-    await act(async () => {
-      nextButton.click();
-    });
-
-    expect(mockDispatch).toHaveBeenCalledWith({
-      type: "USER_CLICKED_NEXT",
-    });
-  });
-
-  test("shows Time's Up banner in ANSWER_TIMEOUT_PAUSE state", () => {
+  test("passes state and dispatch to SessionContent in ANSWER_TIMEOUT_PAUSE state", () => {
     const pauseState: SessionState = {
       ...baseState,
       status: "ANSWER_TIMEOUT_PAUSE",
@@ -241,10 +213,10 @@ describe("BlockSession", () => {
       />,
     );
 
-    expect(screen.getByText("Time's Up!")).toBeInTheDocument();
-    expect(
-      screen.getByText("Please wrap up your answer now."),
-    ).toBeInTheDocument();
+    // Verify correct props are passed to SessionContent
+    expect(screen.getByTestId("session-content")).toBeInTheDocument();
+    expect(capturedSessionContentProps.state).toEqual(pauseState);
+    expect(capturedSessionContentProps.dispatch).toBe(mockDispatch);
   });
 
   test("renders block completion screen in BLOCK_COMPLETE_SCREEN state", () => {
@@ -306,42 +278,6 @@ describe("BlockSession", () => {
     });
   });
 
-  test("resumes from first incomplete block", () => {
-    const resumeBlocks = [
-      {
-        id: "block-1",
-        blockNumber: 1,
-        language: "ZH" as const,
-        status: "COMPLETED" as const,
-      },
-      {
-        id: "block-2",
-        blockNumber: 2,
-        language: "EN" as const,
-        status: "PENDING" as const,
-      },
-    ];
-
-    render(
-      <BlockSession
-        interview={mockInterview}
-        blocks={resumeBlocks}
-        template={mockTemplate}
-        state={baseState}
-        dispatch={mockDispatch}
-      />,
-    );
-
-    // The onConnectionReady callback should use the correct initial block index
-    expect(capturedSessionContentProps.onConnectionReady).toBeDefined();
-    // Call onConnectionReady and check dispatch was called with correct block index
-    const onConnectionReady =
-      capturedSessionContentProps.onConnectionReady as () => void;
-    onConnectionReady();
-
-    expect(mockDispatch).toHaveBeenCalledWith({
-      type: "CONNECTION_READY",
-      initialBlockIndex: 1, // Block 2 (index 1) since block 1 is completed
-    });
-  });
+  // Note: Resumption from incomplete blocks is now handled via targetBlockIndex in
+  // useInterviewSession hook, which is tested in session-reducer.test.ts
 });
