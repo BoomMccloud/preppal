@@ -12,7 +12,7 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
-    "check": "next lint && tsc --noEmit",
+    "check": "next lint && tsc --noEmit && wrangler build --config worker/wrangler.toml",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
     "test": "vitest run",
     "test:watch": "vitest",

@@ -32,6 +32,7 @@ export function useInterviewSocket(
   unmute: () => void;
   stopAudio: () => void;
   isAudioMuted: () => boolean;
+  reconnectForBlock: (blockNumber: number) => void;
   debugInfo?: { connectAttempts: number; activeConnections: number };
 } {
   const wsRef = useRef<WebSocket | null>(null);
@@ -39,6 +40,12 @@ export function useInterviewSocket(
   const hasInitiatedConnection = useRef(false);
   const connectAttemptsRef = useRef(0);
   const activeConnectionsRef = useRef(0);
+  const currentBlockRef = useRef(blockNumber);
+
+  // Keep currentBlockRef in sync with prop for reconnection
+  useEffect(() => {
+    currentBlockRef.current = blockNumber;
+  }, [blockNumber]);
 
   const transcriptManagerRef = useRef<TranscriptManager | null>(null);
 
@@ -123,8 +130,8 @@ export function useInterviewSocket(
       const workerUrl = (
         process.env.NEXT_PUBLIC_WORKER_URL ?? "http://localhost:8787"
       ).replace(/^http/, "ws");
-      const wsUrl = blockNumber
-        ? `${workerUrl}/${interviewId}?token=${encodeURIComponent(token)}&block=${blockNumber}`
+      const wsUrl = currentBlockRef.current
+        ? `${workerUrl}/${interviewId}?token=${encodeURIComponent(token)}&block=${currentBlockRef.current}`
         : `${workerUrl}/${interviewId}?token=${encodeURIComponent(token)}`;
       console.log(
         `[WebSocket] Connecting to: ${wsUrl} (Attempt #${connectAttemptsRef.current})`,
@@ -214,7 +221,7 @@ export function useInterviewSocket(
         }
       };
     },
-    [interviewId, blockNumber, events, setupAudio],
+    [interviewId, events, setupAudio],
   );
 
   // Generate token mutation
@@ -273,6 +280,35 @@ export function useInterviewSocket(
     console.log("[useInterviewSocket] stopAudio() completed");
   }, []);
 
+  // Public: Reconnect for a new block
+  const reconnectForBlock = useCallback(
+    (newBlockNumber: number) => {
+      console.log(
+        `[useInterviewSocket] reconnectForBlock(${newBlockNumber}) called`,
+      );
+
+      // Update block ref for the new connection URL
+      currentBlockRef.current = newBlockNumber;
+
+      // Close existing WebSocket connection
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+
+      // Stop current audio session (new one will start on connection)
+      audioSessionRef.current?.stop();
+      audioSessionRef.current = null;
+
+      // Reset connection guard so generateToken triggers a new connection
+      hasInitiatedConnection.current = false;
+
+      // Trigger new connection with updated block number
+      generateToken({ interviewId, token: guestToken });
+    },
+    [interviewId, guestToken, generateToken],
+  );
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -294,11 +330,12 @@ export function useInterviewSocket(
       unmute,
       stopAudio,
       isAudioMuted,
+      reconnectForBlock,
       debugInfo: {
         connectAttempts: connectAttemptsRef.current,
         activeConnections: activeConnectionsRef.current,
       },
     }),
-    [connect, disconnect, mute, unmute, stopAudio, isAudioMuted],
+    [connect, disconnect, mute, unmute, stopAudio, isAudioMuted, reconnectForBlock],
   );
 }

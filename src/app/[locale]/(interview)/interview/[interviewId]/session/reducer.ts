@@ -245,7 +245,7 @@ export function sessionReducer(
             blockStartTime: now,
             answerStartTime: now,
           },
-          commands: [],
+          commands: [{ type: "RECONNECT_FOR_BLOCK", blockNumber: nextIdx + 1 }],
         };
       }
       return { state, commands: [] };

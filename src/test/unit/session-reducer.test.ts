@@ -353,7 +353,10 @@ describe("sessionReducer (v6: One Block = One Question)", () => {
         blockStartTime: now,
         answerStartTime: now,
       });
-      expect(result.commands).toEqual([]);
+      expect(result.commands).toContainEqual({
+        type: "RECONNECT_FOR_BLOCK",
+        blockNumber: 2, // blockIndex 1 + 1 = blockNumber 2 (1-indexed)
+      });
     });
 
     it("should transition to INTERVIEW_COMPLETE when completing final block", () => {
@@ -397,6 +400,66 @@ describe("sessionReducer (v6: One Block = One Question)", () => {
       );
 
       expect(result.state.status).toBe("INTERVIEW_COMPLETE");
+      expect(result.commands).toContainEqual({ type: "STOP_AUDIO" });
+      expect(result.commands).toContainEqual({ type: "CLOSE_CONNECTION" });
+    });
+
+    it("should emit RECONNECT_FOR_BLOCK when advancing to next block", () => {
+      const now = 1000000;
+      const state: SessionState = {
+        status: "BLOCK_COMPLETE_SCREEN",
+        completedBlockIndex: 0,
+        ...createCommonFields(),
+      };
+
+      const context: ReducerContext = {
+        answerTimeLimit: 60,
+        totalBlocks: 3,
+      };
+
+      const result = sessionReducer(
+        state,
+        { type: "USER_CLICKED_CONTINUE" },
+        context,
+        now,
+      );
+
+      expect(result.state.status).toBe("ANSWERING");
+      expect(result.state).toMatchObject({
+        blockIndex: 1,
+        blockStartTime: now,
+        answerStartTime: now,
+      });
+      expect(result.commands).toContainEqual({
+        type: "RECONNECT_FOR_BLOCK",
+        blockNumber: 2, // blockIndex 1 + 1 = blockNumber 2 (1-indexed)
+      });
+    });
+
+    it("should NOT emit RECONNECT_FOR_BLOCK when finishing last block", () => {
+      const now = 1000000;
+      const state: SessionState = {
+        status: "BLOCK_COMPLETE_SCREEN",
+        completedBlockIndex: 2, // Last block (0-indexed)
+        ...createCommonFields(),
+      };
+
+      const context: ReducerContext = {
+        answerTimeLimit: 60,
+        totalBlocks: 3, // 3 blocks: 0, 1, 2
+      };
+
+      const result = sessionReducer(
+        state,
+        { type: "USER_CLICKED_CONTINUE" },
+        context,
+        now,
+      );
+
+      expect(result.state.status).toBe("INTERVIEW_COMPLETE");
+      expect(result.commands).not.toContainEqual(
+        expect.objectContaining({ type: "RECONNECT_FOR_BLOCK" }),
+      );
       expect(result.commands).toContainEqual({ type: "STOP_AUDIO" });
       expect(result.commands).toContainEqual({ type: "CLOSE_CONNECTION" });
     });

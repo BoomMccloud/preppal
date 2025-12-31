@@ -164,6 +164,26 @@ export const workerService = {
 };
 ```
 
+### Design Decisions
+
+**Error Handling:**
+- Service methods throw plain `Error` objects with descriptive messages
+- Adapters catch errors and map to protocol-specific responses:
+  - tRPC adapter: Throws `TRPCError` with appropriate code (`NOT_FOUND`, `BAD_REQUEST`)
+  - HTTP adapter: Returns protobuf error response with status code
+
+**Transcript Type:**
+- Service accepts `Buffer` (Node.js native binary type)
+- Adapters handle conversion:
+  - tRPC: Receives base64 string → converts to Buffer via `Buffer.from(str, "base64")`
+  - HTTP: Receives `Uint8Array` from protobuf → converts to Buffer via `Buffer.from(arr)`
+
+**Why Two Transcript Methods:**
+- Block-based and standard interviews have different completion semantics:
+  - `submitBlockTranscript`: Marks block COMPLETED, checks if last block to complete interview
+  - `submitStandardTranscript`: Directly marks interview COMPLETED, stores in TranscriptEntry
+- Separate methods make the intent explicit and avoid conditional branching in callers
+
 ### Adapter Pattern
 
 **tRPC Router** (after refactor):
@@ -280,54 +300,58 @@ async function handleGetContext(req: GetContextRequest): Promise<GetContextRespo
 ### Phase 4: Testing & Cleanup
 - [ ] Run `pnpm check` to verify no type errors
 - [ ] Run `pnpm test` to verify all existing tests pass
-- [ ] Add unit tests for `worker-service.ts`
+- [ ] Add 6 focused unit tests for `worker-service.ts` (error paths + critical business logic)
 - [ ] Remove dead code from both endpoints
 
 ## Test Scenarios
 
 ### Unit Tests (`src/test/unit/worker-service.test.ts`)
 
-**getInterviewContext:**
-1. Returns correct context for standard interview
-2. Returns correct context for block-based interview
-3. Marks block as IN_PROGRESS when blockNumber provided
-4. Throws error for non-existent interview
-5. Throws error for invalid block number
+**Rationale**: Existing integration tests (`golden-path.test.ts`, `block-interview-golden-path.test.ts`, `feedback.test.ts`) already cover happy paths comprehensively. Unit tests focus on:
+1. Error paths not covered by integration tests
+2. Critical business logic assertions (auto-completion, idempotency)
+3. Negative assertions (verifying something does NOT happen)
 
-**updateInterviewStatus:**
-6. Updates interview status to IN_PROGRESS
-7. Updates interview status to COMPLETED with endedAt
-8. Throws error for non-existent interview
+**6 Focused Tests:**
 
-**submitBlockTranscript:**
-9. Marks block as COMPLETED
-7. Marks interview as COMPLETED when last block
-8. Does NOT mark interview COMPLETED when more blocks remain
-9. Throws error for non-existent block
+**getInterviewContext (2 tests):**
+1. Throws error for non-existent interview
+2. Throws error for invalid block number
 
-**submitStandardTranscript:**
-10. Stores transcript in TranscriptEntry
-11. Marks interview as COMPLETED
-12. Throws error for non-existent interview
+**submitBlockTranscript (2 tests):**
+3. Marks interview COMPLETED when last block submitted ⭐ CRITICAL
+4. Does NOT mark interview COMPLETED when blocks remain ⭐ CRITICAL
 
-**submitInterviewFeedback:**
-13. Creates new feedback record
-14. Updates existing feedback (idempotent upsert)
-15. Returns complete InterviewFeedback object
+**submitStandardTranscript (1 test):**
+5. Marks interview COMPLETED on submission
+
+**submitInterviewFeedback (1 test):**
+6. Updates existing feedback on second submission (idempotent upsert)
 
 ### Integration Tests (Existing)
 
-**Verify existing tests still pass:**
-- `src/test/integration/block-interview-golden-path.test.ts`
-- `src/test/integration/interview-blocks.test.ts`
+**Already covered by existing tests (no new tests needed):**
+
+| Test File | Coverage |
+|-----------|----------|
+| `golden-path.test.ts` | Standard interview flow, status updates, transcript/feedback submission |
+| `block-interview-golden-path.test.ts` | Block context, IN_PROGRESS marking, block completion, feedback |
+| `feedback.test.ts` | Feedback retrieval, authorization, null handling |
 
 These tests use tRPC endpoint, so they implicitly test the service layer after refactor.
 
-### Edge Cases
+### Removed Tests (Covered Elsewhere)
 
-16. Concurrent transcript submissions - verify no race conditions
-17. Feedback submission before interview completion - should succeed
-18. Block transcript with empty buffer - verify handling
+| Original Test | Why Removed |
+|--------------|-------------|
+| Returns correct context (standard/block) | Covered by golden-path + block-golden-path |
+| Marks block as IN_PROGRESS | Covered by block-golden-path line 166-169 |
+| Updates status to IN_PROGRESS/COMPLETED | Covered by golden-path line 116-178 |
+| Marks block as COMPLETED | Covered by block-golden-path line 215-218 |
+| Stores transcript in TranscriptEntry | Covered by block-golden-path line 403-407 |
+| Creates new feedback record | Covered by golden-path line 158-169 |
+| Concurrent submissions | Flaky; use DB constraints instead |
+| Empty buffer handling | Defensive edge case, not business logic |
 
 ## Risks & Mitigations
 

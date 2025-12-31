@@ -87,20 +87,23 @@ export default {
           });
         }
 
-        // Create or get Durable Object instance using interviewId
-        const id = env.GEMINI_SESSION.idFromName(interviewId);
+        // Validate block number if present (must be positive integer)
+        const block = url.searchParams.get("block") ?? "1";
+        const blockNum = parseInt(block, 10);
+        if (isNaN(blockNum) || blockNum < 1) {
+          return new Response("Invalid block number", { status: 400 });
+        }
+
+        // Create or get Durable Object instance using interviewId + block
+        // Each block gets its own DO with independent timeout timer
+        const id = env.GEMINI_SESSION.idFromName(`${interviewId}_block${block}`);
         const stub = env.GEMINI_SESSION.get(id);
 
         // Forward the request to the Durable Object with user context
         const headers = new Headers(request.headers);
         headers.set("X-User-Id", payload.userId);
         headers.set("X-Interview-Id", payload.interviewId);
-
-        // Extract block number from query params if present
-        const block = url.searchParams.get("block");
-        if (block) {
-          headers.set("X-Block-Number", block);
-        }
+        headers.set("X-Block-Number", block);
 
         const authenticatedRequest = new Request(request, { headers });
         return stub.fetch(authenticatedRequest);

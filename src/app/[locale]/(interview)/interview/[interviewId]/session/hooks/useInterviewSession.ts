@@ -102,6 +102,9 @@ export function useInterviewSession(
             blockNumber: cmd.blockNumber,
           });
           break;
+        case "RECONNECT_FOR_BLOCK":
+          driver.reconnectForBlock(cmd.blockNumber);
+          break;
       }
     },
     [driver, interviewId, completeBlock],
