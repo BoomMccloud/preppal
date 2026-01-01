@@ -36,6 +36,7 @@ function BlockInterviewWithState({
   token?: string;
 }) {
   const mediaStreamRef = useRef<MediaStream | null>(null);
+  const hasLoggedContextRef = useRef(false);
 
   // Find first incomplete block
   const initialBlockIndex = blocks.findIndex((b) => b.status !== "COMPLETED");
@@ -47,17 +48,20 @@ function BlockInterviewWithState({
     totalBlocks: blocks.length,
   };
 
-  console.log("[BlockInterviewWithState] Context created:", {
-    totalBlocks: context.totalBlocks,
-    blocksLength: blocks.length,
-    blockIds: blocks.map((b) => ({
-      id: b.id,
-      status: b.status,
-      blockNumber: b.blockNumber,
-    })),
-    startBlockIndex,
-    templateId: template.id,
-  });
+  if (!hasLoggedContextRef.current) {
+    hasLoggedContextRef.current = true;
+    console.log("[BlockInterviewWithState] Context created:", {
+      totalBlocks: context.totalBlocks,
+      blocksLength: blocks.length,
+      blockIds: blocks.map((b) => ({
+        id: b.id,
+        status: b.status,
+        blockNumber: b.blockNumber,
+      })),
+      startBlockIndex,
+      templateId: template.id,
+    });
+  }
 
   const { state, dispatch } = useInterviewSession(interview.id, token, {
     blockNumber: blocks[startBlockIndex]?.blockNumber ?? 1,

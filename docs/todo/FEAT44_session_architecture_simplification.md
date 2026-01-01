@@ -2,6 +2,7 @@
 
 > **Status:** Ready
 > **Created:** 2025-12-31
+> **Updated:** 2026-01-01 (KISS revision)
 > **Related:** FEAT40 (Block Isolation), FEAT42 (Close Code Handling)
 
 ## Problem Statement
@@ -33,140 +34,232 @@ This hidden coupling between UI state (`connectionReadyCalledRef`) and driver st
 
 | Principle | Violation | Risk |
 |-----------|-----------|------|
-| **Source of Truth** | Driver has hidden state (`hasInitiatedConnection`, `currentBlockRef`) | Split-brain between reducer and driver |
+| **Source of Truth** | Driver has hidden guard state (`hasInitiatedConnection`) | Split-brain between reducer and driver |
 | **Dumb Driver** | Driver decides when to connect via guards | Business logic in infrastructure |
 | **Command Clarity** | `START_CONNECTION` is now a no-op | Dead code, confusion |
 | **Single Responsibility** | `RECONNECT_FOR_BLOCK` and `connect()` do similar things | Duplicate paths |
+
+> **Note:** `currentBlockRef` is data (holds block number for URL), not a guard. It doesn't make decisions, so it's not problematic. We keep it for simplicity.
 
 ### State Topology Problem
 
 ```
 Reducer State (visible):        Driver State (hidden):
-├─ connectionState: "live"      ├─ hasInitiatedConnection: true/false  ← DANGEROUS
-├─ status: "ANSWERING"          ├─ currentBlockRef: number
+├─ connectionState: "live"      ├─ hasInitiatedConnection: true/false  ← GUARD (remove)
+├─ status: "ANSWERING"          ├─ currentBlockRef: number             ← DATA (keep)
 ├─ blockIndex: 0                ├─ wsRef: WebSocket
 └─ targetBlockIndex: 1          └─ activeConnectionsRef: number
 ```
 
 The driver's `hasInitiatedConnection` flag is a **guard** that decides whether to actually connect. This violates the "Dumb Driver" principle - drivers should execute commands, not decide whether to execute them.
 
-## Simplification Options
+`currentBlockRef` is different - it's just a parameter holder for the async callback (token generation → WebSocket URL). It doesn't gate behavior, so removing it would add complexity without benefit (KISS).
 
-### Option A: Minimal Cleanup (Phase 1 - Recommended)
+## Design Decision: Combined Cleanup + Dumb Driver
 
-Remove dead code without changing behavior:
+After first-principle analysis, we determined that Phase 1 (dead code removal) alone doesn't improve maintainability - the hidden driver state remains. The real value is in making the driver stateless.
 
-| Change | Risk | Impact |
-|--------|------|--------|
-| Remove `START_CONNECTION` from types | None | Clean types |
-| Remove from command executor | None | Less code |
-| Update tests | None | Accurate tests |
+**Decision:** Combine Phase 1 + Phase 2 into a single implementation.
 
-**Lines removed:** ~30
-**Behavior change:** None
+**Rationale:**
+- Phase 1 alone leaves the split-brain architecture intact
+- Phase 2 eliminates the hidden state machine in the driver
+- Combined change is still small (~50-80 lines)
+- Single PR = single review = less drift risk
 
-### Option B: Dumber Driver (Phase 2 - Future)
-
-Make the driver truly stateless:
+### Before: Smart Driver with Hidden State
 
 ```typescript
-// BEFORE: Smart driver with guards
+// Driver has hidden state that shadows reducer
 connect() {
-  if (!hasInitiatedConnection.current) {  // <-- Decision
+  if (!hasInitiatedConnection.current) {  // <-- DECISION in driver
     hasInitiatedConnection.current = true;
     generateToken(...);
   }
 }
 
 reconnectForBlock(block) {
-  currentBlockRef.current = block;           // <-- Owns state
-  hasInitiatedConnection.current = false;    // <-- Manages lifecycle
+  currentBlockRef.current = block;           // <-- Driver owns state
+  hasInitiatedConnection.current = false;    // <-- Driver manages lifecycle
   generateToken();
-}
-
-// AFTER: Dumb driver, reducer owns all state
-connectForBlock(block: number) {
-  // Always connects, no guards
-  // Reducer is responsible for not calling this twice
-  generateToken({ interviewId, block });
 }
 ```
 
-**Commands simplified:**
+**Problems:**
+- Two methods doing similar things
+- Hidden guards that can conflict with reducer state
+- `hasInitiatedConnection` reset causes race conditions
+
+### After: Dumb Driver, Reducer Owns All State
+
 ```typescript
-// BEFORE
-| START_CONNECTION    | → driver.connect() (with guard)
+// Driver is stateless - just executes commands
+connectForBlock(block: number) {
+  wsRef.current?.close();  // Always close existing
+  generateToken({ interviewId, block });  // Always connect, no guards
+}
+```
+
+**Benefits:**
+- One method, no guards
+- Reducer is sole decision-maker
+- No hidden state to debug
+
+### Command Simplification
+
+```typescript
+// BEFORE: Two commands, confusing semantics
+| START_CONNECTION    | → driver.connect() (with guard, often no-op)
 | RECONNECT_FOR_BLOCK | → driver.reconnectForBlock()
 
-// AFTER
+// AFTER: One command, clear semantics
 | CONNECT_FOR_BLOCK   | → driver.connectForBlock(block)
 ```
 
-### Option C: Remove Auto-Connect (Phase 3 - Future)
+## Future Work: Explicit Initial Connection
 
-Currently the initial connection is implicit:
+Currently the initial connection is implicit via useEffect:
 ```typescript
-// useInterviewSession.ts
 useEffect(() => {
-  driver.connect();  // Auto-connect on mount
+  driver.connectForBlock(1);  // Auto-connect on mount
 }, []);
 ```
 
-This could become explicit:
+This could become explicit (lower priority):
 ```typescript
 // Reducer generates CONNECT command from initial state
-const initialState = {
-  status: "WAITING_FOR_CONNECTION",
-  // Initial command generated by reducer, not useEffect
-};
-
-// On first TICK or explicit START event:
 case "START_INTERVIEW":
   return {
     state,
-    commands: [{ type: "CONNECT_FOR_BLOCK", blockNumber: 1 }]
+    commands: [{ type: "CONNECT_FOR_BLOCK", block: 1 }]
   };
 ```
 
-## Solution: Phase 1 (Option A)
+**Risk:** Medium - changes initialization sequence
+**Priority:** Low - current approach works fine after main fix
 
-### 1. Remove START_CONNECTION from types
+## Solution: Combined Implementation
+
+### 1. Update Command Types
 
 **File:** `src/app/[locale]/(interview)/interview/[interviewId]/session/types.ts`
 
 ```typescript
-// REMOVE this line from Command union:
+// REMOVE these lines from Command union:
 | { type: "START_CONNECTION"; blockNumber: number }
+| { type: "RECONNECT_FOR_BLOCK"; blockNumber: number }
+
+// ADD this line:
+| { type: "CONNECT_FOR_BLOCK"; block: number }
 ```
 
-### 2. Remove from command executor
+### 2. Update Driver Interface
+
+**File:** `src/app/[locale]/(interview)/interview/[interviewId]/session/useInterviewSocket.ts`
+
+```typescript
+// REMOVE these refs:
+const hasInitiatedConnection = useRef(false);
+const currentBlockRef = useRef(blockNumber);
+
+// REMOVE the useEffect that syncs currentBlockRef
+
+// REMOVE connect() method
+
+// REMOVE reconnectForBlock() method
+
+// ADD single connectForBlock() method:
+const connectForBlock = useCallback((block: number) => {
+  // Close existing connection (stale socket guard handles late events)
+  if (wsRef.current) {
+    wsRef.current.close(WS_CLOSE_BLOCK_RECONNECT, "Block transition");
+    wsRef.current = null;
+  }
+
+  // Always connect - no guards, no state checks
+  generateToken({ interviewId, block, token: guestToken });
+}, [interviewId, guestToken, generateToken]);
+
+// UPDATE return object:
+return {
+  connectForBlock,  // Replaces connect + reconnectForBlock
+  disconnect,
+  mute,
+  unmute,
+  stopAudio,
+  isAudioMuted,
+};
+```
+
+### 3. Update Command Executor
 
 **File:** `src/app/[locale]/(interview)/interview/[interviewId]/session/hooks/useInterviewSession.ts`
 
 ```typescript
-// REMOVE this case:
+// REMOVE these cases:
 case "START_CONNECTION":
   driver.connect();
   break;
+case "RECONNECT_FOR_BLOCK":
+  driver.reconnectForBlock(cmd.blockNumber);
+  break;
+
+// ADD this case:
+case "CONNECT_FOR_BLOCK":
+  driver.connectForBlock(cmd.block);
+  break;
+
+// UPDATE auto-connect useEffect:
+useEffect(() => {
+  driver.connectForBlock(config?.blockNumber ?? 1);
+}, []);
 ```
 
-### 3. Update README
+### 4. Update Reducer
+
+**File:** `src/app/[locale]/(interview)/interview/[interviewId]/session/reducer.ts`
+
+```typescript
+// In BLOCK_COMPLETE_SCREEN handler, change:
+commands: [{ type: "RECONNECT_FOR_BLOCK", blockNumber: nextIdx + 1 }]
+
+// To:
+commands: [{ type: "CONNECT_FOR_BLOCK", block: nextIdx + 1 }]
+```
+
+### 5. Update README
 
 **File:** `src/app/[locale]/(interview)/interview/[interviewId]/session/README.md`
 
-Remove references to `START_CONNECTION` in the command documentation.
+Update command documentation to reflect single `CONNECT_FOR_BLOCK` command.
 
 ## Files to Modify
 
 | File | Change |
 |------|--------|
-| `types.ts` | Remove `START_CONNECTION` from Command union |
-| `hooks/useInterviewSession.ts` | Remove `START_CONNECTION` case from executor |
+| `types.ts` | Replace `START_CONNECTION` + `RECONNECT_FOR_BLOCK` with `CONNECT_FOR_BLOCK` |
+| `useInterviewSocket.ts` | Replace `connect()` + `reconnectForBlock()` with `connectForBlock()`, remove hidden state |
+| `hooks/useInterviewSession.ts` | Update command executor, update auto-connect useEffect |
+| `reducer.ts` | Update command generation to use `CONNECT_FOR_BLOCK` |
 | `README.md` | Update command documentation |
 
 ## Unit Tests
 
-No new tests needed - existing tests already don't expect `START_CONNECTION` commands (we removed those expectations in the previous fix).
+Update existing tests to use new command:
+
+```typescript
+// BEFORE
+expect(result.commands).toContainEqual({
+  type: "RECONNECT_FOR_BLOCK",
+  blockNumber: 2
+});
+
+// AFTER
+expect(result.commands).toContainEqual({
+  type: "CONNECT_FOR_BLOCK",
+  block: 2
+});
+```
 
 Verify:
 ```bash
@@ -174,46 +267,28 @@ pnpm test -- --grep "session-reducer"
 pnpm test -- --grep "session-golden-path"
 ```
 
-## Acceptance Criteria (Phase 1)
+## Acceptance Criteria
 
 - [ ] `START_CONNECTION` removed from types
-- [ ] `START_CONNECTION` case removed from command executor
-- [ ] All existing tests pass
+- [ ] `RECONNECT_FOR_BLOCK` removed from types
+- [ ] `CONNECT_FOR_BLOCK` added to types
+- [ ] `hasInitiatedConnection` ref removed from driver
+- [ ] `currentBlockRef` ref removed from driver
+- [ ] `connect()` and `reconnectForBlock()` merged into `connectForBlock()`
+- [ ] Command executor updated
+- [ ] Reducer updated to generate `CONNECT_FOR_BLOCK`
+- [ ] All existing tests pass (after updating expectations)
 - [ ] `pnpm check` passes
 - [ ] Manual test: Complete a 2+ block interview successfully
 
-## Future Phases
-
-### Phase 2: Dumber Driver
-
-**Goal:** Remove driver's internal state guards
-
-**Changes:**
-1. Remove `hasInitiatedConnection` from driver
-2. Merge `connect()` and `reconnectForBlock()` into `connectForBlock(block)`
-3. Reducer becomes solely responsible for not double-connecting
-
-**Risk:** Medium - requires careful state machine review
-
-### Phase 3: Explicit Initial Connection
-
-**Goal:** Remove implicit auto-connect useEffect
-
-**Changes:**
-1. Initial connection becomes a command from reducer
-2. No side effects on mount
-3. Complete control flow visibility in reducer
-
-**Risk:** Medium - changes initialization sequence
-
 ## Appendix: First-Principle Checklist
 
-| Principle | Current State | After Phase 1 | After Phase 2+ |
-|-----------|--------------|---------------|----------------|
-| **Source of Truth** | Split (reducer + driver) | Split (unchanged) | Unified (reducer only) |
-| **Dumb Driver** | Smart (has guards) | Smart (unchanged) | Dumb (executes only) |
-| **Command Clarity** | Dead code exists | Clean | Clean |
-| **Testability** | Good (reducer is pure) | Good | Better (no hidden state) |
+| Principle | Current State | After This Change |
+|-----------|--------------|-------------------|
+| **Source of Truth** | Split (reducer + driver) | Unified (reducer only) |
+| **Dumb Driver** | Smart (has guards) | Dumb (executes only) |
+| **Command Clarity** | Two commands, confusing | One command, clear |
+| **Testability** | Good (reducer is pure) | Better (no hidden state) |
 
 ## Appendix: Architecture Comparison
 
@@ -272,19 +347,13 @@ CONNECTION_ESTABLISHED → Reducer transitions to ANSWERING
 (Previously: Flag is false → SECOND generateToken() → FAILURE)
 ```
 
-### Target Flow (Phase 2+)
+### Target Flow (After This Change)
 
 ```
 Mount
   │
   ▼
-useEffect dispatches START_INTERVIEW event (or TICK triggers it)
-  │
-  ▼
-Reducer: CONNECT_FOR_BLOCK command
-  │
-  ▼
-Executor calls driver.connectForBlock(1)
+useEffect calls driver.connectForBlock(1)
   │
   ▼
 Driver ALWAYS connects (no guards)

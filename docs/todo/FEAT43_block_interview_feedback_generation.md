@@ -1,120 +1,149 @@
-# FEAT43: Block Interview Feedback Generation (Phase 1)
+# FEAT43: Block & Interview Feedback System
 
 > **Status:** Ready
 > **Created:** 2025-12-31
-> **Related:** FEAT31 (Original Bug), FEAT41 (Block Completion Flow)
+> **Updated:** 2026-01-01
+> **Verified:** 2026-01-01 (see FEAT43_verification_report.md)
+>
+> **Queue-Ready:** Yes - functions are self-contained, only require `blockId`/`interviewId`
 
-## Problem Statement
+## Overview
 
-Block-based interviews get stuck on "Processing Feedback" indefinitely because feedback generation is skipped when `blockNumber` is set.
+Implement a two-level feedback system for block-based interviews:
+- **Block Feedback**: Generated immediately when each block completes
+- **Interview Feedback**: Generated when all blocks have feedback
 
-## Root Cause
+## Prerequisites
 
-In `worker/src/services/interview-lifecycle-manager.ts` lines 106-115:
+Before implementation, ensure:
 
-```typescript
-// For block-based interviews, we might skip full feedback generation per block
-// and instead do it at the very end of the interview.
-// For now, we only generate feedback if it's NOT a block-based session.
-if (!blockNumber) {
-  await this.generateAndSubmitFeedback(
-    interviewId,
-    transcriptText,
-    context,
-  );
-}
+1. **Protobuf files accessible from server**
+   - Currently in `worker/src/lib/proto/`
+   - Need to move/copy to shared location (e.g., `src/lib/proto/`)
+   - Or configure build to make them available
+
+2. **Dependencies for server**
+   - `@bufbuild/protobuf` - already in worker, add to main package.json
+   - `@google/genai` - already in worker, verify in main package.json
+
+3. **Environment variable**
+   - `GEMINI_API_KEY` must be accessible from server (check `src/env.js`)
+
+## First-Principle Architecture
+
+### The "Dumb Pipe" Principle
+
+**Worker = Dumb Pipe**: Manages real-time Gemini session, submits transcript, done.
+
+**Server = Business Logic**: Receives transcript, decides what to trigger, executes.
+
+```
+Worker                              Server
+──────                              ──────
+Session ends for Block 2
+   │
+   └─► submitTranscript(            receives transcript
+         blockNumber: 2,               │
+         transcript: binary            ├─► Store block transcript
+       )                               │
+                                       ├─► Generate block feedback (always)
+       ┌───────────────────────────────┘
+       │
+       └─► Check: all blocks have feedback?
+             ├─ No  → done
+             └─ Yes → Generate interview feedback
 ```
 
-When any block completes, `blockNumber` is set, so feedback is **always skipped** for block-based interviews.
+### Why Server Triggers Everything
 
-Additionally, `submitTranscript` in `interview-worker.ts` **discards** block transcript binary data (lines 125-131), making transcript aggregation impossible.
+| Aspect | Worker Knows | Server Knows |
+|--------|--------------|--------------|
+| Transcript binary | ✅ | ✅ (after submit) |
+| Block number | ✅ | ✅ |
+| Other blocks' state | ❌ | ✅ |
+| Interview context (JD, resume) | ❌ | ✅ |
+| Existing feedback | ❌ | ✅ |
 
-## First-Principle Analysis
+**Conclusion**: Server has complete picture → Server makes all decisions.
 
-### Alternative Approaches Considered
+### Two Feedback Levels
 
-| Approach | Description | Verdict |
-|----------|-------------|---------|
-| **A: Backend-Driven** | Backend stores transcripts, checks completion, generates feedback | ✅ Selected |
-| **B: Worker-Driven** | Worker detects "last block", aggregates, generates | ❌ Risk of out-of-order blocks |
-| **C: Event-Driven** | Queue consumer handles feedback generation | ❌ Overkill for current scale |
-| **D: Hybrid** | Worker signals `isLast`, Backend generates | ❌ Tight coupling |
-| **E: Background Job** | Cron polls for complete interviews | ❌ Up to 30s latency |
+| Level | Scope | Trigger | Purpose |
+|-------|-------|---------|---------|
+| **Block Feedback** | Single block | Transcript submitted | Immediate, specific feedback |
+| **Interview Feedback** | All blocks | All blocks have feedback | Holistic assessment |
 
-### Why Approach A (Backend-Driven)?
+This separation provides:
+1. **Immediate value**: User sees feedback after each block
+2. **Single responsibility**: Each feedback type has one trigger
+3. **Clean data model**: No "is this the last block?" logic
 
-1. **Single Source of Truth** - Backend owns all interview state; no split-brain risk
-2. **Immediate Feedback** - No polling latency; good UX
-3. **Minimal Changes** - Worker code unchanged; low risk
-4. **No New Infrastructure** - No queues, crons, or new services
+## Data Model
 
-### Design Principles Applied
-
-| Principle | Status | Notes |
-|-----------|--------|-------|
-| Source of Truth Topology | ✅ | Backend is single authority for completion |
-| Side-Effect Control Flow | ✅ | Intent-based: `submitTranscript` → check → generate |
-| Hardware Driver Pattern | ✅ | Gemini abstracted with dependency injection |
-| Lifecycle & Concurrency | ✅ | Race condition handled with upsert |
-| Testability | ✅ | Pure functions + injectable dependencies |
-
-## Architecture Decision
-
-**Backend generates feedback for block interviews.**
-
-| Aspect | Before | After |
-|--------|--------|-------|
-| Block transcript binary | Discarded | Stored in `InterviewBlock.transcript` |
-| Block feedback trigger | Never (skipped) | Backend checks "all blocks complete?" |
-| Standard interviews | Worker generates | Worker generates (unchanged) |
-| Worker responsibility | Mixed (transcript + feedback) | Transcript only (for blocks) |
-
-**Why Backend for blocks?**
-- Backend has all block data (can check completion)
-- Single source of truth for interview state
-- No extra API call needed (data already there)
-- Worker code for standard interviews stays untouched (risk reduction)
-
-**Phase 2 (future):** Move standard interview feedback to Backend too, fully simplifying Worker.
-
-## Solution
-
-### 0. Schema: Store block transcript binary
+### Schema Changes
 
 **File:** `prisma/schema.prisma`
 
+**Note:** The current `InterviewBlock` model has `transcriptId String? @unique` which stores a reference ID.
+We need to ADD `transcript Bytes?` to store the actual binary data. The `transcriptId` field will be deprecated.
+
 ```prisma
 model InterviewBlock {
-  // ... existing fields
+  // ... existing fields (id, interviewId, blockNumber, language, questions, etc.)
 
-  // ADD: Store transcript binary for aggregation
+  // DEPRECATED: Will be removed after migration
+  transcriptId String? @unique
+
+  // NEW: Store transcript binary directly
   transcript   Bytes?
 
-  // Existing field (keep for backwards compat)
-  transcriptId String? @unique
+  // NEW: Block-level feedback (one per block)
+  feedback     InterviewBlockFeedback?
 }
 
-model InterviewFeedback {
-  // ... existing fields
+// NEW MODEL
+model InterviewBlockFeedback {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
 
-  // VERIFY: This must be @unique to prevent duplicate feedback (race condition protection)
+  // Link to block
+  blockId   String   @unique
+  block     InterviewBlock @relation(fields: [blockId], references: [id], onDelete: Cascade)
+
+  // Feedback content
+  summary               String @default("")
+  strengths             String @default("")
+  areasForImprovement   String @default("")
+
+  @@index([blockId])
+}
+
+// EXISTING MODEL - no changes needed
+model InterviewFeedback {
+  // ... existing fields (interview-level feedback)
+
+  // VERIFIED: Already @unique - prevents duplicates ✅
   interviewId String @unique
 }
 ```
 
-Run `pnpm db:push` after this change.
+### Entity Relationships
 
-### 1. Backend: Store transcript and generate feedback when complete
+```
+Interview (1) ──── (*) InterviewBlock
+    │                      │
+    │                      └── (1) InterviewBlockFeedback
+    │
+    └── (1) InterviewFeedback
+```
+
+## Implementation
+
+### 1. Server: Handle Transcript Submission
 
 **File:** `src/server/api/routers/interview-worker.ts`
 
 ```typescript
-import {
-  generateFeedbackFromTranscript,
-  shouldGenerateFeedback,
-  type InterviewWithBlocks,
-} from "~/server/lib/feedback";
-
 submitTranscript: workerProcedure
   .input(submitTranscriptSchema)
   .mutation(async ({ ctx, input }) => {
@@ -123,298 +152,166 @@ submitTranscript: workerProcedure
 
     // Block-based interview
     if (blockNumber !== undefined) {
-      // Step 1: Store block transcript (no longer discarded!)
-      await ctx.db.interviewBlock.update({
+      // 1. Store block transcript
+      const block = await ctx.db.interviewBlock.update({
         where: {
           interviewId_blockNumber: { interviewId, blockNumber },
         },
         data: {
           transcript: transcriptBlob,
-          transcriptId: `block-${interviewId}-${blockNumber}-${Date.now()}`,
           status: "COMPLETED",
           endedAt: new Date(endedAt),
         },
       });
 
-      // Step 2: Check if all blocks complete and generate feedback
-      await maybeGenerateBlockFeedback(ctx.db, interviewId);
+      // 2. Generate block feedback (always, immediately)
+      // Note: Function fetches its own data - queue-ready signature
+      await generateBlockFeedback(ctx.db, block.id);
+
+      // 3. Check if interview feedback should be generated
+      await maybeGenerateInterviewFeedback(ctx.db, interviewId);
 
       return { success: true };
     }
 
-    // Standard interview: UNCHANGED (Worker still generates feedback)
-    await ctx.db.$transaction([
-      ctx.db.transcriptEntry.upsert({
-        where: { interviewId },
-        update: { transcript: transcriptBlob },
-        create: { interviewId, transcript: transcriptBlob },
-      }),
-      ctx.db.interview.update({
-        where: { id: interviewId },
-        data: { status: "COMPLETED", endedAt: new Date(endedAt) },
-      }),
-    ]);
-
-    return { success: true };
+    // Standard (non-block) interview: existing behavior
+    // ...
   }),
 ```
 
-### 2. Helper: Check completion and generate feedback
+### 2. Block Feedback Generation
 
-**File:** `src/server/api/routers/interview-worker.ts` (same file, add helper)
+**File:** `src/server/lib/block-feedback.ts`
 
 ```typescript
+// ABOUTME: Generates feedback for a single interview block
+// ABOUTME: Self-contained function - fetches own data, queue-ready
+
+import type { PrismaClient } from "@prisma/client";
+import { callGeminiForBlockFeedback } from "./gemini-client";
+import { transcriptBinaryToText } from "./transcript-utils";
+
+/**
+ * Generate feedback for a single block.
+ *
+ * Design: Self-contained function that fetches its own data.
+ * This makes it trivial to migrate to a job queue later:
+ *   - Synchronous: await generateBlockFeedback(db, blockId)
+ *   - Queue:       await queue.send({ blockId }) → handler calls same function
+ *
+ * Idempotent: uses upsert to prevent duplicates.
+ */
+export async function generateBlockFeedback(
+  db: PrismaClient,
+  blockId: string,
+): Promise<void> {
+  // Fetch block with transcript and interview context
+  const block = await db.interviewBlock.findUnique({
+    where: { id: blockId },
+    include: {
+      interview: {
+        select: {
+          jobDescriptionSnapshot: true,
+          resumeSnapshot: true,
+        },
+      },
+    },
+  });
+
+  if (!block) {
+    console.error(`[BlockFeedback] Block ${blockId} not found`);
+    return;
+  }
+
+  if (!block.transcript) {
+    console.error(`[BlockFeedback] Block ${blockId} has no transcript`);
+    return;
+  }
+
+  // Deserialize protobuf binary and format as text for Gemini
+  const transcriptText = transcriptBinaryToText(block.transcript);
+
+  const feedback = await callGeminiForBlockFeedback(transcriptText, {
+    jobDescription: block.interview.jobDescriptionSnapshot ?? "",
+    resume: block.interview.resumeSnapshot ?? "",
+  });
+
+  // Upsert to handle race conditions
+  await db.interviewBlockFeedback.upsert({
+    where: { blockId },
+    create: {
+      blockId,
+      summary: feedback.summary,
+      strengths: feedback.strengths,
+      areasForImprovement: feedback.areasForImprovement,
+    },
+    update: {}, // No-op if exists
+  });
+
+  console.log(`[BlockFeedback] Generated for block ${blockId}`);
+}
+```
+
+### 3. Interview Feedback Generation
+
+**File:** `src/server/lib/interview-feedback.ts`
+
+```typescript
+// ABOUTME: Generates holistic feedback for entire interview
+// ABOUTME: Self-contained function - fetches own data, queue-ready
+
 import type { PrismaClient } from "@prisma/client";
 
 /**
- * Check if all blocks have transcripts. If yes, generate and save feedback.
- * Idempotent: uses upsert to prevent duplicate feedback on race conditions.
+ * Check if all blocks have feedback. If yes, generate interview feedback.
+ *
+ * Design: Self-contained function that fetches its own data.
+ * Only requires interviewId - trivial to call from queue handler.
+ *
+ * Idempotent: checks if feedback exists before generating.
  */
-async function maybeGenerateBlockFeedback(
+export async function maybeGenerateInterviewFeedback(
   db: PrismaClient,
   interviewId: string,
 ): Promise<void> {
-  // Fetch interview with blocks and existing feedback
   const interview = await db.interview.findUnique({
     where: { id: interviewId },
     include: {
       blocks: {
-        select: { blockNumber: true, transcript: true },
+        include: { feedback: true },
         orderBy: { blockNumber: "asc" },
       },
       feedback: { select: { id: true } },
     },
   });
 
-  if (!interview) {
-    console.error(`[Feedback] Interview ${interviewId} not found`);
+  if (!interview) return;
+
+  // Already has interview feedback
+  if (interview.feedback) {
+    console.log(`[InterviewFeedback] Already exists for ${interviewId}`);
     return;
   }
 
-  // Use pure function to check if we should generate feedback
-  if (!shouldGenerateFeedback(interview)) {
-    const complete = interview.blocks.filter((b) => b.transcript).length;
-    console.log(
-      `[Feedback] Skipping ${interviewId}: ${interview.feedback ? "feedback exists" : `${complete}/${interview.blocks.length} blocks complete`}`
-    );
+  // Check if all blocks have feedback
+  const allBlocksHaveFeedback = interview.blocks.every(b => b.feedback !== null);
+
+  if (!allBlocksHaveFeedback) {
+    const complete = interview.blocks.filter(b => b.feedback).length;
+    console.log(`[InterviewFeedback] ${complete}/${interview.blocks.length} blocks have feedback`);
     return;
   }
 
-  // All blocks complete - generate feedback
-  console.log(`[Feedback] All ${interview.blocks.length} blocks complete for ${interviewId}, generating feedback`);
+  // All blocks complete - generate interview feedback
+  console.log(`[InterviewFeedback] Generating for ${interviewId}`);
 
-  try {
-    await generateFeedbackFromTranscript(db, interviewId, interview.blocks);
-    console.log(`[Feedback] Successfully generated for ${interviewId}`);
-  } catch (error) {
-    console.error(`[Feedback] Failed for ${interviewId}:`, error);
-    // Best effort - don't throw, interview still marked complete
-  }
-}
-```
+  const blockFeedbacks = interview.blocks.map(b => b.feedback!);
 
-### 3. New module: Backend feedback utilities
-
-**File:** `src/server/lib/feedback.ts` (NEW)
-
-```typescript
-// ABOUTME: Backend feedback generation for block-based interviews
-// ABOUTME: Aggregates block transcripts and calls Gemini for analysis
-
-import { GoogleGenAI } from "@google/genai";
-import { z } from "zod";
-import { env } from "~/env";
-import { Transcript } from "~/proto/transcript_pb";
-import type { PrismaClient } from "@prisma/client";
-
-// ============================================================================
-// Types
-// ============================================================================
-
-export type BlockWithTranscript = {
-  blockNumber: number;
-  transcript: Buffer | null;
-};
-
-export type InterviewWithBlocks = {
-  blocks: BlockWithTranscript[];
-  feedback: { id: string } | null;
-};
-
-type FeedbackContext = {
-  jobDescription: string;
-  resume: string;
-};
-
-type FeedbackResult = z.infer<typeof FeedbackSchema>;
-
-// Dependency injection type for testability
-export type FeedbackGenerator = (
-  transcript: string,
-  context: FeedbackContext,
-) => Promise<FeedbackResult>;
-
-// ============================================================================
-// Schema
-// ============================================================================
-
-const FeedbackSchema = z.object({
-  summary: z.string().nullable().transform((v) => v ?? ""),
-  strengths: z.string().nullable().transform((v) => v ?? ""),
-  contentAndStructure: z.string().nullable().transform((v) => v ?? ""),
-  communicationAndDelivery: z.string().nullable().transform((v) => v ?? ""),
-  presentation: z.string().nullable().transform((v) => v ?? ""),
-});
-
-// ============================================================================
-// Prompt Template (extracted for testability)
-// ============================================================================
-
-export const FEEDBACK_PROMPT_TEMPLATE = {
-  systemRole: "expert technical interviewer",
-  instruction: `Analyze the following transcript of a behavioral interview.
-
-Return a JSON object with these fields:
-- summary: High-level summary of the interview (2-3 sentences)
-- strengths: Markdown bullet list of candidate strengths
-- contentAndStructure: Feedback on substance and organization of answers
-- communicationAndDelivery: Feedback on verbal communication, pacing, clarity
-- presentation: Feedback on professionalism and presence`,
-};
-
-export function buildFeedbackPrompt(
-  transcriptText: string,
-  context: FeedbackContext,
-): string {
-  return `You are an ${FEEDBACK_PROMPT_TEMPLATE.systemRole}. ${FEEDBACK_PROMPT_TEMPLATE.instruction}
-
-Context:
-Job Description: ${context.jobDescription || "Not provided"}
-Candidate Resume: ${context.resume || "Not provided"}
-
-Transcript:
-${transcriptText}
-
-Return valid JSON only.`;
-}
-
-// ============================================================================
-// Pure Functions (testable without mocks)
-// ============================================================================
-
-/**
- * Pure function: Determine if feedback should be generated.
- * Returns true only if:
- * - No feedback exists yet
- * - All blocks have transcripts
- */
-export function shouldGenerateFeedback(interview: InterviewWithBlocks): boolean {
-  if (interview.feedback !== null) {
-    return false;
-  }
-  return interview.blocks.every((b) => b.transcript !== null);
-}
-
-/**
- * Deserialize protobuf transcript binary to text format.
- */
-function deserializeTranscript(binary: Buffer): string {
-  try {
-    const transcript = Transcript.fromBinary(new Uint8Array(binary));
-    return transcript.turns
-      .map((turn) => `${turn.role.toUpperCase()}: ${turn.content}`)
-      .join("\n");
-  } catch {
-    return "[Unable to deserialize transcript]";
-  }
-}
-
-/**
- * Aggregate block transcripts into a single text for feedback generation.
- * Blocks are sorted by blockNumber and concatenated with separators.
- */
-export function aggregateBlockTranscripts(blocks: BlockWithTranscript[]): string {
-  return blocks
-    .filter((b): b is BlockWithTranscript & { transcript: Buffer } => b.transcript !== null)
-    .sort((a, b) => a.blockNumber - b.blockNumber)
-    .map((b, idx) => {
-      const text = deserializeTranscript(b.transcript);
-      return `## Block ${idx + 1}\n\n${text}`;
-    })
-    .join("\n\n---\n\n");
-}
-
-// ============================================================================
-// Infrastructure (Gemini Driver)
-// ============================================================================
-
-/**
- * Generate feedback from aggregated transcript text via Gemini.
- * This is the default implementation; can be replaced in tests.
- */
-export async function callGeminiForFeedback(
-  transcriptText: string,
-  context: FeedbackContext,
-): Promise<FeedbackResult> {
-  const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
-  const prompt = buildFeedbackPrompt(transcriptText, context);
-
-  const response = await ai.models.generateContent({
-    model: "gemini-2.0-flash",
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
-    config: { responseMimeType: "application/json" },
-  });
-
-  const text = response.text?.trim() ?? "{}";
-  const cleanText = text.startsWith("```")
-    ? text.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "")
-    : text;
-
-  return FeedbackSchema.parse(JSON.parse(cleanText));
-}
-
-// ============================================================================
-// Main Entry Point
-// ============================================================================
-
-/**
- * Generate and save feedback for a completed block-based interview.
- *
- * @param db - Prisma client
- * @param interviewId - Interview ID
- * @param blocks - Blocks with transcripts
- * @param feedbackGenerator - Optional: inject mock for testing (defaults to Gemini)
- */
-export async function generateFeedbackFromTranscript(
-  db: PrismaClient,
-  interviewId: string,
-  blocks: BlockWithTranscript[],
-  feedbackGenerator: FeedbackGenerator = callGeminiForFeedback,
-): Promise<void> {
-  // Get interview context
-  const interview = await db.interview.findUnique({
-    where: { id: interviewId },
-    select: {
-      jobDescriptionSnapshot: true,
-      resumeSnapshot: true,
-    },
-  });
-
-  if (!interview) {
-    throw new Error(`Interview ${interviewId} not found`);
-  }
-
-  // Aggregate transcripts
-  const aggregatedTranscript = aggregateBlockTranscripts(blocks);
-
-  // Generate feedback via injected generator (Gemini by default)
-  const feedback = await feedbackGenerator(aggregatedTranscript, {
+  const feedback = await callGeminiForInterviewFeedback(blockFeedbacks, {
     jobDescription: interview.jobDescriptionSnapshot ?? "",
     resume: interview.resumeSnapshot ?? "",
   });
 
-  // Save feedback using UPSERT to prevent race condition duplicates
-  // The @unique constraint on interviewId is the safety net
   await db.$transaction([
     db.interviewFeedback.upsert({
       where: { interviewId },
@@ -426,7 +323,7 @@ export async function generateFeedbackFromTranscript(
         communicationAndDelivery: feedback.communicationAndDelivery,
         presentation: feedback.presentation,
       },
-      update: {}, // No-op if already exists (idempotent)
+      update: {},
     }),
     db.interview.update({
       where: { id: interviewId },
@@ -436,381 +333,413 @@ export async function generateFeedbackFromTranscript(
 }
 ```
 
-### 4. Worker: No changes for Phase 1
-
-The Worker code remains **unchanged**. It still:
-- Submits transcripts (works for both standard and block)
-- Generates feedback for standard interviews
-- Skips feedback for block interviews (Backend now handles this)
-
-Phase 2 will remove Worker feedback code entirely.
-
-## Data Flow After Fix
+### 4. File Structure
 
 ```
-Block 1 ends → Worker.submitTranscript(block=1)
-                  → Backend stores transcript
-                  → Backend checks: 1/3 complete → skip feedback
-
-Block 2 ends → Worker.submitTranscript(block=2)
-                  → Backend stores transcript
-                  → Backend checks: 2/3 complete → skip feedback
-
-Block 3 ends → Worker.submitTranscript(block=3)
-                  → Backend stores transcript
-                  → Backend checks: 3/3 complete → GENERATE FEEDBACK
-                  → Backend upserts feedback (race-safe)
-                  → Backend sets status=COMPLETED
-                  → Frontend polls → displays feedback
+src/server/lib/
+├── block-feedback.ts       # Block-level feedback generation
+├── interview-feedback.ts   # Interview-level feedback generation
+├── transcript-utils.ts     # Server-side protobuf deserialization (NEW)
+└── gemini-client.ts        # Gemini API calls (shared)
 ```
 
-### Race Condition Handling
+Each module:
+- Has single responsibility
+- Knows nothing about the other
+- Uses dependency injection for testability
+
+### 5. Server-Side Transcript Utilities
+
+**File:** `src/server/lib/transcript-utils.ts`
+
+**Why needed:** The `deserializeTranscript` function exists in `worker/src/transcript-manager.ts` but is not
+accessible from the Next.js server. We need server-side protobuf utilities.
+
+**Prerequisites:**
+1. Install `@bufbuild/protobuf` as a server dependency (already in worker)
+2. Ensure proto-generated files are accessible from server (may need to share or copy)
+
+```typescript
+// ABOUTME: Server-side transcript deserialization utilities
+// ABOUTME: Mirrors worker/src/transcript-manager.ts for server use
+
+import { fromBinary } from "@bufbuild/protobuf";
+import {
+  TranscriptSchema,
+  Speaker,
+  type Transcript,
+} from "~/lib/proto/transcript_pb.js";  // Shared proto location
+
+/**
+ * Deserialize binary protobuf to transcript object.
+ * Server-side equivalent of worker's deserializeTranscript.
+ */
+export function deserializeTranscript(data: Buffer | Uint8Array): Transcript {
+  const uint8 = data instanceof Buffer ? new Uint8Array(data) : data;
+  return fromBinary(TranscriptSchema, uint8);
+}
+
+/**
+ * Format a deserialized transcript as plain text for feedback generation.
+ */
+export function formatTranscriptAsText(transcript: Transcript): string {
+  return (transcript.turns ?? [])
+    .map((t) => {
+      const speaker = t.speaker === Speaker.USER ? "USER" : "AI";
+      return `${speaker}: ${t.content ?? ""}`;
+    })
+    .join("\n");
+}
+
+/**
+ * Convenience: Deserialize and format in one step.
+ * This is what block-feedback.ts will use.
+ */
+export function transcriptBinaryToText(data: Buffer | Uint8Array): string {
+  const transcript = deserializeTranscript(data);
+  return formatTranscriptAsText(transcript);
+}
+```
+
+**Implementation Note:** The proto files are currently in `worker/src/lib/proto/`. We need to either:
+- Option A: Move proto files to a shared location (`src/lib/proto/`) accessible by both
+- Option B: Copy the generated proto files to server location
+- **Recommended:** Option A - consolidate proto files in shared location
+
+## Data Flow
 
 ```
-Concurrent requests for Block 3:
+Block 1 completes
+   └─► Worker.submitTranscript(block=1)
+         └─► Server stores transcript
+               └─► Server generates BlockFeedback for Block 1
+                     └─► Check: 1/3 blocks have feedback → skip interview feedback
 
-Request A: checks → 3/3 complete → generates feedback
-Request B: checks → 3/3 complete → generates feedback
+Block 2 completes
+   └─► Worker.submitTranscript(block=2)
+         └─► Server stores transcript
+               └─► Server generates BlockFeedback for Block 2
+                     └─► Check: 2/3 blocks have feedback → skip interview feedback
 
-Request A: upsert → creates feedback record
-Request B: upsert → no-op (record exists) ← SAFE!
-
-Result: Exactly one feedback record. No duplicates.
+Block 3 completes
+   └─► Worker.submitTranscript(block=3)
+         └─► Server stores transcript
+               └─► Server generates BlockFeedback for Block 3
+                     └─► Check: 3/3 blocks have feedback → GENERATE InterviewFeedback
+                           └─► Set interview status = COMPLETED
 ```
+
+### 6. Gemini Client
+
+**File:** `src/server/lib/gemini-client.ts`
+
+**Reference implementation:** Follow the pattern in `worker/src/utils/feedback.ts`:
+- Uses `@google/genai` (GoogleGenAI)
+- Uses Zod schema for response validation
+- Uses `gemini-2.0-flash` model
+- Returns structured JSON via `responseMimeType: "application/json"`
+
+```typescript
+// ABOUTME: Server-side Gemini API client for feedback generation
+// ABOUTME: Follows pattern from worker/src/utils/feedback.ts
+
+import { GoogleGenAI } from "@google/genai";
+import { z } from "zod";
+import { env } from "~/env";
+
+const BlockFeedbackSchema = z.object({
+  summary: z.string().nullable().transform((v) => v ?? ""),
+  strengths: z.string().nullable().transform((v) => v ?? ""),
+  areasForImprovement: z.string().nullable().transform((v) => v ?? ""),
+});
+
+export type BlockFeedbackData = z.infer<typeof BlockFeedbackSchema>;
+
+export async function callGeminiForBlockFeedback(
+  transcriptText: string,
+  context: { jobDescription: string; resume: string },
+): Promise<BlockFeedbackData> {
+  const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
+  const model = "gemini-2.0-flash";
+
+  const prompt = `
+You are an expert interviewer. Analyze this interview block transcript.
+Output JSON matching: { "summary": string, "strengths": string, "areasForImprovement": string }
+
+Context:
+Job Description: ${context.jobDescription || "Not provided"}
+Candidate Resume: ${context.resume || "Not provided"}
+
+Transcript:
+${transcriptText}
+
+Output JSON only.
+`;
+
+  const response = await (ai.models as any).generateContent({
+    model,
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    generationConfig: { responseMimeType: "application/json" },
+  });
+
+  const text = response.text?.trim() ?? "";
+  const cleanText = text.replace(/^```(json)?\n?/, "").replace(/\n?```$/, "");
+  return BlockFeedbackSchema.parse(JSON.parse(cleanText));
+}
+
+// Similar function for interview-level feedback (callGeminiForInterviewFeedback)
+// Uses the existing InterviewFeedback schema fields
+```
+
+## Worker Changes
+
+**Worker responsibility**: Submit transcript only. No feedback logic.
+
+**File:** `worker/src/services/interview-lifecycle-manager.ts`
+
+### Code to Remove
+
+1. **Import** (line 10):
+   ```typescript
+   // DELETE THIS LINE
+   import { generateFeedback } from "../utils/feedback";
+   ```
+
+2. **Conditional feedback logic** (lines 109-115):
+   ```typescript
+   // DELETE THIS BLOCK
+   if (!blockNumber) {
+     await this.generateAndSubmitFeedback(
+       interviewId,
+       transcriptText,
+       context,
+     );
+   }
+   ```
+
+3. **Method** `generateAndSubmitFeedback` (lines 165-192):
+   ```typescript
+   // DELETE THIS ENTIRE METHOD
+   private async generateAndSubmitFeedback(...): Promise<void> {
+     // ... all of it
+   }
+   ```
+
+### Simplified `finalizeSession` Method
+
+After removal, the method becomes:
+
+```typescript
+async finalizeSession(
+  interviewId: string,
+  transcriptManager: ITranscriptManager,
+  context: InterviewContext,
+  blockNumber?: number,
+): Promise<void> {
+  try {
+    const endedAt = new Date().toISOString();
+    const serializedTranscript = transcriptManager.serializeTranscript();
+
+    // Submit transcript - Server handles all feedback logic
+    await this.apiClient.submitTranscript(
+      interviewId,
+      serializedTranscript,
+      endedAt,
+      blockNumber,
+    );
+    console.log(`[InterviewLifecycleManager] Transcript submitted`);
+
+    // Update status (only for non-block interviews)
+    if (!blockNumber) {
+      await this.apiClient.updateStatus(interviewId, INTERVIEW_STATUS.COMPLETED);
+    }
+  } catch (error) {
+    await this.handleError(interviewId, error as Error);
+  }
+}
+```
+
+**Note:** The file `worker/src/utils/feedback.ts` can remain for reference but is no longer imported.
+
+## Race Condition Handling
+
+### Block Feedback Race
+
+```
+Two requests arrive for same block simultaneously:
+
+Request A: generates feedback → upsert creates record
+Request B: generates feedback → upsert no-ops (record exists)
+
+Result: Exactly one BlockFeedback record.
+```
+
+### Interview Feedback Race
+
+```
+Block 3 submitted twice simultaneously:
+
+Request A: checks → 3/3 complete → generates interview feedback → upsert creates
+Request B: checks → 3/3 complete → generates interview feedback → upsert no-ops
+
+Result: Exactly one InterviewFeedback record.
+```
+
+Both handled by `@unique` constraints + upsert pattern.
 
 ## Files to Modify
 
 | File | Change |
 |------|--------|
-| `prisma/schema.prisma` | Add `transcript Bytes?` to InterviewBlock, verify `interviewId @unique` on InterviewFeedback |
-| `src/server/api/routers/interview-worker.ts` | Store transcript, call `maybeGenerateBlockFeedback` |
-| `src/server/lib/feedback.ts` | **NEW** - Backend feedback generation |
+| `prisma/schema.prisma` | Add `InterviewBlockFeedback` model, add `transcript Bytes?` to `InterviewBlock` |
+| `src/server/api/routers/interview-worker.ts` | Store transcript blob, call feedback generation |
+| `src/server/lib/transcript-utils.ts` | **NEW** - Server-side protobuf deserialization |
+| `src/server/lib/block-feedback.ts` | **NEW** - Block feedback generation |
+| `src/server/lib/interview-feedback.ts` | **NEW** - Interview feedback generation |
+| `src/server/lib/gemini-client.ts` | **NEW** - Gemini API client (follows worker pattern) |
+| `worker/src/services/interview-lifecycle-manager.ts` | Remove import, conditional, and method |
+| `src/lib/proto/` (or shared location) | Ensure proto files accessible from server |
 
-**No Worker changes required.**
+## Testing Strategy
 
-## Unit Tests
-
-**File:** `src/test/unit/backend-feedback.test.ts`
+### Unit Tests
 
 ```typescript
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import {
-  aggregateBlockTranscripts,
-  shouldGenerateFeedback,
-  buildFeedbackPrompt,
-  generateFeedbackFromTranscript,
-  type BlockWithTranscript,
-  type InterviewWithBlocks,
-} from "~/server/lib/feedback";
-import { Transcript, Turn } from "~/proto/transcript_pb";
+// src/test/unit/block-feedback.test.ts
 
-// ============================================================================
-// Test Helpers
-// ============================================================================
+describe("generateBlockFeedback", () => {
+  it("generates feedback for a single block", async () => {
+    const mockDb = createMockDb({
+      interviewBlock: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "block-1",
+          transcript: Buffer.from("test transcript"),
+          interview: { jobDescriptionSnapshot: "JD", resumeSnapshot: "Resume" },
+        }),
+      },
+    });
+    const mockGemini = vi.fn().mockResolvedValue({ summary: "Good job" });
 
-function mockTranscript(content: string): Buffer {
-  const transcript = new Transcript();
-  const turn = new Turn();
-  turn.role = "user";
-  turn.content = content;
-  transcript.turns = [turn];
-  return Buffer.from(transcript.toBinary());
-}
+    // Note: Only blockId needed - function fetches its own data
+    await generateBlockFeedback(mockDb, "block-1", mockGemini);
 
-function createMockDb(overrides: Partial<{
-  interview: object;
-  existingFeedback: boolean;
-}> = {}) {
-  return {
-    interview: {
-      findUnique: vi.fn().mockResolvedValue(overrides.interview ?? {
-        jobDescriptionSnapshot: "Test JD",
-        resumeSnapshot: "Test Resume",
-      }),
-    },
-    interviewFeedback: {
-      upsert: vi.fn().mockResolvedValue({}),
-    },
-    $transaction: vi.fn().mockImplementation((ops) => Promise.all(ops)),
-  };
-}
-
-// ============================================================================
-// Pure Function Tests
-// ============================================================================
-
-describe("shouldGenerateFeedback", () => {
-  it("returns false if feedback already exists", () => {
-    const interview: InterviewWithBlocks = {
-      blocks: [
-        { blockNumber: 1, transcript: mockTranscript("test") },
-      ],
-      feedback: { id: "existing-feedback" },
-    };
-
-    expect(shouldGenerateFeedback(interview)).toBe(false);
+    expect(mockDb.interviewBlockFeedback.upsert).toHaveBeenCalled();
   });
 
-  it("returns false if any block missing transcript", () => {
-    const interview: InterviewWithBlocks = {
-      blocks: [
-        { blockNumber: 1, transcript: mockTranscript("test") },
-        { blockNumber: 2, transcript: null },
-        { blockNumber: 3, transcript: mockTranscript("test") },
-      ],
-      feedback: null,
-    };
-
-    expect(shouldGenerateFeedback(interview)).toBe(false);
-  });
-
-  it("returns true when all blocks complete and no feedback exists", () => {
-    const interview: InterviewWithBlocks = {
-      blocks: [
-        { blockNumber: 1, transcript: mockTranscript("test1") },
-        { blockNumber: 2, transcript: mockTranscript("test2") },
-        { blockNumber: 3, transcript: mockTranscript("test3") },
-      ],
-      feedback: null,
-    };
-
-    expect(shouldGenerateFeedback(interview)).toBe(true);
-  });
-
-  it("returns true for empty blocks array (edge case)", () => {
-    const interview: InterviewWithBlocks = {
-      blocks: [],
-      feedback: null,
-    };
-
-    // Array.every on empty array returns true
-    expect(shouldGenerateFeedback(interview)).toBe(true);
-  });
-});
-
-describe("aggregateBlockTranscripts", () => {
-  it("sorts blocks by blockNumber", () => {
-    const blocks: BlockWithTranscript[] = [
-      { blockNumber: 3, transcript: mockTranscript("block 3") },
-      { blockNumber: 1, transcript: mockTranscript("block 1") },
-      { blockNumber: 2, transcript: mockTranscript("block 2") },
-    ];
-
-    const result = aggregateBlockTranscripts(blocks);
-
-    expect(result).toContain("## Block 1");
-    expect(result).toContain("## Block 2");
-    expect(result).toContain("## Block 3");
-    expect(result.indexOf("Block 1")).toBeLessThan(result.indexOf("Block 2"));
-    expect(result.indexOf("Block 2")).toBeLessThan(result.indexOf("Block 3"));
-  });
-
-  it("skips blocks without transcripts and re-indexes", () => {
-    const blocks: BlockWithTranscript[] = [
-      { blockNumber: 1, transcript: mockTranscript("block 1") },
-      { blockNumber: 2, transcript: null },
-      { blockNumber: 3, transcript: mockTranscript("block 3") },
-    ];
-
-    const result = aggregateBlockTranscripts(blocks);
-
-    // Block 1 content present, Block 3 becomes "Block 2" in output
-    expect(result).toContain("## Block 1");
-    expect(result).toContain("## Block 2"); // Re-indexed from block 3
-    expect(result).not.toContain("## Block 3");
-  });
-
-  it("returns empty string for no transcripts", () => {
-    const blocks: BlockWithTranscript[] = [
-      { blockNumber: 1, transcript: null },
-      { blockNumber: 2, transcript: null },
-    ];
-
-    const result = aggregateBlockTranscripts(blocks);
-    expect(result).toBe("");
-  });
-
-  it("handles single block", () => {
-    const blocks: BlockWithTranscript[] = [
-      { blockNumber: 1, transcript: mockTranscript("only block") },
-    ];
-
-    const result = aggregateBlockTranscripts(blocks);
-    expect(result).toContain("## Block 1");
-    expect(result).toContain("only block");
-    expect(result).not.toContain("---"); // No separator for single block
-  });
-});
-
-describe("buildFeedbackPrompt", () => {
-  it("includes transcript and context", () => {
-    const prompt = buildFeedbackPrompt("Test transcript", {
-      jobDescription: "Software Engineer",
-      resume: "10 years experience",
+  it("skips if block has no transcript", async () => {
+    const mockDb = createMockDb({
+      interviewBlock: {
+        findUnique: vi.fn().mockResolvedValue({ id: "block-1", transcript: null }),
+      },
     });
 
-    expect(prompt).toContain("Test transcript");
-    expect(prompt).toContain("Software Engineer");
-    expect(prompt).toContain("10 years experience");
-    expect(prompt).toContain("expert technical interviewer");
+    await generateBlockFeedback(mockDb, "block-1");
+
+    expect(mockDb.interviewBlockFeedback.upsert).not.toHaveBeenCalled();
   });
 
-  it("handles missing context gracefully", () => {
-    const prompt = buildFeedbackPrompt("Test transcript", {
-      jobDescription: "",
-      resume: "",
-    });
-
-    expect(prompt).toContain("Not provided");
-  });
-});
-
-// ============================================================================
-// Integration Tests (with mocked dependencies)
-// ============================================================================
-
-describe("generateFeedbackFromTranscript", () => {
-  it("calls feedback generator with aggregated transcript", async () => {
-    const mockGenerator = vi.fn().mockResolvedValue({
-      summary: "Test summary",
-      strengths: "Test strengths",
-      contentAndStructure: "Test content",
-      communicationAndDelivery: "Test communication",
-      presentation: "Test presentation",
-    });
-
-    const mockDb = createMockDb() as any;
-    const blocks: BlockWithTranscript[] = [
-      { blockNumber: 1, transcript: mockTranscript("block 1") },
-      { blockNumber: 2, transcript: mockTranscript("block 2") },
-    ];
-
-    await generateFeedbackFromTranscript(
-      mockDb,
-      "interview-123",
-      blocks,
-      mockGenerator,
-    );
-
-    expect(mockGenerator).toHaveBeenCalledTimes(1);
-    const [transcript, context] = mockGenerator.mock.calls[0];
-    expect(transcript).toContain("Block 1");
-    expect(transcript).toContain("Block 2");
-    expect(context.jobDescription).toBe("Test JD");
-  });
-
-  it("uses upsert to prevent duplicate feedback", async () => {
-    const mockGenerator = vi.fn().mockResolvedValue({
-      summary: "Test",
-      strengths: "",
-      contentAndStructure: "",
-      communicationAndDelivery: "",
-      presentation: "",
-    });
-
-    const mockDb = createMockDb() as any;
-    const blocks: BlockWithTranscript[] = [
-      { blockNumber: 1, transcript: mockTranscript("test") },
-    ];
-
-    await generateFeedbackFromTranscript(
-      mockDb,
-      "interview-123",
-      blocks,
-      mockGenerator,
-    );
-
-    // Verify upsert was called (not create)
-    expect(mockDb.interviewFeedback.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { interviewId: "interview-123" },
-        create: expect.any(Object),
-        update: {}, // No-op update for idempotency
-      }),
-    );
-  });
-
-  it("throws if interview not found", async () => {
-    const mockDb = createMockDb({ interview: null }) as any;
-    mockDb.interview.findUnique = vi.fn().mockResolvedValue(null);
-
-    const blocks: BlockWithTranscript[] = [
-      { blockNumber: 1, transcript: mockTranscript("test") },
-    ];
-
-    await expect(
-      generateFeedbackFromTranscript(mockDb, "nonexistent", blocks),
-    ).rejects.toThrow("Interview nonexistent not found");
+  it("is idempotent - second call is no-op", async () => {
+    // ...
   });
 });
 ```
 
-## Acceptance Criteria (Phase 1 → Phase 2 Gate)
+```typescript
+// src/test/unit/interview-feedback.test.ts
 
-Before proceeding to Phase 2 (moving standard interview feedback to Backend):
+describe("maybeGenerateInterviewFeedback", () => {
+  it("skips if not all blocks have feedback", async () => {
+    const interview = {
+      blocks: [
+        { feedback: { id: "1" } },
+        { feedback: null }, // Missing!
+        { feedback: { id: "3" } },
+      ],
+      feedback: null,
+    };
 
-- [ ] Schema migration applied successfully
-- [ ] `InterviewFeedback.interviewId` has `@unique` constraint
-- [ ] 10+ block interviews complete with feedback generated
-- [ ] No duplicate feedback records in database
-- [ ] Feedback quality matches Worker-generated feedback (spot check)
-- [ ] No errors in logs related to feedback generation
-- [ ] Standard interviews still work (unchanged path)
-- [ ] Unit tests pass with >80% coverage on feedback.ts
+    await maybeGenerateInterviewFeedback(mockDb, "interview-1");
 
-## Verification
+    expect(mockGemini).not.toHaveBeenCalled();
+  });
 
-### Manual Testing
+  it("generates when all blocks have feedback", async () => {
+    const interview = {
+      blocks: [
+        { feedback: { id: "1" } },
+        { feedback: { id: "2" } },
+        { feedback: { id: "3" } },
+      ],
+      feedback: null,
+    };
 
-1. Start a 3-block interview
-2. Complete all 3 blocks
-3. After block 3, verify:
-   - All 3 `InterviewBlock` records have `transcript` populated
-   - `InterviewFeedback` record created
-   - Interview status is `COMPLETED`
-   - Frontend displays feedback (no infinite spinner)
+    await maybeGenerateInterviewFeedback(mockDb, "interview-1");
 
-### Edge Cases
-
-1. **Incomplete interview**: Complete only 2 of 3 blocks, verify no feedback generated
-2. **Retry block**: Complete block 2 twice, verify transcript updated (not duplicated)
-3. **Race condition**: Simulate concurrent block 3 submissions, verify single feedback record
-4. **Slow Gemini**: Verify frontend polling handles delay gracefully
-
-### Database Verification
-
-```sql
--- Check for duplicate feedback (should return 0)
-SELECT interviewId, COUNT(*) as count
-FROM InterviewFeedback
-GROUP BY interviewId
-HAVING count > 1;
-
--- Verify all completed block interviews have feedback
-SELECT i.id, i.status, f.id as feedbackId
-FROM Interview i
-LEFT JOIN InterviewFeedback f ON i.id = f.interviewId
-WHERE i.status = 'COMPLETED'
-AND EXISTS (SELECT 1 FROM InterviewBlock b WHERE b.interviewId = i.id);
+    expect(mockGemini).toHaveBeenCalled();
+  });
+});
 ```
 
-## Phase 2 Preview
+### Integration Tests
 
-Once Phase 1 is validated, Phase 2 will:
+1. Complete 3-block interview → verify 3 BlockFeedback + 1 InterviewFeedback
+2. Complete only 2 blocks → verify 2 BlockFeedback, no InterviewFeedback
+3. Submit same block twice → verify single BlockFeedback (idempotent)
 
-1. Move standard interview feedback from Worker to Backend
-2. Simplify Worker's `finalizeSession` to only submit transcripts
-3. Delete `worker/src/utils/feedback.ts` (or keep for reference)
-4. Single code path for all feedback generation
+## Acceptance Criteria
 
-This keeps Phase 1 low-risk while setting up for a cleaner architecture.
+- [ ] Prerequisites complete (proto files shared, dependencies added)
+- [ ] Schema migration applied successfully (transcript Bytes?, InterviewBlockFeedback)
+- [ ] Server-side transcript utilities working (transcriptBinaryToText)
+- [ ] Each completed block has `InterviewBlockFeedback` record
+- [ ] Interview feedback generated only when all blocks have feedback
+- [ ] No duplicate feedback records (race condition safe)
+- [ ] Worker feedback code removed (import, conditional, method)
+- [ ] Unit tests pass with >80% coverage
 
-## Appendix: First-Principle Checklist
+## First-Principle Checklist
 
 | Principle | Requirement | Implementation |
 |-----------|-------------|----------------|
-| **Source of Truth** | Single owner for feedback state | Backend owns; Worker just submits |
-| **Side-Effect Control** | Intent-based, not reactive | `submitTranscript` → check → generate |
-| **Driver Pattern** | Infrastructure is dumb | Gemini call abstracted, injectable |
-| **Concurrency** | Handle race conditions | Upsert + @unique constraint |
-| **Testability** | Logic testable without mocks | Pure `shouldGenerateFeedback`, injectable generator |
+| **Dumb Pipe** | Worker only delivers data | Worker submits transcript, nothing else |
+| **Single Trigger** | Each feedback type has one trigger | Block: transcript submitted. Interview: all blocks have feedback |
+| **Source of Truth** | Server owns all state | Server decides when to generate feedback |
+| **Separation** | Two feedback types are independent | Separate modules, separate schemas |
+| **Idempotency** | Safe against retries/races | Upsert + @unique constraints |
+| **Testability** | Logic testable without mocks | Dependency injection for Gemini calls |
+| **Queue-Ready** | Functions only need IDs | Self-contained functions fetch own data |
+
+## Future: Queue Migration
+
+When ready to migrate to a background queue (e.g., Inngest, BullMQ), the change is minimal:
+
+### Current (Synchronous)
+
+```typescript
+// interview-worker.ts
+await generateBlockFeedback(ctx.db, block.id);
+await maybeGenerateInterviewFeedback(ctx.db, interviewId);
+```
+
+### Future (Queue)
+
+```typescript
+// interview-worker.ts
+await inngest.send({ name: "block-feedback", data: { blockId: block.id } });
+
+// inngest/functions.ts
+inngest.createFunction(
+  { id: "generate-block-feedback", retries: 3 },
+  { event: "block-feedback" },
+  async ({ event }) => {
+    await generateBlockFeedback(db, event.data.blockId);  // Same function!
+    await maybeGenerateInterviewFeedback(db, event.data.interviewId);
+  }
+);
+```
+
+**Why this works:**
+1. Functions only need `blockId`/`interviewId` - serializable primitives
+2. Functions fetch their own data from DB
+3. Functions are idempotent - safe for retries
+4. No request context required - works in any execution environment
