@@ -67,7 +67,7 @@ describe("Golden Path: Complete Interview Session (v6)", () => {
     expect(state.status).toBe("WAITING_FOR_CONNECTION");
 
     // Event: CONNECTION_ESTABLISHED (WebSocket opens, auto-transitions to ANSWERING)
-    // Note: No START_CONNECTION command - the connection was already initiated by driver.connect()
+    // Note: No commands - connection was already initiated by driver.connectForBlock()
     result = sessionReducer(
       state,
       { type: "CONNECTION_ESTABLISHED" },
@@ -147,10 +147,10 @@ describe("Golden Path: Complete Interview Session (v6)", () => {
       expect(state.targetBlockIndex).toBe(1);
     }
 
-    // Verify RECONNECT_FOR_BLOCK command was generated
+    // Verify CONNECT_FOR_BLOCK command was generated
     expect(executedCommands).toContainEqual({
-      type: "RECONNECT_FOR_BLOCK",
-      blockNumber: 2,
+      type: "CONNECT_FOR_BLOCK",
+      block: 2,
     });
 
     // CONNECTION_ESTABLISHED -> ANSWERING (auto-transition using targetBlockIndex)
@@ -250,8 +250,7 @@ describe("Golden Path: Complete Interview Session (v6)", () => {
     console.log("Total commands executed:", executedCommands.length);
 
     // Verify all expected commands were generated
-    // Note: No START_CONNECTION commands - connections are initiated by
-    // driver.connect() (initial) or RECONNECT_FOR_BLOCK (block transitions)
+    // Note: No commands - connections are initiated by driver.connectForBlock()
     expect(executedCommands).toContainEqual({ type: "MUTE_MIC" });
     expect(executedCommands).toContainEqual({
       type: "COMPLETE_BLOCK",

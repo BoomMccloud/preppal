@@ -7,7 +7,6 @@ import type {
   InterviewContext,
   ITranscriptManager,
 } from "../interfaces";
-import { generateFeedback } from "../utils/feedback";
 
 /**
  * Manages the high-level lifecycle of an interview session.
@@ -85,9 +84,6 @@ export class InterviewLifecycleManager {
       // Get serialized transcript (protobuf binary) for DB storage
       const serializedTranscript = transcriptManager.serializeTranscript();
 
-      // Get formatted text for feedback generation
-      const transcriptText = transcriptManager.formatAsText();
-
       // Step 1: Save transcript - CRITICAL
       console.log(
         `[InterviewLifecycleManager] Submitting transcript for interview ${interviewId}${blockNumber ? ` block ${blockNumber}` : ""} (${serializedTranscript.length} bytes)`,
@@ -102,19 +98,7 @@ export class InterviewLifecycleManager {
         `[InterviewLifecycleManager] Transcript submitted for interview ${interviewId}`,
       );
 
-      // Step 2: Generate and submit feedback - BEST EFFORT
-      // For block-based interviews, we might skip full feedback generation per block
-      // and instead do it at the very end of the interview.
-      // For now, we only generate feedback if it's NOT a block-based session.
-      if (!blockNumber) {
-        await this.generateAndSubmitFeedback(
-          interviewId,
-          transcriptText,
-          context,
-        );
-      }
-
-      // Step 3: Update status
+      // Step 2: Update status
       // If it's a block, we don't mark the whole interview as COMPLETED.
       // The backend handles marking the block as COMPLETED during submitTranscript if blockNumber is provided.
       if (!blockNumber) {
@@ -155,39 +139,6 @@ export class InterviewLifecycleManager {
         `[InterviewLifecycleManager] Failed to update status to ERROR:`,
         statusError,
       );
-    }
-  }
-
-  /**
-   * Generates and submits feedback for the transcript.
-   * Failure here does not stop the session from being marked as COMPLETED.
-   */
-  private async generateAndSubmitFeedback(
-    interviewId: string,
-    transcriptText: string,
-    context: InterviewContext,
-  ): Promise<void> {
-    try {
-      console.log(`[InterviewLifecycleManager] Generating feedback...`);
-      const feedback = await generateFeedback(
-        transcriptText,
-        context,
-        this.geminiApiKey,
-      );
-
-      console.log(
-        `[InterviewLifecycleManager] Feedback generated, submitting...`,
-      );
-      await this.apiClient.submitFeedback(interviewId, feedback);
-      console.log(
-        `[InterviewLifecycleManager] Feedback submitted successfully`,
-      );
-    } catch (feedbackError) {
-      console.error(
-        `[InterviewLifecycleManager] Failed to generate or submit feedback:`,
-        feedbackError,
-      );
-      // Best effort - do not rethrow
     }
   }
 }

@@ -90,12 +90,13 @@ reconnectForBlock(block) {
 - Hidden guards that can conflict with reducer state
 - `hasInitiatedConnection` reset causes race conditions
 
-### After: Dumb Driver, Reducer Owns All State
+### After: Dumb Driver, No Guards
 
 ```typescript
-// Driver is stateless - just executes commands
+// Driver has no guards - just executes commands
 connectForBlock(block: number) {
   wsRef.current?.close();  // Always close existing
+  currentBlockRef.current = block;  // Set for URL building (data, not guard)
   generateToken({ interviewId, block });  // Always connect, no guards
 }
 ```
@@ -103,7 +104,7 @@ connectForBlock(block: number) {
 **Benefits:**
 - One method, no guards
 - Reducer is sole decision-maker
-- No hidden state to debug
+- `currentBlockRef` remains but only as data (not decision-making state)
 
 ### Command Simplification
 
@@ -158,11 +159,19 @@ case "START_INTERVIEW":
 **File:** `src/app/[locale]/(interview)/interview/[interviewId]/session/useInterviewSocket.ts`
 
 ```typescript
-// REMOVE these refs:
-const hasInitiatedConnection = useRef(false);
-const currentBlockRef = useRef(blockNumber);
+// REMOVE the guard ref (this caused the bug):
+const hasInitiatedConnection = useRef(false);  // DELETE
 
-// REMOVE the useEffect that syncs currentBlockRef
+// KEEP currentBlockRef (it's just data for URL building):
+const currentBlockRef = useRef(blockNumber);  // KEEP
+
+// REMOVE the useEffect that syncs currentBlockRef (we set it directly now)
+
+// MODIFY useMutation to REMOVE hook-level callbacks:
+// (callbacks are now handled per-call in connectForBlock for stale detection)
+const { mutate: generateToken } =
+  api.interview.generateWorkerToken.useMutation();
+// ↑ No onSuccess/onError here - moved to connectForBlock
 
 // REMOVE connect() method
 
@@ -176,9 +185,31 @@ const connectForBlock = useCallback((block: number) => {
     wsRef.current = null;
   }
 
-  // Always connect - no guards, no state checks
-  generateToken({ interviewId, block, token: guestToken });
-}, [interviewId, guestToken, generateToken]);
+  // Set block for URL building (data, not guard)
+  currentBlockRef.current = block;
+
+  // Capture target block in closure to detect staleness
+  const targetBlock = block;
+
+  // Connect with per-call callbacks (enables stale token detection)
+  generateToken(
+    { interviewId, token: guestToken },
+    {
+      onSuccess: (data) => {
+        // STALE CHECK: If we moved to a new block while waiting, ABORT.
+        if (currentBlockRef.current !== targetBlock) {
+          console.log(`[Socket] Ignoring stale token for block ${targetBlock} (current: ${currentBlockRef.current})`);
+          return;
+        }
+        connectWebSocket(data.token);
+      },
+      onError: (err) => {
+        // Handle error (moved from hook-level callback)
+        events.onConnectionError(err.message);
+      },
+    }
+  );
+}, [interviewId, guestToken, generateToken, connectWebSocket, events]);
 
 // UPDATE return object:
 return {
@@ -238,9 +269,9 @@ Update command documentation to reflect single `CONNECT_FOR_BLOCK` command.
 | File | Change |
 |------|--------|
 | `types.ts` | Replace `START_CONNECTION` + `RECONNECT_FOR_BLOCK` with `CONNECT_FOR_BLOCK` |
-| `useInterviewSocket.ts` | Replace `connect()` + `reconnectForBlock()` with `connectForBlock()`, remove hidden state |
+| `useInterviewSocket.ts` | Remove `hasInitiatedConnection` guard, merge `connect()` + `reconnectForBlock()` into `connectForBlock()`, remove useEffect sync |
 | `hooks/useInterviewSession.ts` | Update command executor, update auto-connect useEffect |
-| `reducer.ts` | Update command generation to use `CONNECT_FOR_BLOCK` |
+| `reducer.ts` | Update command generation to use `CONNECT_FOR_BLOCK`, remove stale comment at line ~139 |
 | `README.md` | Update command documentation |
 
 ## Unit Tests
@@ -272,11 +303,12 @@ pnpm test -- --grep "session-golden-path"
 - [ ] `START_CONNECTION` removed from types
 - [ ] `RECONNECT_FOR_BLOCK` removed from types
 - [ ] `CONNECT_FOR_BLOCK` added to types
-- [ ] `hasInitiatedConnection` ref removed from driver
-- [ ] `currentBlockRef` ref removed from driver
+- [ ] `hasInitiatedConnection` ref removed from driver (the guard)
+- [ ] `currentBlockRef` useEffect sync removed (now set directly in `connectForBlock`)
 - [ ] `connect()` and `reconnectForBlock()` merged into `connectForBlock()`
 - [ ] Command executor updated
 - [ ] Reducer updated to generate `CONNECT_FOR_BLOCK`
+- [ ] Stale comment removed from reducer (~line 139)
 - [ ] All existing tests pass (after updating expectations)
 - [ ] `pnpm check` passes
 - [ ] Manual test: Complete a 2+ block interview successfully
@@ -285,10 +317,10 @@ pnpm test -- --grep "session-golden-path"
 
 | Principle | Current State | After This Change |
 |-----------|--------------|-------------------|
-| **Source of Truth** | Split (reducer + driver) | Unified (reducer only) |
-| **Dumb Driver** | Smart (has guards) | Dumb (executes only) |
+| **Source of Truth** | Split (reducer + driver guard) | Unified (reducer decides, driver holds data only) |
+| **Dumb Driver** | Smart (has guards) | Dumb (executes only, `currentBlockRef` is just data) |
 | **Command Clarity** | Two commands, confusing | One command, clear |
-| **Testability** | Good (reducer is pure) | Better (no hidden state) |
+| **Testability** | Good (reducer is pure) | Better (no guard state to mock) |
 
 ## Appendix: Architecture Comparison
 
@@ -356,7 +388,7 @@ Mount
 useEffect calls driver.connectForBlock(1)
   │
   ▼
-Driver ALWAYS connects (no guards)
+Driver sets currentBlockRef = 1, calls generateToken()
   │
   ▼
 WebSocket opens → CONNECTION_ESTABLISHED
@@ -376,7 +408,7 @@ Reducer: WAITING_FOR_CONNECTION + CONNECT_FOR_BLOCK(nextBlock)
 Executor calls driver.connectForBlock(nextBlock)
   │
   ▼
-Driver ALWAYS connects (no guards, no flag management)
+Driver sets currentBlockRef = nextBlock, calls generateToken()
   │
   ▼
 WebSocket opens → CONNECTION_ESTABLISHED
@@ -385,4 +417,4 @@ WebSocket opens → CONNECTION_ESTABLISHED
 Reducer transitions to ANSWERING (no commands)
 ```
 
-**Key difference:** No hidden state in driver. Reducer is sole decision-maker.
+**Key difference:** No guards in driver. Reducer is sole decision-maker. `currentBlockRef` remains as data only (for URL building).

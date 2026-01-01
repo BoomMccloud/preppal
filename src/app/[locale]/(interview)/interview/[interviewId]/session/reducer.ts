@@ -136,10 +136,8 @@ export function sessionReducer(
             answerStartTime: now,
             ...createCommonFields({ ...state, connectionState: "live" }),
           },
-          // Note: No commands needed here. For initial connection, the driver.connect()
-          // is already called by useEffect. For block transitions, RECONNECT_FOR_BLOCK
-          // already initiated the connection. Generating START_CONNECTION here would
-          // cause a duplicate connect() call that triggers a second generateToken.
+          // No commands needed - connection was already initiated by
+          // driver.connectForBlock() via useEffect (initial) or CONNECT_FOR_BLOCK (transitions)
           commands: [],
         };
       }
@@ -371,7 +369,7 @@ export function sessionReducer(
             targetBlockIndex: nextIdx,
             connectionState: "connecting",
           },
-          commands: [{ type: "RECONNECT_FOR_BLOCK", blockNumber: nextIdx + 1 }],
+          commands: [{ type: "CONNECT_FOR_BLOCK", block: nextIdx + 1 }],
         };
       }
       return { state, commands: [] };

@@ -226,11 +226,13 @@ type SessionEvent =
 
 // Commands (side effects to execute)
 type Command =
-  | { type: "START_CONNECTION"; blockNumber: number }
+  | { type: "CONNECT_FOR_BLOCK"; block: number }
   | { type: "CLOSE_CONNECTION" }
   | { type: "MUTE_MIC" }
   | { type: "UNMUTE_MIC" }
   | { type: "STOP_AUDIO" }
+  | { type: "COMPLETE_BLOCK"; blockNumber: number }
+  | { type: "COMPLETE_INTERVIEW" }
 
 // Context (injected configuration)
 interface ReducerContext {
@@ -305,7 +307,7 @@ State management hook that:
 - Manages WebSocket connection to worker
 - Manages AudioSession (mic input, speaker output)
 - Fires events to parent (onConnectionOpen, onTranscriptCommit, etc.)
-- Exposes methods: `connect()`, `disconnect()`, `mute()`, `unmute()`, `stopAudio()`
+- Exposes methods: `connectForBlock()`, `disconnect()`, `mute()`, `unmute()`, `stopAudio()`
 - Contains NO business logic
 
 ### reducer.ts

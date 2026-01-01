@@ -43,26 +43,19 @@ export function useInterviewSocket(
   blockNumber: number | undefined,
   events: DriverEvents,
 ): {
-  connect: () => void;
+  connectForBlock: (block: number) => void;
   disconnect: () => void;
   mute: () => void;
   unmute: () => void;
   stopAudio: () => void;
   isAudioMuted: () => boolean;
-  reconnectForBlock: (blockNumber: number) => void;
   debugInfo?: { connectAttempts: number; activeConnections: number };
 } {
   const wsRef = useRef<WebSocket | null>(null);
   const audioSessionRef = useRef<AudioSession | null>(null);
-  const hasInitiatedConnection = useRef(false);
   const connectAttemptsRef = useRef(0);
   const activeConnectionsRef = useRef(0);
   const currentBlockRef = useRef(blockNumber);
-
-  // Keep currentBlockRef in sync with prop for reconnection
-  useEffect(() => {
-    currentBlockRef.current = blockNumber;
-  }, [blockNumber]);
 
   const transcriptManagerRef = useRef<TranscriptManager | null>(null);
 
@@ -249,24 +242,9 @@ export function useInterviewSocket(
     [interviewId, events, setupAudio],
   );
 
-  // Generate token mutation
+  // Generate token mutation (callbacks handled per-call in connectForBlock for stale detection)
   const { mutate: generateToken } =
-    api.interview.generateWorkerToken.useMutation({
-      onSuccess: (data) => {
-        connectWebSocket(data.token);
-      },
-      onError: (err) => {
-        events.onConnectionError(err.message);
-      },
-    });
-
-  // Public: Connect to interview
-  const connect = useCallback(() => {
-    if (!hasInitiatedConnection.current) {
-      hasInitiatedConnection.current = true;
-      generateToken({ interviewId, token: guestToken });
-    }
-  }, [interviewId, guestToken, generateToken]);
+    api.interview.generateWorkerToken.useMutation();
 
   // Public: Disconnect from interview
   const disconnect = useCallback(() => {
@@ -305,46 +283,49 @@ export function useInterviewSocket(
     console.log("[useInterviewSocket] stopAudio() completed");
   }, []);
 
-  // Public: Reconnect for a new block
-  const reconnectForBlock = useCallback(
-    (newBlockNumber: number) => {
-      console.log(
-        `[useInterviewSocket] reconnectForBlock(${newBlockNumber}) called`,
-      );
-      console.log(`[useInterviewSocket] reconnectForBlock state:`, {
-        hasExistingSocket: !!wsRef.current,
-        currentBlockRef: currentBlockRef.current,
-        newBlockNumber,
-      });
+  // Public: Connect for a specific block (unified method, no guards)
+  const connectForBlock = useCallback(
+    (block: number) => {
+      console.log(`[useInterviewSocket] connectForBlock(${block}) called`);
 
-      // Update block ref for the new connection URL
-      currentBlockRef.current = newBlockNumber;
-
-      // Close existing WebSocket connection with 4005 (block transition)
-      // The stale socket guard will filter any late events from this socket
+      // Close existing connection (stale socket guard handles late events)
       if (wsRef.current) {
-        console.log(
-          `[useInterviewSocket] Closing existing socket with code 4005`,
-        );
+        console.log(`[useInterviewSocket] Closing existing socket with code 4005`);
         wsRef.current.close(WS_CLOSE_BLOCK_RECONNECT, "Block transition");
         wsRef.current = null;
       }
 
+      // Set block for URL building (data, not guard)
+      currentBlockRef.current = block;
+
+      // Capture target block in closure to detect staleness
+      const targetBlock = block;
+
       // HOT MIC: Keep audio session alive during block transitions
       // Audio chunks will be silently dropped until new socket opens
       // (see the wsRef.current?.readyState check in onAudioData callback)
-      // DO NOT call audioSessionRef.current?.stop() here!
 
-      // Reset connection guard so generateToken triggers a new connection
-      hasInitiatedConnection.current = false;
-      console.log(
-        `[useInterviewSocket] Triggering generateToken for block ${newBlockNumber}`,
+      // Connect with per-call callbacks (enables stale token detection)
+      generateToken(
+        { interviewId, token: guestToken },
+        {
+          onSuccess: (data) => {
+            // STALE CHECK: If we moved to a new block while waiting, ABORT.
+            if (currentBlockRef.current !== targetBlock) {
+              console.log(
+                `[Socket] Ignoring stale token for block ${targetBlock} (current: ${currentBlockRef.current})`,
+              );
+              return;
+            }
+            connectWebSocket(data.token);
+          },
+          onError: (err) => {
+            events.onConnectionError(err.message);
+          },
+        },
       );
-
-      // Trigger new connection with updated block number
-      generateToken({ interviewId, token: guestToken });
     },
-    [interviewId, guestToken, generateToken],
+    [interviewId, guestToken, generateToken, connectWebSocket, events],
   );
 
   // Cleanup on unmount
@@ -362,26 +343,17 @@ export function useInterviewSocket(
   // Memoize the return object to prevent unnecessary re-renders in consuming components
   return useMemo(
     () => ({
-      connect,
+      connectForBlock,
       disconnect,
       mute,
       unmute,
       stopAudio,
       isAudioMuted,
-      reconnectForBlock,
       debugInfo: {
         connectAttempts: connectAttemptsRef.current,
         activeConnections: activeConnectionsRef.current,
       },
     }),
-    [
-      connect,
-      disconnect,
-      mute,
-      unmute,
-      stopAudio,
-      isAudioMuted,
-      reconnectForBlock,
-    ],
+    [connectForBlock, disconnect, mute, unmute, stopAudio, isAudioMuted],
   );
 }

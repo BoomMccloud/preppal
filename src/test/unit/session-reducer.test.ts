@@ -69,8 +69,7 @@ describe("sessionReducer (v6: One Block = One Question)", () => {
         blockStartTime: now,
         answerStartTime: now,
       });
-      // No START_CONNECTION command - the connection was already initiated by
-      // driver.connect() (initial) or RECONNECT_FOR_BLOCK (block transitions)
+      // No commands - connection was already initiated by driver.connectForBlock()
       expect(result.commands).toEqual([]);
     });
 
@@ -94,7 +93,7 @@ describe("sessionReducer (v6: One Block = One Question)", () => {
         blockStartTime: now,
         answerStartTime: now,
       });
-      // No START_CONNECTION command - connection was already initiated
+      // No commands - connection was already initiated by driver.connectForBlock()
       expect(result.commands).toEqual([]);
     });
   });
@@ -353,8 +352,8 @@ describe("sessionReducer (v6: One Block = One Question)", () => {
         expect(result.state.connectionState).toBe("connecting");
       }
       expect(result.commands).toContainEqual({
-        type: "RECONNECT_FOR_BLOCK",
-        blockNumber: 2, // blockIndex 1 + 1 = blockNumber 2 (1-indexed)
+        type: "CONNECT_FOR_BLOCK",
+        block: 2, // blockIndex 1 + 1 = blockNumber 2 (1-indexed)
       });
     });
 
@@ -403,7 +402,7 @@ describe("sessionReducer (v6: One Block = One Question)", () => {
       expect(result.commands).toContainEqual({ type: "CLOSE_CONNECTION" });
     });
 
-    it("should emit RECONNECT_FOR_BLOCK when advancing to next block", () => {
+    it("should emit CONNECT_FOR_BLOCK when advancing to next block", () => {
       const now = 1000000;
       const state: SessionState = {
         status: "BLOCK_COMPLETE_SCREEN",
@@ -429,12 +428,12 @@ describe("sessionReducer (v6: One Block = One Question)", () => {
         expect(result.state.targetBlockIndex).toBe(1);
       }
       expect(result.commands).toContainEqual({
-        type: "RECONNECT_FOR_BLOCK",
-        blockNumber: 2, // blockIndex 1 + 1 = blockNumber 2 (1-indexed)
+        type: "CONNECT_FOR_BLOCK",
+        block: 2, // blockIndex 1 + 1 = blockNumber 2 (1-indexed)
       });
     });
 
-    it("should NOT emit RECONNECT_FOR_BLOCK when finishing last block", () => {
+    it("should NOT emit CONNECT_FOR_BLOCK when finishing last block", () => {
       const now = 1000000;
       const state: SessionState = {
         status: "BLOCK_COMPLETE_SCREEN",
@@ -456,7 +455,7 @@ describe("sessionReducer (v6: One Block = One Question)", () => {
 
       expect(result.state.status).toBe("INTERVIEW_COMPLETE");
       expect(result.commands).not.toContainEqual(
-        expect.objectContaining({ type: "RECONNECT_FOR_BLOCK" }),
+        expect.objectContaining({ type: "CONNECT_FOR_BLOCK" }),
       );
       expect(result.commands).toContainEqual({ type: "STOP_AUDIO" });
       expect(result.commands).toContainEqual({ type: "CLOSE_CONNECTION" });
@@ -723,7 +722,7 @@ describe("sessionReducer (v6: One Block = One Question)", () => {
       let result: ReducerResult;
 
       // 1. CONNECTION_ESTABLISHED -> Should auto-transition to ANSWERING
-      // No START_CONNECTION command - connection was already initiated by driver.connect()
+      // No commands - connection was already initiated by driver.connectForBlock()
       result = sessionReducer(
         state,
         { type: "CONNECTION_ESTABLISHED" },
@@ -955,8 +954,8 @@ describe("sessionReducer (v6: One Block = One Question)", () => {
           expect(result.state.connectionState).toBe("connecting");
         }
         expect(result.commands).toContainEqual({
-          type: "RECONNECT_FOR_BLOCK",
-          blockNumber: 2,
+          type: "CONNECT_FOR_BLOCK",
+          block: 2,
         });
       });
 
@@ -982,7 +981,7 @@ describe("sessionReducer (v6: One Block = One Question)", () => {
           expect(result.state.blockStartTime).toBe(now);
           expect(result.state.answerStartTime).toBe(now);
         }
-        // No commands - RECONNECT_FOR_BLOCK already initiated the connection
+        // No commands - CONNECT_FOR_BLOCK already initiated the connection
         expect(result.commands).toEqual([]);
       });
     });
@@ -1385,7 +1384,7 @@ describe("sessionReducer (v6: One Block = One Question)", () => {
         if (result.state.status === "ANSWERING") {
           expect(result.state.blockIndex).toBe(1); // Uses targetBlockIndex
         }
-        // No commands - RECONNECT_FOR_BLOCK already initiated the connection
+        // No commands - CONNECT_FOR_BLOCK already initiated the connection
         expect(result.commands).toEqual([]);
       });
 

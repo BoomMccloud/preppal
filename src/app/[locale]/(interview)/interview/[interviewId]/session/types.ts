@@ -10,14 +10,13 @@ export interface TranscriptEntry {
 
 // Command - instructions from reducer to driver
 export type Command =
-  | { type: "START_CONNECTION"; blockNumber: number }
+  | { type: "CONNECT_FOR_BLOCK"; block: number }
   | { type: "CLOSE_CONNECTION" }
   | { type: "MUTE_MIC" }
   | { type: "UNMUTE_MIC" }
   | { type: "SETUP_AUDIO" }
   | { type: "STOP_AUDIO" }
   | { type: "COMPLETE_BLOCK"; blockNumber: number }
-  | { type: "RECONNECT_FOR_BLOCK"; blockNumber: number }
   | { type: "COMPLETE_INTERVIEW" };
 
 // Common fields shared across all state variants

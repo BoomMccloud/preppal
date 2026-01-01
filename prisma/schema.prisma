@@ -262,9 +262,32 @@ model InterviewBlock {
   // Status
   status      BlockStatus @default(PENDING)
 
-  // Transcript stored separately (future: link to TranscriptEntry)
+  // DEPRECATED: Will be removed after migration
   transcriptId String? @unique
+
+  // Transcript binary data (protobuf format)
+  transcript   Bytes?
+
+  // Block-level feedback (one per block)
+  feedback     InterviewBlockFeedback?
 
   @@unique([interviewId, blockNumber])
   @@index([interviewId])
+}
+
+// Block-level feedback generated after each block completes
+model InterviewBlockFeedback {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  // Link to block (one-to-one)
+  blockId   String   @unique
+  block     InterviewBlock @relation(fields: [blockId], references: [id], onDelete: Cascade)
+
+  // Feedback content
+  summary             String @default("")
+  strengths           String @default("")
+  areasForImprovement String @default("")
+
+  @@index([blockId])
 }

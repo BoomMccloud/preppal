@@ -10,6 +10,8 @@ import { TRPCError } from "@trpc/server";
 import { DURATION_MS } from "~/server/lib/interview-access";
 import { getTemplate } from "~/lib/interview-templates";
 import { buildBlockPrompt } from "~/lib/interview-templates/prompt";
+import { generateBlockFeedback } from "~/server/lib/block-feedback";
+import { maybeGenerateInterviewFeedback } from "~/server/lib/interview-feedback";
 
 export const interviewWorkerRouter = createTRPCRouter({
   getContext: workerProcedure
@@ -120,19 +122,10 @@ export const interviewWorkerRouter = createTRPCRouter({
       // Decode base64 transcript to buffer
       const transcriptBlob = Buffer.from(input.transcript, "base64");
 
-      // Block-based interview: save transcript to InterviewBlock
+      // Block-based interview: save transcript and trigger feedback
       if (input.blockNumber !== undefined) {
-        // TODO(FEAT28): Implement proper block transcript storage.
-        // Currently, the transcript binary data (transcriptBlob) is DISCARDED.
-        // FEAT28 will introduce SegmentTranscript model to properly store:
-        // - transcriptBinary (protobuf)
-        // - transcriptText (plain text for display)
-        // - answerSummary (AI-generated)
-        // See: docs/todo/FEAT28_extended_feedback_dimensions.md
-        const transcriptId = `block-${input.interviewId}-${input.blockNumber}-${Date.now()}`;
-
-        // Update the block with transcript reference and endedAt, and mark as COMPLETED
-        await ctx.db.interviewBlock.update({
+        // 1. Store transcript binary in the block
+        const block = await ctx.db.interviewBlock.update({
           where: {
             interviewId_blockNumber: {
               interviewId: input.interviewId,
@@ -140,14 +133,23 @@ export const interviewWorkerRouter = createTRPCRouter({
             },
           },
           data: {
-            transcriptId,
+            transcript: transcriptBlob,
             endedAt: new Date(input.endedAt),
             status: "COMPLETED",
           },
         });
 
-        // Block marked as COMPLETED - that's all this endpoint does
-        // Interview completion is handled by the UI via updateStatus
+        // 2. Generate block feedback (fire and forget - don't block response)
+        // Note: Errors are logged but don't fail the transcript submission
+        generateBlockFeedback(ctx.db, block.id)
+          .then(() => maybeGenerateInterviewFeedback(ctx.db, input.interviewId))
+          .catch((err) =>
+            console.error(
+              "[submitTranscript] Feedback generation failed:",
+              err,
+            ),
+          );
+
         return { success: true };
       }
 

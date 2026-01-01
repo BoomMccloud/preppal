@@ -541,6 +541,9 @@ describe("Block-Based Interview Golden Path", () => {
       // BEFORE: useEffect reactively called completeBlock.mutate()
       // AFTER: Reducer emits COMPLETE_BLOCK command → executor calls completeBlock.mutate()
       //
+      // Note: FEAT44 unified connection commands (START_CONNECTION + RECONNECT_FOR_BLOCK
+      // merged into CONNECT_FOR_BLOCK), but this doesn't affect block completion flow.
+      //
       // Integration test verifies end-to-end data flow:
       // Frontend event → Reducer → Command → tRPC → Database
 
@@ -574,6 +577,9 @@ describe("Block-Based Interview Golden Path", () => {
       // 2. Reducer emits COMPLETE_BLOCK command (unit test verifies this)
       // 3. Command executor calls completeBlock.mutate() (integration test verifies this)
       // 4. tRPC procedure updates database (integration test verifies this)
+      //
+      // Note: Block transitions also use CONNECT_FOR_BLOCK command (FEAT44) to reconnect
+      // for the next block, but that's frontend-only and not tested here.
 
       await userCaller.interview.completeBlock({
         interviewId: interview.id,
@@ -600,8 +606,12 @@ describe("Block-Based Interview Golden Path", () => {
       // BEFORE: Reducer didn't emit CLOSE_CONNECTION on last block → no feedback
       // AFTER: Reducer emits CLOSE_CONNECTION → worker receives EndRequest → feedback generated
       //
+      // Note: FEAT44 unified connection commands. Block transitions now use
+      // CONNECT_FOR_BLOCK instead of RECONNECT_FOR_BLOCK, but the last block
+      // still emits CLOSE_CONNECTION (not CONNECT_FOR_BLOCK) to end the interview.
+      //
       // Integration test verifies:
-      // - Both blocks can be completed sequentially
+      // - All blocks can be completed sequentially
       // - Database state is correct after last block completion
       // - (CLOSE_CONNECTION command execution verified in unit tests)
 
@@ -643,6 +653,9 @@ describe("Block-Based Interview Golden Path", () => {
       // Note: The CLOSE_CONNECTION command that triggers feedback generation
       // is verified in unit tests (session-golden-path.test.ts).
       // This integration test verifies the database side effects are correct.
+      //
+      // FEAT44 note: Connection commands are now unified (CONNECT_FOR_BLOCK),
+      // but this test only verifies block completion, not connection logic.
     }, 15000); // 15s timeout for completing 6 blocks
 
     it("should allow multiple blocks to complete independently", async () => {

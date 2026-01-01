@@ -1,115 +1,91 @@
 # Spec Verification Report
 
-**Spec**: FEAT44_session_architecture_simplification.md
+**Spec**: FEAT44_session_architecture_simplification.md (Updated)
 **Verified**: 2026-01-01
-**Overall Status**: ✅ PASS - All references verified, ready to implement
+**Overall Status**: ✅ PASS
 
 ---
 
 ## Summary
 
 - **Files**: 5 verified, 0 issues
-- **Code References (to remove)**: 10 verified, 0 issues
-- **Code References (to add)**: 3 new items, no conflicts
-- **Tests**: 2 files need updates (12 references)
-- **Documentation**: 1 file needs update
+- **Methods/Functions**: 7 verified, 0 issues
+- **Commands**: 3 verified, 0 issues
+- **Implementation Pattern**: ✅ Fixed
 
 ---
 
-## Verified Items
+## Resolved Issues
 
-### File References
+### [RESOLVED] Hook-level callbacks now explicitly removed
+
+The spec now correctly instructs to:
+1. Remove hook-level `onSuccess`/`onError` from `useMutation`
+2. Handle both callbacks in `connectForBlock` per-call
+3. Include `events` in the dependency array
+
+---
+
+## Verified Items ✅
+
+All file paths and code references in the spec are accurate.
+
+### Files
 
 | File | Path | Status |
 |------|------|--------|
-| types.ts | `src/app/[locale]/(interview)/interview/[interviewId]/session/types.ts` | Exists |
-| useInterviewSocket.ts | `src/app/[locale]/(interview)/interview/[interviewId]/session/useInterviewSocket.ts` | Exists |
-| useInterviewSession.ts | `src/app/[locale]/(interview)/interview/[interviewId]/session/hooks/useInterviewSession.ts` | Exists |
-| reducer.ts | `src/app/[locale]/(interview)/interview/[interviewId]/session/reducer.ts` | Exists |
-| README.md | `src/app/[locale]/(interview)/interview/[interviewId]/session/README.md` | Exists |
+| types.ts | `src/app/.../session/types.ts` | ✅ Exists |
+| useInterviewSocket.ts | `src/app/.../session/useInterviewSocket.ts` | ✅ Exists |
+| useInterviewSession.ts | `src/app/.../session/hooks/useInterviewSession.ts` | ✅ Exists |
+| reducer.ts | `src/app/.../session/reducer.ts` | ✅ Exists |
+| README.md | `src/app/.../session/README.md` | ✅ Exists |
 
-### Code References to Remove
+### Command Types (types.ts)
 
-| Reference | File | Line(s) | Status |
-|-----------|------|---------|--------|
-| `START_CONNECTION` command type | types.ts | 13 | Found |
-| `RECONNECT_FOR_BLOCK` command type | types.ts | 20 | Found |
-| `hasInitiatedConnection` ref | useInterviewSocket.ts | 57 | Found |
-| `currentBlockRef` ref | useInterviewSocket.ts | 60 | Found |
-| `useEffect` syncing currentBlockRef | useInterviewSocket.ts | 63-65 | Found |
-| `connect()` method | useInterviewSocket.ts | 264-269 | Found |
-| `reconnectForBlock()` method | useInterviewSocket.ts | 309-348 | Found |
-| `START_CONNECTION` case | useInterviewSession.ts | 87-89 | Found |
-| `RECONNECT_FOR_BLOCK` case | useInterviewSession.ts | 108-110 | Found |
-| `RECONNECT_FOR_BLOCK` command generation | reducer.ts | 374 | Found |
+| Command | Line | Status |
+|---------|------|--------|
+| `START_CONNECTION` | 13 | ✅ Exists (to be removed) |
+| `RECONNECT_FOR_BLOCK` | 20 | ✅ Exists (to be removed) |
+
+### Driver Refs (useInterviewSocket.ts)
+
+| Reference | Line | Status |
+|-----------|------|--------|
+| `hasInitiatedConnection` ref | 57 | ✅ Exists (guard to remove) |
+| `currentBlockRef` ref | 60 | ✅ Exists (data ref to keep) |
+| useEffect sync for currentBlockRef | 63-65 | ✅ Exists (to remove) |
+| `connect()` method | 264-269 | ✅ Exists (to remove) |
+| `reconnectForBlock()` method | 309-348 | ✅ Exists (to merge) |
+| `generateToken` useMutation | 253-261 | ✅ Exists (callbacks to relocate) |
+| `connectWebSocket` function | 131-250 | ✅ Exists (to be called from connectForBlock) |
+
+### Reducer (reducer.ts)
+
+| Reference | Line | Status |
+|-----------|------|--------|
+| `RECONNECT_FOR_BLOCK` command generation | 374 | ✅ Exists (to change) |
+| Stale comment about RECONNECT_FOR_BLOCK | 139-143 | ✅ Exists (to remove) |
+
+### tRPC Mutation Pattern
+
+| Pattern | Location | Status |
+|---------|----------|--------|
+| Inline `onSuccess` callback | useInterviewSession.ts:112-127 | ✅ Pattern exists in codebase |
 
 ---
 
 ## Warnings
 
-### [WARN-001] Auto-connect useEffect needs careful update
+### [WARN-001] Test files need updates
 
-**Location**: `useInterviewSession.ts:171-175`
+**Files affected:**
+- `src/test/unit/session-reducer.test.ts` (12 references)
+- `src/test/unit/session-golden-path.test.ts` (3 references)
 
-**Current code**:
-```typescript
-useEffect(() => {
-  driver.connect();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, []);
-```
-
-**Spec says**:
-```typescript
-useEffect(() => {
-  driver.connectForBlock(config?.blockNumber ?? 1);
-}, []);
-```
-
-**Note**: The eslint-disable comment exists because `driver` is intentionally excluded from deps.
-
-### [WARN-002] README documents `connect()` method
-
-**Location**: `README.md:308`
-
-**Recommendation**: Update to mention `connectForBlock()` instead of `connect()`.
-
-### [WARN-003] README documents START_CONNECTION command
-
-**Location**: `README.md:229`
-
-**Recommendation**: Replace `START_CONNECTION` with `CONNECT_FOR_BLOCK`.
+**Recommendation**: Update all `RECONNECT_FOR_BLOCK` expectations to `CONNECT_FOR_BLOCK`.
 
 ---
 
-## Test Files Requiring Updates
+## Conclusion
 
-### src/test/unit/session-golden-path.test.ts
-
-| Line | Reference | Change Needed |
-|------|-----------|---------------|
-| 70 | Comment about `START_CONNECTION` | Update comment |
-| 150-152 | `RECONNECT_FOR_BLOCK` assertion | Change to `CONNECT_FOR_BLOCK` |
-| 253-254 | Comment about commands | Update comment |
-
-### src/test/unit/session-reducer.test.ts
-
-| Line | Reference | Change Needed |
-|------|-----------|---------------|
-| 72-73 | Comment about commands | Update comment |
-| 97 | Comment about `START_CONNECTION` | Update comment |
-| 356 | `RECONNECT_FOR_BLOCK` expectation | Change to `CONNECT_FOR_BLOCK` |
-| 406 | Test name | Rename to `CONNECT_FOR_BLOCK` |
-| 432 | `RECONNECT_FOR_BLOCK` expectation | Change to `CONNECT_FOR_BLOCK` |
-| 437 | Test name | Rename to `CONNECT_FOR_BLOCK` |
-| 459 | `RECONNECT_FOR_BLOCK` expectation | Change to `CONNECT_FOR_BLOCK` |
-| 726 | Comment | Update comment |
-| 958 | `RECONNECT_FOR_BLOCK` expectation | Change to `CONNECT_FOR_BLOCK` |
-| 985 | Comment | Update comment |
-| 1388 | Comment | Update comment |
-
----
-
-## Implementation Checklist
-
-All spec references have been verified. The implementation can proceed.
+The spec is **accurate and ready for implementation**. All file paths, method names, code references, and implementation patterns have been verified against the actual codebase.

@@ -403,7 +403,8 @@ describe("Interview Block Management", () => {
         where: { interviewId: interview.id, blockNumber: 1 },
       });
 
-      expect(block?.transcriptId).not.toBeNull();
+      // Transcript is now stored as binary in the transcript field
+      expect(block?.transcript).not.toBeNull();
       expect(block?.status).toBe("COMPLETED");
     });
 

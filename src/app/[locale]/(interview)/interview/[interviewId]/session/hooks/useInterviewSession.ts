@@ -84,8 +84,8 @@ export function useInterviewSession(
   const executeCommand = useCallback(
     (cmd: Command) => {
       switch (cmd.type) {
-        case "START_CONNECTION":
-          driver.connect();
+        case "CONNECT_FOR_BLOCK":
+          driver.connectForBlock(cmd.block);
           break;
         case "CLOSE_CONNECTION":
           driver.disconnect();
@@ -104,9 +104,6 @@ export function useInterviewSession(
             interviewId,
             blockNumber: cmd.blockNumber,
           });
-          break;
-        case "RECONNECT_FOR_BLOCK":
-          driver.reconnectForBlock(cmd.blockNumber);
           break;
         case "COMPLETE_INTERVIEW":
           updateStatus.mutate(
@@ -170,9 +167,9 @@ export function useInterviewSession(
 
   // Auto-connect on mount
   useEffect(() => {
-    driver.connect();
+    driver.connectForBlock(config?.blockNumber ?? 1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run once on mount - driver.connect() is idempotent
+  }, []); // Only run once on mount
 
   return { state, dispatch, driver };
 }
